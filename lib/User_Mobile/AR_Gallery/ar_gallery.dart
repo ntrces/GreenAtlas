@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme_constants.dart';
 import '../user_dashboard.dart';
 import '../report.dart';
-import 'ar_camera.dart'; // Ensure this file exists for the AR button
+import 'ar_camera.dart'; 
 
 class ARGalleryScreen extends StatefulWidget {
   const ARGalleryScreen({super.key});
@@ -13,8 +13,8 @@ class ARGalleryScreen extends StatefulWidget {
 
 class _ARGalleryScreenState extends State<ARGalleryScreen> {
   int _selectedIndex = 1;
+  int _activeFilterIndex = 0; // Default to "All"
 
-  // --- NAVIGATION LOGIC ---
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
     if (index == 0) {
@@ -27,76 +27,90 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEAF7EA), // Matches dashboard background
+      backgroundColor: const Color(0xFFEAF7EA),
       body: CustomScrollView(
         slivers: [
-          // --- 1. PINNED BRANDING HEADER ---
+          // --- 1. BRANDED PINNED HEADER ---
           SliverAppBar(
-            floating: false,
-            pinned: true,
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            elevation: 0,
-            toolbarHeight: 70,
+            floating: false, pinned: true,
+            backgroundColor: Colors.white, surfaceTintColor: Colors.white,
+            elevation: 0, toolbarHeight: 70,
             leading: const Padding(
               padding: EdgeInsets.only(left: 16.0),
               child: CircleAvatar(
                 backgroundColor: Color(0xFF5D7A5D),
-                backgroundImage: AssetImage('assets/logo1.png'), // Standardized logo path
+                backgroundImage: AssetImage('assets/logo1.png'), 
               ),
             ),
-            title: const Text(
-              "AR Gallery", 
-              style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)
-            ),
+            title: const Text("GreenAtlas", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)),
           ),
 
-          // --- 2. SEARCH & FILTER SECTION ---
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // --- 2. SCREEN TITLE & PURPOSE ---
+                  const Text(
+                    "AR Botanical Gallery",
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D)),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Explore life-size AR plant models with interactive information and educational content",
+                    style: TextStyle(fontSize: 14, color: Colors.black45, height: 1.4),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // --- 3. SEARCH INPUT FIELD ---
                   TextField(
                     decoration: InputDecoration(
-                      hintText: "Search plants or species...",
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      hintText: "Search plants...",
+                      hintStyle: const TextStyle(color: Colors.black26),
+                      prefixIcon: const Icon(Icons.search, color: Colors.black38),
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide.none,
+                        borderSide: const BorderSide(color: Colors.black12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: Colors.black12),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text("EXPLORE SPECIES", 
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5)),
+
+                  // --- 4. CATEGORY FILTER TABS ---
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip("All", 0, null),
+                        _buildFilterChip("Flowers", 1, Icons.local_florist_outlined),
+                        _buildFilterChip("Ferns", 2, Icons.eco_outlined),
+                        _buildFilterChip("Trees", 3, Icons.park_outlined),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
           ),
 
-          // --- 3. AR PLANT GRID ---
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.75,
-              ),
-              delegate: SliverChildListDelegate([
-                _buildPlantCard("Philippine Orchid", "Vanda sanderiana", "assets/logo1.png"),
-                _buildPlantCard("Jade Vine", "Strongylodon macrobotrys", "assets/logo1.png"),
-                _buildPlantCard("Mountain Fern", "Cyathea contaminans", "assets/logo1.png"),
-                _buildPlantCard("Narra Tree", "Pterocarpus indicus", "assets/logo1.png"),
-              ]),
-            ),
+          // --- 5. PLANT LIST SECTION ---
+          SliverList(
+            delegate: SliverChildListDelegate([
+              _buildPlantListItem("Philippine Orchid", "Zone A-3 • Endangered", "assets/logo1.png"),
+              _buildPlantListItem("Mountain Fern", "Zone B-1 • Endangered", "assets/logo1.png"),
+              _buildPlantListItem("Tropical Palm", "Zone C-2 • Endangered", "assets/logo1.png"),
+              _buildPlantListItem("Jade Vine", "Zone A-1 • Endangered", "assets/logo1.png"),
+            ]),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -115,53 +129,65 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     );
   }
 
-  // --- PLANT CARD BUILDER ---
-  Widget _buildPlantCard(String name, String scientificName, String imgPath) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+  // --- FILTER CHIP BUILDER ---
+  Widget _buildFilterChip(String label, int index, IconData? icon) {
+    bool isSelected = _activeFilterIndex == index;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: FilterChip(
+        showCheckmark: false,
+        avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null,
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (bool selected) {
+          setState(() => _activeFilterIndex = index);
+        },
+        selectedColor: const Color(0xFF4A634A),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : const Color(0xFF4A634A), 
+          fontWeight: FontWeight.bold,
+          fontSize: 13
+        ),
+        backgroundColor: const Color(0xFFD6E8D6),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
+    );
+  }
+
+  // --- INDIVIDUAL PLANT LIST ITEM ---
+  Widget _buildPlantListItem(String name, String status, String imgPath) {
+    return Container(
+      color: Colors.white,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Container(
+          ListTile(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ARCameraScreen())),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              width: 55, height: 55,
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F4F0),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: BorderRadius.circular(10),
+                image: DecorationImage(image: AssetImage(imgPath), fit: BoxFit.cover),
               ),
-              child: const Center(child: Icon(Icons.eco, color: Colors.black12, size: 50)),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
               children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(scientificName, style: const TextStyle(color: Colors.grey, fontSize: 11, fontStyle: FontStyle.italic)),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      // Navigate to the camera view
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const ARCameraScreen()));
-                    },
-                    icon: const Icon(Icons.view_in_ar, size: 16, color: Colors.white),
-                    label: const Text("VIEW AR", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5D7A5D),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                )
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D), fontSize: 16)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(6)),
+                  child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.volume_up_outlined, size: 16, color: Colors.black38),
               ],
             ),
-          )
+            subtitle: Text(status, style: const TextStyle(color: Colors.black38, fontSize: 13)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.black26),
+          ),
+          const Divider(height: 1, indent: 90, color: Color(0xFFF0F0F0)),
         ],
       ),
     );
