@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart'; // 1. REQUIRED IMPORT
 
 // --- PROJECT IMPORTS ---
-import 'theme_constants.dart';
+import 'theme_provider.dart'; // 2. REQUIRED IMPORT
 import 'LandingPage_Mobile/landing_screen.dart';
-import 'User_Mobile/user_dashboard.dart'; // Verified path
+import 'User_Mobile/user_dashboard.dart'; 
 import 'Employee_Mobile/Employee_dashboard.dart'; 
 import 'Login_Signup_Mobile/login_screen.dart'; 
 
@@ -17,7 +18,13 @@ void main() async {
     authOptions: const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
   );
   
-  runApp(const EcoConservationApp());
+  // 3. WRAP APP IN PROVIDER
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const EcoConservationApp(),
+    ),
+  );
 }
 
 final supabase = Supabase.instance.client;
@@ -60,13 +67,7 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _user = user;
-          _role = 'user';
-          _isInitialLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isInitialLoading = false);
     }
   }
 
@@ -89,22 +90,32 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
 
   @override
   Widget build(BuildContext context) {
+    // 4. LISTEN TO THEME CHANGES
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Green Atlas',
+      // 5. APPLY THEME MODE
+      themeMode: themeProvider.themeMode, 
       theme: ThemeData(
         useMaterial3: true, 
-        primaryColor: primaryForest,
+        brightness: Brightness.light,
+        primaryColor: const Color(0xFF2D3E2D),
         scaffoldBackgroundColor: const Color(0xFFEAF7EA),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF121212),
+      ),
       home: _isInitialLoading 
-          ? const Scaffold(body: Center(child: CircularProgressIndicator(color: primaryForest)))
+          ? const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D))))
           : (_user == null ? const LandingScreen() : _getRoleBasedHome(_role)),
       
       routes: {
         '/login': (context) => const LoginScreen(),
-        // FIX: Removed 'const' and updated to UserDashboard
-        '/home': (context) => UserDashboard(), 
+        '/home': (context) => const UserDashboard(), 
       },
     );
   }
@@ -113,7 +124,6 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
     if (role == 'employee') {
       return const EmployeePortal(); 
     }
-    // FIX: Removed 'const' and updated to UserDashboard
-    return UserDashboard(); 
+    return const UserDashboard(); 
   }
 }
