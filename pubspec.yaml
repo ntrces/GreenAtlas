@@ -12,6 +12,7 @@ dependencies:
   # Swapping Firebase for Supabase
   supabase_flutter: ^2.6.0 
   cupertino_icons: ^1.0.8
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_eco_supabase/User_Mobile/Report/submit_report.dart';
 import '../theme_constants.dart';
 import 'AR_Gallery/ar_gallery.dart'; 
-import 'report.dart';
+import 'Report/report.dart';
 import 'UserProfile/user_profile.dart'; 
 
 class UserDashboard extends StatefulWidget {
@@ -147,7 +148,7 @@ class _UserDashboardState extends State<UserDashboard> {
                   _buildListTile(
                     "Report Issue", 
                     Icons.error_outline, 
-                    () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportScreen())), 
+                    () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SubmitReportScreen())), 
                     tag: "Quick",
                   ),
                  

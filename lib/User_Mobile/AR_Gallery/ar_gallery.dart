@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme_constants.dart';
 import '../user_dashboard.dart';
-import '../report.dart';
+import '../Report/report.dart';
 import 'ar_camera.dart'; 
 
 class ARGalleryScreen extends StatefulWidget {
