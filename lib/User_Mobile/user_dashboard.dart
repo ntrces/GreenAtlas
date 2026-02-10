@@ -4,6 +4,7 @@ import '../theme_constants.dart';
 import 'AR_Gallery/ar_gallery.dart'; 
 import 'Report/report.dart';
 import 'UserProfile/user_profile.dart'; 
+import 'notification.dart';
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -53,50 +54,76 @@ class _UserDashboardState extends State<UserDashboard> {
       body: CustomScrollView(
         slivers: [
           // --- 1. PINNED BRANDING HEADER ---
-          SliverAppBar(
-            floating: false,
-            pinned: true,
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            elevation: 0,
-            toolbarHeight: 80,
-            leadingWidth: 70,
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 16.0),
-              child: CircleAvatar(
-                backgroundColor: Color(0xFF5D7A5D),
-                backgroundImage: AssetImage('assets/logo1.png'), 
-              ),
-            ),
-            title: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Welcome, User", 
-                  style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
-                Text("Explore the Cavite Protected Area", 
-                  style: TextStyle(color: Colors.black54, fontSize: 12)),
-              ],
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: InkWell(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
-                  borderRadius: BorderRadius.circular(10),
-                  hoverColor: const Color(0xFFF1F8F1),
-                  child: Container(
-                    height: 40, width: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F4F0),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.black12),
-                    ),
-                    child: const Icon(Icons.person_outline, color: Colors.black54),
-                  ),
-                ),
-              ),
-            ],
+         // --- 1. PINNED BRANDING HEADER ---
+SliverAppBar(
+  floating: false,
+  pinned: true,
+  backgroundColor: Colors.white,
+  surfaceTintColor: Colors.white,
+  elevation: 0,
+  toolbarHeight: 80,
+  leadingWidth: 70,
+  leading: const Padding(
+    padding: EdgeInsets.only(left: 16.0),
+    child: CircleAvatar(
+      backgroundColor: Color(0xFF5D7A5D),
+      backgroundImage: AssetImage('assets/logo1.png'), 
+    ),
+  ),
+  title: const Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text("Welcome, User", 
+        style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
+      Text("Explore the Cavite Protected Area", 
+        style: TextStyle(color: Colors.black54, fontSize: 12)),
+    ],
+  ),
+  actions: [
+    // --- NOTIFICATION BELL WITH BADGE ---
+    Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationScreen())),
           ),
+          Positioned(
+            right: 8,
+            top: 15,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              child: const Text(
+                "2", 
+                style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+    // --- USER PROFILE ICON ---
+    Padding(
+      padding: const EdgeInsets.only(right: 16.0),
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: 40, width: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F4F0),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black12),
+          ),
+          child: const Icon(Icons.person_outline, color: Colors.black54),
+        ),
+      ),
+    ),
+  ],
+),
 
           SliverToBoxAdapter(
             child: Column(

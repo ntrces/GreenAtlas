@@ -6,6 +6,8 @@ import '../user_dashboard.dart';
 import '../AR_Gallery/ar_gallery.dart';
 import '../UserProfile/user_profile.dart'; 
 import 'view_report.dart';
+import '../notification.dart';
+
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -57,62 +59,76 @@ class _ReportScreenState extends State<ReportScreen> {
 
           return CustomScrollView(
             slivers: [
-              // --- 1. REFINED TOP NAVIGATION BAR ---
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: Colors.white,
-                elevation: 0,
-                toolbarHeight: 70,
-                leading: const Padding(
-                  padding: EdgeInsets.only(left: 16.0),
-                  child: CircleAvatar(
-                    backgroundColor: Color(0xFF5D7A5D),
-                    backgroundImage: AssetImage('assets/logo1.png'),
-                  ),
-                ),
-                title: const Text(
-                  "GreenAtlas",
-                  style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20),
-                ),
-                actions: [
-                  // Notification Bell with Badge
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D)),
-                        onPressed: () {},
-                      ),
-                      Positioned(
-                        right: 8,
-                        top: 12,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                          child: const Text("2", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Profile Icon in Rounded Square
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-                    child: InkWell(
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF7EA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.black12),
-                        ),
-                        child: const Icon(Icons.person_outline, color: Colors.black54, size: 24),
-                      ),
-                    ),
-                  ),
-                ],
+              // --- 1. PINNED BRANDING HEADER ---
+SliverAppBar(
+  floating: false,
+  pinned: true,
+  backgroundColor: Colors.white,
+  surfaceTintColor: Colors.white,
+  elevation: 0,
+  toolbarHeight: 80,
+  leadingWidth: 70,
+  leading: const Padding(
+    padding: EdgeInsets.only(left: 16.0),
+    child: CircleAvatar(
+      backgroundColor: Color(0xFF5D7A5D),
+      backgroundImage: AssetImage('assets/logo1.png'), 
+    ),
+  ),
+  title: const Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text("Welcome, User", 
+        style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
+      Text("Explore the Cavite Protected Area", 
+        style: TextStyle(color: Colors.black54, fontSize: 12)),
+    ],
+  ),
+  actions: [
+    // --- NOTIFICATION BELL WITH BADGE ---
+    Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationScreen())),
+          ),
+          Positioned(
+            right: 8,
+            top: 15,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              child: const Text(
+                "2", 
+                style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)
               ),
-
+            ),
+          ),
+        ],
+      ),
+    ),
+    // --- USER PROFILE ICON ---
+    Padding(
+      padding: const EdgeInsets.only(right: 16.0),
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: 40, width: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F4F0),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black12),
+          ),
+          child: const Icon(Icons.person_outline, color: Colors.black54),
+        ),
+      ),
+    ),
+  ],
+),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
