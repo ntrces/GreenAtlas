@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
 import 'signup_screen.dart'; 
+import '../User_Mobile/user_dashboard.dart'; // Ensure correct path
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,27 +14,34 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _supabase = Supabase.instance.client;
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleSignIn() async {
+    // Basic validation
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter email and password")),
+        const SnackBar(content: Text("Please enter both email and password")),
       );
       return;
     }
 
     setState(() => _isLoading = true);
-    
+
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
+      // Authenticate with Supabase
+      final response = await _supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      
-      if (mounted) {
-        Navigator.pop(context); 
+
+      if (response.user != null && mounted) {
+        // Navigate directly to HomeScreen for all standard users
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const UserDashboard()),
+        );
       }
     } on AuthException catch (e) {
       if (mounted) {
@@ -44,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Login failed. Check your connection.")),
+          const SnackBar(content: Text("An unexpected error occurred")),
         );
       }
     } finally {
@@ -70,28 +78,27 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       width: 60, height: 60,
                       decoration: const BoxDecoration(color: primaryForest, shape: BoxShape.circle),
-                      child: Icon(Icons.eco_rounded, size: 50, color: Colors.white),
+                      child: const Icon(Icons.eco_rounded, size: 40, color: Colors.white),
                     ),
                     const SizedBox(height: 12),
                     const Text("Welcome Back", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
-                    const Text("Sign in to explore the Cavite Protected Area", style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    const Text("Sign in to explore the Green Atlas", style: TextStyle(fontSize: 12, color: Colors.black54)),
                     const SizedBox(height: 24),
 
                     // --- Login Card ---
                     Container(
-  padding: const EdgeInsets.all(24),
-  decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(25),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.2), // Increased opacity from 0.05 to 0.1
-        blurRadius: 5, // Increased blur for a softer, more elevated feel
-        spreadRadius: 1, // Added a slight spread
-        offset: const Offset(2, 5), // Moved the shadow further down to show height
-      ),
-    ],
-  ),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.12),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10), // Elevated look
+                          ),
+                        ],
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -129,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           SizedBox(
                             width: double.infinity, height: 50,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
+                              onPressed: _isLoading ? null : _handleSignIn,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryForest,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

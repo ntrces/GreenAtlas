@@ -10,17 +10,23 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  final _nameController = TextEditingController();
+  // Only First and Last Name controllers
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   Future<void> _handleSignUp() async {
+    // Basic validation
     if (_emailController.text.isEmpty || 
         _passwordController.text.isEmpty || 
-        _nameController.text.isEmpty ||
+        _firstNameController.text.isEmpty ||
+        _lastNameController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill in all required fields")),
@@ -39,18 +45,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
     
     try {
       final supabase = Supabase.instance.client;
+      
+      // 1. Perform Auth Sign Up
       final AuthResponse res = await supabase.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
       if (res.user != null) {
+        final String fullName = "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}";
+
+        // 2. Insert profile data
         await supabase.from('profiles').insert({
           'id': res.user!.id,
-          'full_name': _nameController.text.trim(),
+          'full_name': fullName,
+          'first_name': _firstNameController.text.trim(),
+          'last_name': _lastNameController.text.trim(),
           'email': _emailController.text.trim(),
+          'role': 'user', 
         });
 
+        // 3. FORCE SIGN OUT - This prevents the auto-login redirect
         await supabase.auth.signOut();
 
         if (mounted) {
@@ -90,15 +105,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ],
           ),
           content: const Text(
-            "Welcome to GreenAtlas. Your account is ready. \n Please sign in to start exploring and protecting our ecosystem.",
+            "Welcome to GreenAtlas. Your account is ready. \n Please sign in to start exploring.",
             textAlign: TextAlign.center,
           ),
           actions: [
             Center(
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context); 
-                  Navigator.pop(context); 
+                  // Wipes the stack and forces user to the login screen
+                  Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryForest,
@@ -115,6 +130,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6, top: 12),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryForest)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,114 +144,102 @@ class _SignUpScreenState extends State<SignUpScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
-            // Use constrained box to ensure content fits height but stays scrollable
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Branding
-                   Container(
-  width: 60, 
-  height: 60, 
-  decoration: const BoxDecoration(
-    color: primaryForest, 
-    shape: BoxShape.circle,
-  ),
-  // Added the Icon here
-  child: Icon(Icons.eco_rounded, size: 50, color: Colors.white),
-),
-                    
+                    Container(
+                      width: 60, height: 60, 
+                      decoration: const BoxDecoration(color: primaryForest, shape: BoxShape.circle),
+                      child: const Icon(Icons.eco_rounded, size: 40, color: Colors.white),
+                    ),
                     const SizedBox(height: 12),
                     const Text("Create Account", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
-                    const SizedBox(height: 4),
-                    const Text("Join NatureLink to explore our ecosystem", textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.black54)),
+                    const Text("Join the conservation effort", style: TextStyle(fontSize: 13, color: Colors.black54)),
                     const SizedBox(height: 24),
-                    
 
-                    // Main Card
                     Container(
-  padding: const EdgeInsets.all(24),
-  decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(25),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.2), // Increased opacity from 0.05 to 0.1
-        blurRadius: 5, // Increased blur for a softer, more elevated feel
-        spreadRadius: 1, // Added a slight spread
-        offset: const Offset(2, 5), // Moved the shadow further down to show height
-      ),
-    ],
-  ),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                        ],
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Center(child: Text("Sign Up", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))),
-                          const SizedBox(height: 16),
-                          
-                          // Name Field
-                          const Text("* Full Name", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryForest)),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _nameController, 
-                            decoration: ecoInputStyle(label: "John Doe", icon: Icons.person_outline).copyWith(
-                              hintText: "John Doe",
-                              labelText: null,
-                              floatingLabelBehavior: FloatingLabelBehavior.never,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildLabel("* First Name"),
+                                    TextField(
+                                      controller: _firstNameController,
+                                      decoration: ecoInputStyle(label: "Jane", icon: Icons.person_outline).copyWith(
+                                        hintText: "Jane", 
+                                        labelText: null, 
+                                        floatingLabelBehavior: FloatingLabelBehavior.never
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildLabel("* Last Name"),
+                                    TextField(
+                                      controller: _lastNameController,
+                                      decoration: ecoInputStyle(label: "Doe", icon: Icons.person_outline).copyWith(
+                                        hintText: "Doe", 
+                                        labelText: null, 
+                                        floatingLabelBehavior: FloatingLabelBehavior.never
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
 
-                          // Email Field
-                          const Text("* Email Address", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryForest)),
-                          const SizedBox(height: 6),
+                          _buildLabel("* Email Address"),
                           TextField(
-                            controller: _emailController, 
+                            controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: ecoInputStyle(label: "your.email@example.com", icon: Icons.email_outlined).copyWith(
-                              hintText: "your.email@example.com",
-                              labelText: null,
-                              floatingLabelBehavior: FloatingLabelBehavior.never,
-                            ),
+                            decoration: ecoInputStyle(label: "email@example.com", icon: Icons.email_outlined).copyWith(hintText: "email@example.com", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never),
                           ),
-                          const SizedBox(height: 12),
 
-                          // Password Field
-                          const Text("* Password", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryForest)),
-                          const SizedBox(height: 6),
+                          _buildLabel("* Password"),
                           TextField(
-                            controller: _passwordController, 
+                            controller: _passwordController,
                             obscureText: _obscurePassword,
-                            decoration: ecoInputStyle(label: "Create a strong password", icon: Icons.lock_outline).copyWith(
-                              hintText: "Create a strong password",
-                              labelText: null,
-                              floatingLabelBehavior: FloatingLabelBehavior.never,
+                            decoration: ecoInputStyle(label: "Strong password", icon: Icons.lock_outline).copyWith(
+                              hintText: "Strong password", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never,
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey, size: 20),
                                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
 
-                          // Confirm Password Field
-                          const Text("* Confirm Password", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryForest)),
-                          const SizedBox(height: 6),
+                          _buildLabel("* Confirm Password"),
                           TextField(
-                            controller: _confirmPasswordController, 
+                            controller: _confirmPasswordController,
                             obscureText: _obscurePassword,
-                            decoration: ecoInputStyle(label: "Re-enter your password", icon: Icons.lock_reset_outlined).copyWith(
-                              hintText: "Re-enter your password",
-                              labelText: null,
-                              floatingLabelBehavior: FloatingLabelBehavior.never,
-                            ),
+                            decoration: ecoInputStyle(label: "Repeat password", icon: Icons.lock_reset_outlined).copyWith(hintText: "Repeat password", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never),
                           ),
-                          const SizedBox(height: 24),
 
-                          // Button
+                          const SizedBox(height: 30),
+
                           SizedBox(
                             width: double.infinity,
                             height: 50,
@@ -249,12 +259,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
 
                     const SizedBox(height: 20),
-                    // Divider and Sign In
-                    const Row(
+                    Row(
                       children: [
-                        Expanded(child: Divider(color: Colors.grey)),
-                        Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold))),
-                        Expanded(child: Divider(color: Colors.grey)),
+                        const Expanded(child: Divider(color: Colors.grey)),
+                        const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold))),
+                        const Expanded(child: Divider(color: Colors.grey)),
                       ],
                     ),
                     const SizedBox(height: 16),
