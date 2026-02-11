@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../../theme_constants.dart';
+import '../../theme_constants.dart';
 import '../user_dashboard.dart';
-import '../report.dart';      // Ensure correct path
-import '../user_profile.dart'; 
+import '../Report/report.dart';
+import 'ar_camera.dart'; 
+import '../notification.dart';
+import '../UserProfile/user_profile.dart'; 
 
 class ARGalleryScreen extends StatefulWidget {
   const ARGalleryScreen({super.key});
@@ -12,13 +14,13 @@ class ARGalleryScreen extends StatefulWidget {
 }
 
 class _ARGalleryScreenState extends State<ARGalleryScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  int _selectedIndex = 1; // AR Gallery is active
+  int _selectedIndex = 1;
+  int _activeFilterIndex = 0; // Default to "All"
 
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
     if (index == 0) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const UserDashboard()));
     } else if (index == 2) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ReportScreen()));
     }
@@ -30,98 +32,143 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       backgroundColor: const Color(0xFFEAF7EA),
       body: CustomScrollView(
         slivers: [
-          // --- 1. PINNED BRANDING HEADER ---
+           // --- 1. PINNED BRANDING HEADER ---
 SliverAppBar(
-  floating: false,        // Change to false for a stable pinned header
-  pinned: true,           // THE FIX: This keeps the header in one place
-  snap: false,            // Snap is not needed when pinned
+  floating: false,
+  pinned: true,
   backgroundColor: Colors.white,
-  surfaceTintColor: Colors.white, // Keeps it white during the scroll
+  surfaceTintColor: Colors.white,
   elevation: 0,
-  toolbarHeight: 70,
+  toolbarHeight: 80,
+  leadingWidth: 70,
   leading: const Padding(
     padding: EdgeInsets.only(left: 16.0),
     child: CircleAvatar(
       backgroundColor: Color(0xFF5D7A5D),
-      child: Icon(Icons.eco, color: Colors.white, size: 24),
+      backgroundImage: AssetImage('assets/logo1.png'), 
     ),
   ),
-  title: const Text(
-    "GreenAtlas", 
-    style: TextStyle(
-      color: Color(0xFF2D3E2D), 
-      fontWeight: FontWeight.bold, 
-      fontSize: 20
-    )
+  title: const Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text("Welcome, User", 
+        style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
+      Text("Explore the Cavite Protected Area", 
+        style: TextStyle(color: Colors.black54, fontSize: 12)),
+    ],
   ),
   actions: [
-  Padding(
-    padding: const EdgeInsets.only(right: 16.0),
-    child: InkWell( // Added InkWell for ripple effect and tap functionality
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const UserProfileScreen()),
-        );
-      },
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        height: 40, width: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F4F0),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.black12),
-        ),
-        child: const Icon(Icons.person_outline, color: Colors.black54),
+    // --- NOTIFICATION BELL WITH BADGE ---
+    Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationScreen())),
+          ),
+          Positioned(
+            right: 8,
+            top: 15,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              child: const Text(
+                "2", 
+                style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)
+              ),
+            ),
+          ),
+        ],
       ),
     ),
-  ),
-],
+    // --- USER PROFILE ICON ---
+    Padding(
+      padding: const EdgeInsets.only(right: 16.0),
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          height: 40, width: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F4F0),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black12),
+          ),
+          child: const Icon(Icons.person_outline, color: Colors.black54),
+        ),
+      ),
+    ),
+  ],
 ),
-          // --- 2. GALLERY CONTENT ---
+
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("AR Botanical Gallery", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D))),
-                  const SizedBox(height: 12),
-                  const Text("Explore life-size AR plant models with interactive information", style: TextStyle(fontSize: 14, color: Colors.black45, height: 1.4)),
+                  // --- 2. SCREEN TITLE & PURPOSE ---
+                  const Text(
+                    "AR Botanical Gallery",
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D)),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Explore life-size AR plant models with interactive information and educational content",
+                    style: TextStyle(fontSize: 14, color: Colors.black45, height: 1.4),
+                  ),
                   const SizedBox(height: 24),
 
-                  // Search Bar
-                  Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))]),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(hintText: "Search plants...", prefixIcon: Icon(Icons.search, color: Colors.black26), border: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 15)),
+                  // --- 3. SEARCH INPUT FIELD ---
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: "Search plants...",
+                      hintStyle: const TextStyle(color: Colors.black26),
+                      prefixIcon: const Icon(Icons.search, color: Colors.black38),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: Colors.black12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: const BorderSide(color: Colors.black12),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
+
+                  // --- 4. CATEGORY FILTER TABS ---
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip("All", 0, null),
+                        _buildFilterChip("Flowers", 1, Icons.local_florist_outlined),
+                        _buildFilterChip("Ferns", 2, Icons.eco_outlined),
+                        _buildFilterChip("Trees", 3, Icons.park_outlined),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
           ),
 
-          // --- 3. PLANT LIST ---
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 0),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                Container(
-                  color: Colors.white,
-                  child: Column(
-                    children: [
-                      _buildGalleryItem("Philippine Orchid", "Zone A-3 · Rare", "https://images.unsplash.com/photo-1599388836511-8594ccbe34bb", showAudio: true),
-                      _buildGalleryItem("Mountain Fern", "Zone B-1 · Common", "https://images.unsplash.com/photo-1525184203433-8594ccbe34bb", showAudio: true),
-                      const SizedBox(height: 100),
-                    ],
-                  ),
-                ),
-              ]),
-            ),
+          // --- 5. PLANT LIST SECTION ---
+          SliverList(
+            delegate: SliverChildListDelegate([
+              _buildPlantListItem("Philippine Orchid", "Zone A-3 • Endangered", "assets/logo1.png"),
+              _buildPlantListItem("Mountain Fern", "Zone B-1 • Endangered", "assets/logo1.png"),
+              _buildPlantListItem("Tropical Palm", "Zone C-2 • Endangered", "assets/logo1.png"),
+              _buildPlantListItem("Jade Vine", "Zone A-1 • Endangered", "assets/logo1.png"),
+            ]),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -140,23 +187,66 @@ SliverAppBar(
     );
   }
 
-  // (Helper widgets: _buildFilterPill and _buildGalleryItem remain the same)
-  Widget _buildGalleryItem(String name, String detail, String imageUrl, {required bool showAudio}) {
-    return Container(
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12, width: 0.5))),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.network(imageUrl, width: 60, height: 60, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.grey.shade200, width: 60, height: 60, child: const Icon(Icons.image))),
+  // --- FILTER CHIP BUILDER ---
+  Widget _buildFilterChip(String label, int index, IconData? icon) {
+    bool isSelected = _activeFilterIndex == index;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: FilterChip(
+        showCheckmark: false,
+        avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null,
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (bool selected) {
+          setState(() => _activeFilterIndex = index);
+        },
+        selectedColor: const Color(0xFF4A634A),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : const Color(0xFF4A634A), 
+          fontWeight: FontWeight.bold,
+          fontSize: 13
         ),
-        title: Row(children: [
-          Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D))),
-          const SizedBox(width: 8),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(5)), child: const Text("AR", style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold))),
-        ]),
-        subtitle: Text(detail, style: const TextStyle(fontSize: 13, color: Colors.black38)),
-        trailing: const Icon(Icons.chevron_right, color: Colors.black26),
+        backgroundColor: const Color(0xFFD6E8D6),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+    );
+  }
+
+  // --- INDIVIDUAL PLANT LIST ITEM ---
+  Widget _buildPlantListItem(String name, String status, String imgPath) {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          ListTile(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ARCameraScreen())),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              width: 55, height: 55,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                image: DecorationImage(image: AssetImage(imgPath), fit: BoxFit.cover),
+              ),
+            ),
+            title: Row(
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D), fontSize: 16)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(6)),
+                  child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.volume_up_outlined, size: 16, color: Colors.black38),
+              ],
+            ),
+            subtitle: Text(status, style: const TextStyle(color: Colors.black38, fontSize: 13)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.black26),
+          ),
+          const Divider(height: 1, indent: 90, color: Color(0xFFF0F0F0)),
+        ],
       ),
     );
   }
