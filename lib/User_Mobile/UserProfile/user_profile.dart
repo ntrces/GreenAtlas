@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart'; // REQUIRED for Theme Sync
-import '../../theme_provider.dart'; // Ensure path matches your project
+import '../../theme_provider.dart'; // Ensure this matches your file path
 import '../UserProfile/edit_profile'; 
 import 'change_password.dart'; 
 
@@ -15,7 +15,7 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final _supabase = Supabase.instance.client;
   
-  // Dynamic User Data
+  // Dynamic User Data fetched from Supabase
   String _fullName = "Loading...";
   String _email = "user@example.com";
   String _phone = "0917-123-4567";
@@ -24,7 +24,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String? _avatarUrl; 
   bool _isLoading = true;
 
-  // Notification States
+  // Notification States matching your design
   bool _emailNotif = true;
   bool _pushNotif = true;
   bool _reportUpdates = true;
@@ -35,7 +35,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _fetchUserData();
   }
 
-  // --- 1. FETCH DATA FROM SUPABASE ---
+  // --- 1. DATABASE FETCH LOGIC ---
   Future<void> _fetchUserData() async {
     final user = _supabase.auth.currentUser;
     if (user != null) {
@@ -129,7 +129,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- NEW DISPLAY SETTINGS CARD ---
+              // --- DISPLAY SETTINGS CARD ---
               _buildSectionCard(
                 title: "DISPLAY SETTINGS",
                 isDark: isDark,
@@ -145,7 +145,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                       Switch(
                         value: isDark,
-                        onChanged: (value) => themeProvider.toggleTheme(value), // Triggers global update
+                        onChanged: (value) => themeProvider.toggleTheme(value), // Global update
                         activeColor: Colors.white,
                         activeTrackColor: const Color(0xFF5D7A5D),
                       ),
@@ -162,6 +162,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChangePasswordScreen()))
               ),
               const SizedBox(height: 12),
+
+              // --- LOGOUT ACTION ---
+              _buildLogoutButton(context),
               
               const SizedBox(height: 40),
             ],
@@ -283,6 +286,45 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     ),
   );
+
+  Widget _buildLogoutButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: () => _showLogoutDialog(context),
+        icon: const Icon(Icons.logout, size: 18, color: Colors.redAccent),
+        label: const Text("LOGOUT", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent)),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.redAccent.withOpacity(0.05),
+          side: const BorderSide(color: Colors.redAccent, width: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to sign out?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+          TextButton(
+            onPressed: () async {
+              await _supabase.auth.signOut(); // Sign out from Supabase
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+              }
+            },
+            child: const Text("LOGOUT", style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildNotificationBadge(bool isDark) => Stack(
     alignment: Alignment.center,

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
 import 'signup_screen.dart'; 
-import '../User_Mobile/user_dashboard.dart'; // Ensure correct path
+import '../User_Mobile/user_dashboard.dart'; 
+import '../Employee_Mobile/Employee_dashboard.dart'; // REQUIRED: Add your employee import
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,8 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  // --- ROLE-BASED SIGN IN LOGIC ---
   Future<void> _handleSignIn() async {
-    // Basic validation
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter both email and password")),
@@ -30,18 +31,35 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Authenticate with Supabase
+      // 1. Authenticate with Supabase Auth
       final response = await _supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      if (response.user != null && mounted) {
-        // Navigate directly to HomeScreen for all standard users
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const UserDashboard()),
-        );
+      final user = response.user;
+      if (user != null && mounted) {
+        // 2. Fetch the role from your 'profiles' table
+        final data = await _supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        final String role = data['role'] ?? 'user';
+
+        // 3. Navigate based on the retrieved role
+        if (role == 'employee') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const EmployeePortal()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const UserDashboard()),
+          );
+        }
       }
     } on AuthException catch (e) {
       if (mounted) {
@@ -52,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("An unexpected error occurred")),
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -74,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // --- Branding ---
+                    // Branding
                     Container(
                       width: 60, height: 60,
                       decoration: const BoxDecoration(color: primaryForest, shape: BoxShape.circle),
@@ -85,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Text("Sign in to explore the Green Atlas", style: TextStyle(fontSize: 12, color: Colors.black54)),
                     const SizedBox(height: 24),
 
-                    // --- Login Card ---
+                    // Login Card
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
@@ -95,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           BoxShadow(
                             color: Colors.black.withOpacity(0.12),
                             blurRadius: 20,
-                            offset: const Offset(0, 10), // Elevated look
+                            offset: const Offset(0, 10),
                           ),
                         ],
                       ),
@@ -104,7 +122,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           const Center(child: Text("Sign In", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))),
                           const SizedBox(height: 16),
-
                           _buildLabel("* Email Address"),
                           TextField(
                             controller: _emailController,
@@ -116,7 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-
                           _buildLabel("* Password"),
                           TextField(
                             controller: _passwordController,
@@ -132,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-
                           SizedBox(
                             width: double.infinity, height: 50,
                             child: ElevatedButton(
@@ -151,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 24),
-                    // --- Footer Navigation ---
+                    // Footer
                     Row(
                       children: [
                         const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
