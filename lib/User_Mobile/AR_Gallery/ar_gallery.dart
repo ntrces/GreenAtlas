@@ -4,7 +4,7 @@ import '../user_dashboard.dart';
 import '../Report/report.dart';
 import 'ar_camera.dart'; 
 import '../notification.dart';
-import '../UserProfile/user_profile.dart'; 
+import '../../UserProfile/user_profile.dart';
 
 class ARGalleryScreen extends StatefulWidget {
   const ARGalleryScreen({super.key});
@@ -41,13 +41,20 @@ SliverAppBar(
   elevation: 0,
   toolbarHeight: 80,
   leadingWidth: 70,
-  leading: const Padding(
-    padding: EdgeInsets.only(left: 16.0),
-    child: CircleAvatar(
-      backgroundColor: Color(0xFF5D7A5D),
-      backgroundImage: AssetImage('assets/logo1.png'), 
+   leading: Padding( // Removed 'const' from here
+  padding: const EdgeInsets.only(left: 16.0),
+  child: CircleAvatar(
+    radius: 30,
+    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    child: Transform.scale(
+      scale:1.3, // 0.5 makes it half the size of the circle
+      child: Image.asset(
+        'assets/logo2.png', 
+        fit: BoxFit.contain,
+      ),
     ),
   ),
+),
   title: const Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

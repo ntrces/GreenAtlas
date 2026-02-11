@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../theme_provider.dart';
 import 'FieldDiary_NewEntry.dart';
 import '../Field_Diary/FiedlDiary_Entries.dart'; 
+import '../../UserProfile/user_profile.dart';
 
 class FieldDiaryScreen extends StatefulWidget {
   const FieldDiaryScreen({super.key});
@@ -67,11 +68,54 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
 
           return CustomScrollView(
             slivers: [
-              SliverAppBar(
-                pinned: true, 
-                backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white, 
-                title: const Text("Field Diary", style: TextStyle(fontWeight: FontWeight.bold))
+              // --- DETAILED HEADER SECTION ---
+        SliverAppBar(
+            pinned: true,
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            elevation: 0,
+            toolbarHeight: 70,
+            leading: Padding( // Removed 'const' from here
+  padding: const EdgeInsets.only(left: 16.0),
+  child: CircleAvatar(
+    radius: 30,
+    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    child: Transform.scale(
+      scale:1.3, // 0.5 makes it half the size of the circle
+      child: Image.asset(
+        'assets/logo2.png', 
+        fit: BoxFit.contain,
+      ),
+    ),
+  ),
+),
+            title: const Text(
+              "Field Diary", 
+              style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const UserProfileScreen()),
+                    );
+                  },
+                  child: Container(
+                    height: 40, width: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F4F0),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.black12),
+                    ),
+                    child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+                  ),
+                ),
               ),
+            ],
+          ),
               SliverPadding(
                 padding: const EdgeInsets.all(20),
                 sliver: SliverList(

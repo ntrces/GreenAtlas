@@ -4,7 +4,7 @@ import 'package:flutter_eco_supabase/User_Mobile/Report/submit_report.dart';
 import '../../theme_constants.dart';
 import '../user_dashboard.dart';
 import '../AR_Gallery/ar_gallery.dart';
-import '../UserProfile/user_profile.dart'; 
+import '../../UserProfile/user_profile.dart';
 import 'view_report.dart';
 import '../notification.dart';
 
@@ -68,13 +68,20 @@ SliverAppBar(
   elevation: 0,
   toolbarHeight: 80,
   leadingWidth: 70,
-  leading: const Padding(
-    padding: EdgeInsets.only(left: 16.0),
-    child: CircleAvatar(
-      backgroundColor: Color(0xFF5D7A5D),
-      backgroundImage: AssetImage('assets/logo1.png'), 
+   leading: Padding( // Removed 'const' from here
+  padding: const EdgeInsets.only(left: 16.0),
+  child: CircleAvatar(
+    radius: 30,
+    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    child: Transform.scale(
+      scale:1.3, // 0.5 makes it half the size of the circle
+      child: Image.asset(
+        'assets/logo2.png', 
+        fit: BoxFit.contain,
+      ),
     ),
   ),
+),
   title: const Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
