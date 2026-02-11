@@ -4,9 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // --- PROJECT MODULE IMPORTS ---
 // Ensure these files exist and the class names match
 import 'Admin_Dashboard.dart'; 
-import 'Validation/Admin_ValidationQueue.dart';
-import 'Plant_Database/Admin_PlantDatabase.dart';
-import '../Login_Signup_Mobile/login_screen.dart'; 
+import '../Validation/Admin_ValidationQueue.dart';
+import '../Plant_Database/Admin_PlantDatabase.dart';
+import '../../Login_Signup_Mobile/login_screen.dart'; 
 
 class AdminWebPortal extends StatefulWidget {
   const AdminWebPortal({super.key});

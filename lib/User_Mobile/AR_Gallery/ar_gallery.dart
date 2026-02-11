@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../theme_constants.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../user_dashboard.dart';
 import '../Report/report.dart';
 import 'ar_camera.dart'; 
 import '../notification.dart';
 import '../../UserProfile/user_profile.dart';
+import 'gallery_filtering.dart'; 
 
 class ARGalleryScreen extends StatefulWidget {
   const ARGalleryScreen({super.key});
@@ -14,16 +15,33 @@ class ARGalleryScreen extends StatefulWidget {
 }
 
 class _ARGalleryScreenState extends State<ARGalleryScreen> {
+  final _supabase = Supabase.instance.client;
   int _selectedIndex = 1;
-  int _activeFilterIndex = 0; // Default to "All"
+  final TextEditingController _searchController = TextEditingController();
+  
+  // --- ⚙️ FILTER STATES ---
+  String _searchQuery = ""; 
+  String _activeType = "All Plants";
+  String _activeStatus = "All Statuses";
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      if (mounted) setState(() => _searchQuery = _searchController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
-    if (index == 0) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const UserDashboard()));
-    } else if (index == 2) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ReportScreen()));
-    }
+    if (index == 0) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const UserDashboard()));
+    if (index == 2) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ReportScreen()));
   }
 
   @override
@@ -32,150 +50,130 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       backgroundColor: const Color(0xFFEAF7EA),
       body: CustomScrollView(
         slivers: [
-           // --- 1. PINNED BRANDING HEADER ---
-SliverAppBar(
-  floating: false,
-  pinned: true,
-  backgroundColor: Colors.white,
-  surfaceTintColor: Colors.white,
-  elevation: 0,
-  toolbarHeight: 80,
-  leadingWidth: 70,
-   leading: Padding( // Removed 'const' from here
-  padding: const EdgeInsets.only(left: 16.0),
-  child: CircleAvatar(
-    radius: 30,
-    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-    child: Transform.scale(
-      scale:1.3, // 0.5 makes it half the size of the circle
-      child: Image.asset(
-        'assets/logo2.png', 
-        fit: BoxFit.contain,
-      ),
-    ),
-  ),
-),
-  title: const Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text("Welcome, User", 
-        style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
-      Text("Explore the Cavite Protected Area", 
-        style: TextStyle(color: Colors.black54, fontSize: 12)),
-    ],
-  ),
-  actions: [
-    // --- NOTIFICATION BELL WITH BADGE ---
-    Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationScreen())),
-          ),
-          Positioned(
-            right: 8,
-            top: 15,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-              child: const Text(
-                "2", 
-                style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)
+          // --- 1. BRANDING HEADER ---
+          SliverAppBar(
+            floating: false, pinned: true,
+            backgroundColor: Colors.white, elevation: 0,
+            toolbarHeight: 70, leadingWidth: 70,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: Center(
+                child: Image.asset(
+                  'logo2.png',
+                  width: 45, height: 45, fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Color(0xFF2D3E2D), size: 30),
+                ),
               ),
             ),
+            title: const Text("Botanical Gallery", 
+              style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
+            actions: [
+              _buildNotificationIcon(),
+              _buildProfileIcon(),
+            ],
           ),
-        ],
-      ),
-    ),
-    // --- USER PROFILE ICON ---
-    Padding(
-      padding: const EdgeInsets.only(right: 16.0),
-      child: InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          height: 40, width: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0F4F0),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.black12),
-          ),
-          child: const Icon(Icons.person_outline, color: Colors.black54),
-        ),
-      ),
-    ),
-  ],
-),
 
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- 2. SCREEN TITLE & PURPOSE ---
-                  const Text(
-                    "AR Botanical Gallery",
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D)),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Explore life-size AR plant models with interactive information and educational content",
-                    style: TextStyle(fontSize: 14, color: Colors.black45, height: 1.4),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // --- 3. SEARCH INPUT FIELD ---
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: "Search plants...",
-                      hintStyle: const TextStyle(color: Colors.black26),
-                      prefixIcon: const Icon(Icons.search, color: Colors.black38),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Colors.black12),
+                  Row(
+                    children: [
+                      // --- 2. SEARCH BAR ---
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: "Search plants...",
+                            hintStyle: const TextStyle(color: Colors.black26, fontSize: 15),
+                            prefixIcon: const Icon(Icons.search, color: Colors.black38),
+                            filled: true, fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                        ),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Colors.black12),
+                      const SizedBox(width: 12),
+                      // --- 3. FILTER BUTTON ---
+                      Container(
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                        child: IconButton(
+                          icon: const Icon(Icons.tune, color: Color(0xFF2D3E2D)),
+                          onPressed: () => showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => GalleryFilterSheet(
+                              currentType: _activeType,
+                              currentStatus: _activeStatus,
+                              currentSort: "Default Order",
+                              onApply: (type, status, sort) {
+                                setState(() {
+                                  _activeType = type;
+                                  _activeStatus = status;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-
-                  // --- 4. CATEGORY FILTER TABS ---
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildFilterChip("All", 0, null),
-                        _buildFilterChip("Flowers", 1, Icons.local_florist_outlined),
-                        _buildFilterChip("Ferns", 2, Icons.eco_outlined),
-                        _buildFilterChip("Trees", 3, Icons.park_outlined),
-                      ],
-                    ),
-                  ),
+                  // --- SHOWING RESULTS COUNTER ---
                   const SizedBox(height: 12),
+                  if (_activeType != "All Plants" || _activeStatus != "All Statuses")
+                    Text("Filtering by: ${_activeType == "All Plants" ? "" : _activeType} ${_activeStatus == "All Statuses" ? "" : "• $_activeStatus"}",
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF4A634A), fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
           ),
 
-          // --- 5. PLANT LIST SECTION ---
-          SliverList(
-            delegate: SliverChildListDelegate([
-              _buildPlantListItem("Philippine Orchid", "Zone A-3 • Endangered", "assets/logo1.png"),
-              _buildPlantListItem("Mountain Fern", "Zone B-1 • Endangered", "assets/logo1.png"),
-              _buildPlantListItem("Tropical Palm", "Zone C-2 • Endangered", "assets/logo1.png"),
-              _buildPlantListItem("Jade Vine", "Zone A-1 • Endangered", "assets/logo1.png"),
-            ]),
+          // --- 4. DYNAMIC FILTERED STREAM ---
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _supabase.from('plants').stream(primaryKey: ['id']).order('common_name'),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
+              }
+              
+              // Local filtering logic
+              final plants = snapshot.data?.where((p) {
+                final matchesSearch = p['common_name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+                
+                // Map UI "Flowering Plants" to Database "Flowering" etc.
+                final dbCategory = _activeType.replaceAll(" Plants", "").trim();
+                final matchesType = _activeType == "All Plants" || p['category'] == dbCategory;
+                
+                final matchesStatus = _activeStatus == "All Statuses" || p['conservation_status'] == _activeStatus;
+
+                return matchesSearch && matchesType && matchesStatus;
+              }).toList() ?? [];
+
+              if (plants.isEmpty) {
+                return const SliverToBoxAdapter(
+                  child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No species match your filter."))),
+                );
+              }
+
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final plant = plants[index];
+                    return _buildPlantListItem(
+                      plant['common_name'] ?? "Unknown", 
+                      "${plant['location_zone'] ?? 'N/A'} • ${plant['conservation_status'] ?? 'Common'}", 
+                      plant['image_url'] ?? "assets/logo1.png"
+                    );
+                  },
+                  childCount: plants.length,
+                ),
+              );
+            },
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 40)),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -186,7 +184,7 @@ SliverAppBar(
         backgroundColor: Colors.white,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Dashboard"),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "AR Gallery"),
           BottomNavigationBarItem(icon: Icon(Icons.report_problem_outlined), label: "Report Issue"),
         ],
@@ -194,67 +192,64 @@ SliverAppBar(
     );
   }
 
-  // --- FILTER CHIP BUILDER ---
-  Widget _buildFilterChip(String label, int index, IconData? icon) {
-    bool isSelected = _activeFilterIndex == index;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: FilterChip(
-        showCheckmark: false,
-        avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null,
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (bool selected) {
-          setState(() => _activeFilterIndex = index);
-        },
-        selectedColor: const Color(0xFF4A634A),
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : const Color(0xFF4A634A), 
-          fontWeight: FontWeight.bold,
-          fontSize: 13
-        ),
-        backgroundColor: const Color(0xFFD6E8D6),
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-    );
-  }
+  // --- UI HELPERS ---
 
-  // --- INDIVIDUAL PLANT LIST ITEM ---
   Widget _buildPlantListItem(String name, String status, String imgPath) {
     return Container(
       color: Colors.white,
       child: Column(
         children: [
           ListTile(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ARCameraScreen())),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            leading: Container(
-              width: 55, height: 55,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                image: DecorationImage(image: AssetImage(imgPath), fit: BoxFit.cover),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARCameraScreen())),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(imgPath, width: 55, height: 55, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: Colors.grey[200], width: 55, height: 55, child: const Icon(Icons.image_not_supported)),
               ),
             ),
             title: Row(
               children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D), fontSize: 16)),
+                Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D), fontSize: 16), overflow: TextOverflow.ellipsis)),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(6)),
-                  child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  decoration: BoxDecoration(color: const Color(0xFF4A634A), borderRadius: BorderRadius.circular(6)),
+                  child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.volume_up_outlined, size: 16, color: Colors.black38),
+                const SizedBox(width: 6),
+                const Icon(Icons.volume_up_outlined, size: 18, color: Colors.black38),
               ],
             ),
-            subtitle: Text(status, style: const TextStyle(color: Colors.black38, fontSize: 13)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(status, style: const TextStyle(color: Colors.black45, fontSize: 13)),
+            ),
             trailing: const Icon(Icons.chevron_right, color: Colors.black26),
           ),
-          const Divider(height: 1, indent: 90, color: Color(0xFFF0F0F0)),
+          const Divider(height: 1, indent: 85, color: Color(0xFFF0F0F0)),
         ],
       ),
     );
   }
+
+  Widget _buildNotificationIcon() => Stack(
+    alignment: Alignment.center,
+    children: [
+      IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), 
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
+      Positioned(right: 8, top: 12, child: Container(padding: const EdgeInsets.all(4), 
+        decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle), 
+        child: const Text("2", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)))),
+    ],
+  );
+
+  Widget _buildProfileIcon() => Padding(
+    padding: const EdgeInsets.only(right: 16.0, left: 8),
+    child: InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
+      child: Container(height: 38, width: 38, decoration: BoxDecoration(color: const Color(0xFFEAF7EA), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)), 
+        child: const Icon(Icons.person_outline, color: Color(0xFF2D3E2D))),
+    ),
+  );
 }
