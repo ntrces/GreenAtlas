@@ -3,11 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'theme_provider.dart';
+import './LoadingScreen/splash_sceen.dart'; // IMPORT YOUR NEW SPLASH SCREEN
 import 'LandingPage_Mobile/landing_screen.dart';
 import 'User_Mobile/user_dashboard.dart'; 
 import 'Employee_Mobile/Employee_dashboard.dart'; 
 import 'Login_Signup_Mobile/login_screen.dart'; 
-import './Web_Admin/Admin_Dashboard.dart'; // REQUIRED IMPORT
+import './Web_Admin/Admin_Dashboard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,64 +29,8 @@ void main() async {
 
 final supabase = Supabase.instance.client;
 
-class EcoConservationApp extends StatefulWidget {
+class EcoConservationApp extends StatelessWidget {
   const EcoConservationApp({super.key});
-  @override
-  State<EcoConservationApp> createState() => _EcoConservationAppState();
-}
-
-class _EcoConservationAppState extends State<EcoConservationApp> {
-  User? _user;
-  String? _role;
-  bool _isInitialLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkInitialSession();
-    _setupAuthListener();
-  }
-
-  Future<void> _checkInitialSession() async {
-    final session = supabase.auth.currentSession;
-    if (session != null) {
-      await _fetchUserRole(session.user);
-    } else {
-      if (mounted) setState(() => _isInitialLoading = false);
-    }
-  }
-
-  Future<void> _fetchUserRole(User user) async {
-    try {
-      final profile = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (mounted) {
-        setState(() {
-          _user = user;
-          _role = profile?['role'] ?? 'user';
-          _isInitialLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isInitialLoading = false);
-    }
-  }
-
-  void _setupAuthListener() {
-    supabase.auth.onAuthStateChange.listen((data) async {
-      final session = data.session;
-      if (session != null) {
-        await _fetchUserRole(session.user);
-      } else {
-        if (mounted) {
-          setState(() {
-            _user = null;
-            _role = null;
-            _isInitialLoading = false;
-          });
-        }
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,24 +51,18 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF121212),
       ),
-      home: _isInitialLoading 
-          ? const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D))))
-          : (_user == null ? const LandingScreen() : _getRoleBasedHome(_role)),
+      
+      // --- UPDATED ENTRY POINT ---
+      // This ensures the SplashScreen always shows first
+      home: const SplashScreen(), 
       
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/landing': (context) => const LandingScreen(),
         '/home': (context) => const UserDashboard(), 
+        '/admin': (context) => const AdminDashboardView(),
+        '/employee': (context) => const EmployeePortal(),
       },
     );
-  }
-
-  // --- UPDATED ROLE NAVIGATION ---
-  Widget _getRoleBasedHome(String? role) {
-    if (role == 'admin') {
-      return const AdminDashboardView(); // Route to Web Interface
-    } else if (role == 'employee') {
-      return const EmployeePortal(); // Route to Employee App
-    }
-    return const UserDashboard(); // Standard User
   }
 }
