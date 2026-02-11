@@ -3,7 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
 import 'signup_screen.dart'; 
 import '../User_Mobile/user_dashboard.dart'; 
-import '../Employee_Mobile/Employee_dashboard.dart'; // REQUIRED: Add your employee import
+import '../Employee_Mobile/Employee_dashboard.dart'; 
+import '../Web_Admin/Admin_Portal.dart'; // REQUIRED IMPORT
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -44,12 +45,17 @@ class _LoginScreenState extends State<LoginScreen> {
             .from('profiles')
             .select('role')
             .eq('id', user.id)
-            .single();
+            .maybeSingle(); // Use maybeSingle to prevent crash if profile is missing
 
-        final String role = data['role'] ?? 'user';
+        final String role = data?['role'] ?? 'user';
 
-        // 3. Navigate based on the retrieved role
-        if (role == 'employee') {
+        // 3. Navigation based on retrieved role
+        if (role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminWebPortal()),
+          );
+        } else if (role == 'employee') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const EmployeePortal()),
@@ -70,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text("Profile Error: $e"), backgroundColor: Colors.redAccent),
         );
       }
     } finally {

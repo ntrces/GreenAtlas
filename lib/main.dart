@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:provider/provider.dart'; // 1. REQUIRED IMPORT
+import 'package:provider/provider.dart';
 
-// --- PROJECT IMPORTS ---
-import 'theme_provider.dart'; // 2. REQUIRED IMPORT
+import 'theme_provider.dart';
 import 'LandingPage_Mobile/landing_screen.dart';
 import 'User_Mobile/user_dashboard.dart'; 
 import 'Employee_Mobile/Employee_dashboard.dart'; 
 import 'Login_Signup_Mobile/login_screen.dart'; 
+import './Web_Admin/Admin_Dashboard.dart'; // REQUIRED IMPORT
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +18,6 @@ void main() async {
     authOptions: const FlutterAuthClientOptions(authFlowType: AuthFlowType.pkce),
   );
   
-  // 3. WRAP APP IN PROVIDER
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
@@ -90,13 +89,11 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
 
   @override
   Widget build(BuildContext context) {
-    // 4. LISTEN TO THEME CHANGES
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Green Atlas',
-      // 5. APPLY THEME MODE
       themeMode: themeProvider.themeMode, 
       theme: ThemeData(
         useMaterial3: true, 
@@ -120,10 +117,13 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
     );
   }
 
+  // --- UPDATED ROLE NAVIGATION ---
   Widget _getRoleBasedHome(String? role) {
-    if (role == 'employee') {
-      return const EmployeePortal(); 
+    if (role == 'admin') {
+      return const AdminDashboardView(); // Route to Web Interface
+    } else if (role == 'employee') {
+      return const EmployeePortal(); // Route to Employee App
     }
-    return const UserDashboard(); 
+    return const UserDashboard(); // Standard User
   }
 }

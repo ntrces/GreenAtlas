@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../theme_provider.dart';
 import '../../User_Mobile/UserProfile/user_profile.dart';
-import '../EmployeeMeeting/Attendance.dart'; // Verified path
+import 'Attendance.dart'; // Verified path
 
 class MeetingsScreen extends StatefulWidget {
   const MeetingsScreen({super.key});

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // REQUIRED
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../theme_provider.dart';
 import 'FieldDiary_NewEntry.dart';
@@ -15,13 +15,22 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
   int _activeFilterIndex = 0;
   final _supabase = Supabase.instance.client;
 
-  // Helper to map status strings to colors for the UI
   Color _getHealthColor(String? health) {
     switch (health?.toLowerCase()) {
       case 'poor': return Colors.red;
       case 'moderate': return Colors.orange;
       case 'critical': return Colors.purple;
       default: return Colors.green;
+    }
+  }
+
+  // Helper to map validation status to colors
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+      case 'validated': return Colors.green;
+      case 'rejected': return Colors.red;
+      default: return Colors.orange; // Pending
     }
   }
 
@@ -32,7 +41,7 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        // 1. REAL-TIME STREAM FROM SUPABASE
+        // REAL-TIME STREAM: Updates automatically when Admin approves/rejects
         stream: _supabase
             .from('field_entries')
             .stream(primaryKey: ['id'])
@@ -43,17 +52,18 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
 
           final allEntries = snapshot.data!;
 
-          // 2. DYNAMIC FILTERING LOGIC
+          // DYNAMIC FILTERING: Added index 3 for Rejected
           final filteredEntries = allEntries.where((entry) {
             if (_activeFilterIndex == 1) return entry['status'] == "Pending";
-            if (_activeFilterIndex == 2) return entry['status'] == "Validated";
+            if (_activeFilterIndex == 2) return (entry['status'] == "Validated" || entry['status'] == "Approved");
+            if (_activeFilterIndex == 3) return entry['status'] == "Rejected";
             return true;
           }).toList();
 
-          // 3. STATS CALCULATIONS
+          // STATS CALCULATIONS
           final total = allEntries.length;
-          final validated = allEntries.where((e) => e['status'] == 'Validated').length;
-          final pending = allEntries.where((e) => e['status'] == 'Pending').length;
+          final validated = allEntries.where((e) => e['status'] == 'Validated' || e['status'] == 'Approved').length;
+          final rejected = allEntries.where((e) => e['status'] == 'Rejected').length;
 
           return CustomScrollView(
             slivers: [
@@ -66,14 +76,14 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
                 padding: const EdgeInsets.all(20),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // Updated Stats Grid
+                    // Stats Grid
                     GridView.count(
                       shrinkWrap: true, crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.5, 
                       children: [
-                        _stat(Icons.menu_book, "$total", "Total Entries", isDark),
-                        _stat(Icons.check_circle_outline, "$validated", "Validated", isDark),
-                        _stat(Icons.access_time, "$pending", "Pending", isDark),
-                        _stat(Icons.eco_outlined, "12", "Plants", isDark),
+                        _stat(Icons.menu_book, "$total", "Total Entries", isDark, Colors.blue),
+                        _stat(Icons.check_circle_outline, "$validated", "Approved", isDark, Colors.green),
+                        _stat(Icons.cancel_outlined, "$rejected", "Rejected", isDark, Colors.red),
+                        _stat(Icons.eco_outlined, "12", "Species", isDark, Colors.green),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -108,15 +118,13 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
     );
   }
 
-  // --- REFINED UI HELPERS ---
-  
-  Widget _stat(IconData i, String v, String l, bool d) => Container(
+  Widget _stat(IconData i, String v, String l, bool d, Color color) => Container(
     padding: const EdgeInsets.all(12), 
     decoration: BoxDecoration(color: d ? const Color(0xFF1F1F1F) : Colors.white, borderRadius: BorderRadius.circular(12)), 
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start, 
       children: [
-        CircleAvatar(radius: 14, backgroundColor: Colors.green.withOpacity(0.1), child: Icon(i, size: 14, color: Colors.green)), 
+        CircleAvatar(radius: 14, backgroundColor: color.withOpacity(0.1), child: Icon(i, size: 14, color: color)), 
         const Spacer(), 
         Text(v, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: d ? Colors.white : Colors.black)), 
         Text(l, style: const TextStyle(fontSize: 10, color: Colors.black38))
@@ -124,11 +132,15 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
     )
   );
 
-  Widget _buildFilters(bool d) => Row(children: [ 
-    _filt("All", 0, d), const SizedBox(width: 8), 
-    _filt("Pending", 1, d), const SizedBox(width: 8), 
-    _filt("Validated", 2, d) 
-  ]);
+  Widget _buildFilters(bool d) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(children: [ 
+      _filt("All", 0, d), const SizedBox(width: 8), 
+      _filt("Pending", 1, d), const SizedBox(width: 8), 
+      _filt("Approved", 2, d), const SizedBox(width: 8), 
+      _filt("Rejected", 3, d) 
+    ]),
+  );
 
   Widget _filt(String l, int i, bool d) => InkWell(
     onTap: () => setState(() => _activeFilterIndex = i), 
@@ -144,12 +156,16 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
 
   Widget _buildDiaryTile(Map<String, dynamic> entry, bool d) {
     final healthCol = _getHealthColor(entry['health_status']);
+    final status = entry['status'] ?? "Pending";
+    final statusCol = _getStatusColor(status);
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12), 
       padding: const EdgeInsets.all(16), 
       decoration: BoxDecoration(
         color: d ? const Color(0xFF1F1F1F) : Colors.white, 
-        border: Border(bottom: BorderSide(color: d ? Colors.white10 : const Color(0xFFF8F8F8), width: 2))
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: d ? Colors.white10 : Colors.black.withOpacity(0.05))
       ), 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, 
@@ -168,14 +184,21 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
           Text("Zone: ${entry['location'] ?? 'N/A'}", style: const TextStyle(fontSize: 11, color: Colors.black38)), 
           const SizedBox(height: 8), 
           Text(entry['notes'] ?? "", maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: d ? Colors.white70 : Colors.black54)),
-          const SizedBox(height: 8),
+          const Divider(height: 24),
           Row(
             children: [
-              Icon(entry['status'] == "Validated" ? Icons.check_circle_outline : Icons.access_time, 
-                size: 14, color: entry['status'] == "Validated" ? Colors.green : Colors.orange),
+              Icon(
+                status == "Rejected" ? Icons.error_outline : (status == "Pending" ? Icons.access_time : Icons.check_circle_outline), 
+                size: 14, 
+                color: statusCol
+              ),
               const SizedBox(width: 4),
-              Text(entry['status'] ?? "Pending", 
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: entry['status'] == "Validated" ? Colors.green : Colors.orange)),
+              Text(
+                status.toUpperCase(), 
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusCol)
+              ),
+              const Spacer(),
+              const Icon(Icons.chevron_right, size: 16, color: Colors.black26),
             ],
           )
         ]
