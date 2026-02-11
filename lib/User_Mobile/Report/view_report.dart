@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../Report/report.dart';
 
 class ViewReportScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
@@ -13,10 +14,16 @@ class ViewReportScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
-          onPressed: () => Navigator.pop(context),
-        ),
+       leading: IconButton(
+  icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
+  onPressed: () {
+    // Navigates directly to ReportScreen and removes the current page from the stack
+    Navigator.pushReplacement(
+      context, 
+      MaterialPageRoute(builder: (context) => const ReportScreen()),
+    );
+  },
+),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
