@@ -329,8 +329,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildNotificationBadge(bool isDark) => Stack(
     alignment: Alignment.center,
     children: [
-      IconButton(icon: Icon(Icons.notifications_none, color: isDark ? Colors.white : const Color(0xFF2D3E2D)), onPressed: () {}),
-      Positioned(right: 8, top: 12, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle), child: const Text("2", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)))),
+      IconButton(icon: Icon(Icons.notifications_none, color: isDark ? Colors.white : const Color(0xFF2D3E2D)), onPressed: () {})
+      
     ],
   );
 
