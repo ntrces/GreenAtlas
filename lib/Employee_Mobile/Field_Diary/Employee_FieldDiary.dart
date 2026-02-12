@@ -16,6 +16,9 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
   int _activeFilterIndex = 0;
   final _supabase = Supabase.instance.client;
 
+  // Helper to get current authenticated user ID
+  String? get _userId => _supabase.auth.currentUser?.id;
+
   Color _getHealthColor(String? health) {
     switch (health?.toLowerCase()) {
       case 'poor': return Colors.red;
@@ -25,7 +28,6 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
     }
   }
 
-  // Helper to map validation status to colors
   Color _getStatusColor(String? status) {
     switch (status?.toLowerCase()) {
       case 'approved':
@@ -39,21 +41,26 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
+    // Safety check: If no user is logged in, show a message instead of an error
+    if (_userId == null) {
+      return const Scaffold(body: Center(child: Text("Please sign in to access your diary.")));
+    }
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        // REAL-TIME STREAM: Updates automatically when Admin approves/rejects
+        // --- CRITICAL FIX: Filter by 'user_id' so accounts only see their own data ---
         stream: _supabase
             .from('field_entries')
             .stream(primaryKey: ['id'])
+            .eq('user_id', _userId!) // Only fetch rows matching THIS user
             .order('created_at', ascending: false),
         builder: (context, snapshot) {
-          if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) return Center(child: Text("Error fetching entries: ${snapshot.error}"));
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
 
           final allEntries = snapshot.data!;
 
-          // DYNAMIC FILTERING: Added index 3 for Rejected
           final filteredEntries = allEntries.where((entry) {
             if (_activeFilterIndex == 1) return entry['status'] == "Pending";
             if (_activeFilterIndex == 2) return (entry['status'] == "Validated" || entry['status'] == "Approved");
@@ -61,73 +68,57 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
             return true;
           }).toList();
 
-          // STATS CALCULATIONS
+          // Statistics now reflect ONLY this user's specific data
           final total = allEntries.length;
           final validated = allEntries.where((e) => e['status'] == 'Validated' || e['status'] == 'Approved').length;
           final rejected = allEntries.where((e) => e['status'] == 'Rejected').length;
+          // Dynamically count unique species logged by THIS user
+          final speciesCount = allEntries.map((e) => e['plant_name']).toSet().length;
 
           return CustomScrollView(
             slivers: [
-              // --- DETAILED HEADER SECTION ---
-        SliverAppBar(
-            pinned: true,
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            elevation: 0,
-            toolbarHeight: 70,
-            leading: Padding( // Removed 'const' from here
-  padding: const EdgeInsets.only(left: 16.0),
-  child: CircleAvatar(
-    radius: 30,
-    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-    child: Transform.scale(
-      scale:1.3, // 0.5 makes it half the size of the circle
-      child: Image.asset(
-        'assets/logo2.png', 
-        fit: BoxFit.contain,
-      ),
-    ),
-  ),
-),
-            title: const Text(
-              "Field Diary", 
-              style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const UserProfileScreen()),
-                    );
-                  },
-                  child: Container(
-                    height: 40, width: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F4F0),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.black12),
-                    ),
-                    child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+              SliverAppBar(
+                pinned: true,
+                backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+                surfaceTintColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+                elevation: 0, toolbarHeight: 70, leadingWidth: 70,
+                leading: Padding(
+                  padding: const EdgeInsets.only(left: 16.0),
+                  child: CircleAvatar(
+                    radius: 30, backgroundColor: Colors.white,
+                    child: Transform.scale(scale: 1.3, child: Image.asset('assets/logo2.png', fit: BoxFit.contain)),
                   ),
                 ),
+                title: Text("My Field Diary", 
+                  style: TextStyle(color: isDark ? Colors.white : const Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
+                      child: Container(
+                        height: 40, width: 40,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white10 : const Color(0xFFF0F4F0),
+                          borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12),
+                        ),
+                        child: Icon(Icons.person_outline, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
               SliverPadding(
                 padding: const EdgeInsets.all(20),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // Stats Grid
                     GridView.count(
                       shrinkWrap: true, crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.5, 
                       children: [
-                        _stat(Icons.menu_book, "$total", "Total Entries", isDark, Colors.blue),
-                        _stat(Icons.check_circle_outline, "$validated", "Approved", isDark, Colors.green),
+                        _stat(Icons.menu_book, "$total", "My Total", isDark, Colors.blue),
+                        _stat(Icons.check_circle_outline, "$validated", "Validated", isDark, Colors.green),
                         _stat(Icons.cancel_outlined, "$rejected", "Rejected", isDark, Colors.red),
-                        _stat(Icons.eco_outlined, "12", "Species", isDark, Colors.green),
+                        _stat(Icons.eco_outlined, "$speciesCount", "Species Logged", isDark, Colors.green),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -140,13 +131,7 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
                         child: Center(child: Text("No entries found.", style: TextStyle(color: Colors.black38))),
                       )
                     else
-                      ...filteredEntries.map((entry) => InkWell(
-                        onTap: () => Navigator.push(
-                          context, 
-                          MaterialPageRoute(builder: (context) => FieldDiaryDetailsScreen(entry: entry))
-                        ),
-                        child: _buildDiaryTile(entry, isDark),
-                      )).toList(),
+                      ...filteredReportsList(filteredEntries, isDark),
                   ]),
                 ),
               ),
@@ -160,6 +145,14 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
+  }
+
+  // List generator helper
+  List<Widget> filteredReportsList(List<Map<String, dynamic>> entries, bool d) {
+    return entries.map((entry) => InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => FieldDiaryDetailsScreen(entry: entry))),
+      child: _buildDiaryTile(entry, d),
+    )).toList();
   }
 
   Widget _stat(IconData i, String v, String l, bool d, Color color) => Container(
@@ -233,14 +226,10 @@ class _FieldDiaryScreenState extends State<FieldDiaryScreen> {
             children: [
               Icon(
                 status == "Rejected" ? Icons.error_outline : (status == "Pending" ? Icons.access_time : Icons.check_circle_outline), 
-                size: 14, 
-                color: statusCol
+                size: 14, color: statusCol
               ),
               const SizedBox(width: 4),
-              Text(
-                status.toUpperCase(), 
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusCol)
-              ),
+              Text(status.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusCol)),
               const Spacer(),
               const Icon(Icons.chevron_right, size: 16, color: Colors.black26),
             ],
