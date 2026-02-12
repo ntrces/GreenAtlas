@@ -10,10 +10,10 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final _supabase = Supabase.instance.client;
-  
-  // This Set persists for the lifetime of this screen instance
-  // ensuring read IDs are never lost when the stream refreshes
   final Set<String> _readIds = {};
+
+  // FIXED: Dynamically get the logged-in user's ID
+  String? get _userId => _supabase.auth.currentUser?.id;
 
   void _markAllAsRead(List<Map<String, dynamic>> reports) {
     setState(() {
@@ -25,13 +25,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If no user is logged in, show a fallback to prevent crashes
+    if (_userId == null) {
+      return const Scaffold(body: Center(child: Text("Please log in to view notifications.")));
+    }
+
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('reports').stream(primaryKey: ['id']).order('created_at', ascending: false),
+      // FIXED: Filter the stream to ONLY show reports belonging to this account
+      stream: _supabase
+          .from('reports')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', _userId!) // Critical privacy filter
+          .order('created_at', ascending: false),
       builder: (context, snapshot) {
-        // We filter out 'Pending' status as per your requirement
-        final reports = snapshot.data?.where((r) => r['status'] != 'Pending').toList() ?? [];
+        if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
         
-        // Calculate unread count based on the IDs NOT in our persistence Set
+        // Filter out 'Pending' as requested
+        final reports = snapshot.data?.where((r) => r['status'] != 'Pending').toList() ?? [];
         final unreadCount = reports.where((r) => !_readIds.contains(r['id'].toString())).length;
 
         return Scaffold(
@@ -49,18 +59,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18)),
                 if (unreadCount > 0) ...[
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(10)),
-                    child: Text(unreadCount.toString(), 
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
+                  _buildBadge(unreadCount),
                 ]
               ],
             ),
             actions: [
               TextButton(
-                // Button only active if there are notifications to read
                 onPressed: reports.isEmpty ? null : () => _markAllAsRead(reports),
                 child: const Text("Mark all as read", style: TextStyle(color: Color(0xFF5D7A5D), fontSize: 12)),
               )
@@ -75,12 +79,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   final report = reports[index];
                   final String id = report['id'].toString();
                   final String status = report['status'] ?? "Updated";
-                  
-                  // Check against our persistent State Set
                   final bool isUnread = !_readIds.contains(id);
 
                   return InkWell(
-                    // Individual read logic: add ID to set and refresh UI
                     onTap: () => setState(() => _readIds.add(id)),
                     child: _buildNotifTile(
                       icon: status == 'Resolved' ? Icons.check_circle_outline : Icons.info_outline,
@@ -98,6 +99,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
+  // --- UI HELPERS ---
+
+  Widget _buildBadge(int count) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(10)),
+    child: Text(count.toString(), 
+      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+  );
+
   Widget _buildNotifTile({
     required IconData icon,
     required Color iconColor,
@@ -110,7 +120,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        // READ: Faint grey background | UNREAD: Solid white background
         color: isUnread ? Colors.white : const Color(0xFFF1F4F1),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
@@ -124,15 +133,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              // Icon background fades when read
-              color: isUnread ? iconColor.withOpacity(0.1) : Colors.black.withOpacity(0.05), 
-              shape: BoxShape.circle
-            ),
-            child: Icon(icon, color: isUnread ? iconColor : Colors.black38, size: 20),
-          ),
+          _buildIconContainer(icon, iconColor, isUnread),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -151,23 +152,27 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(body, 
-                  style: TextStyle(
-                    fontSize: 12, 
-                    color: isUnread ? Colors.black87 : Colors.black38, 
-                    height: 1.4
-                  )),
+                Text(body, style: TextStyle(fontSize: 12, color: isUnread ? Colors.black87 : Colors.black38, height: 1.4)),
               ],
             ),
           ),
-          // Unread Green Dot: Disappears completely when marked read
-          if (isUnread)
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0, top: 4),
-              child: Container(height: 8, width: 8, decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle)),
-            ),
+          if (isUnread) _buildUnreadDot(),
         ],
       ),
     );
   }
+
+  Widget _buildIconContainer(IconData icon, Color color, bool unread) => Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: unread ? color.withOpacity(0.1) : Colors.black.withOpacity(0.05), 
+      shape: BoxShape.circle
+    ),
+    child: Icon(icon, color: unread ? color : Colors.black38, size: 20),
+  );
+
+  Widget _buildUnreadDot() => Padding(
+    padding: const EdgeInsets.only(left: 8.0, top: 4),
+    child: Container(height: 8, width: 8, decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle)),
+  );
 }

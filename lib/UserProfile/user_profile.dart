@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart'; // REQUIRED for Theme Sync
 import '../../theme_provider.dart'; // Ensure this matches your file path
-import '../UserProfile/edit_profile'; 
 import 'change_password.dart'; 
+import '../UserProfile/edit_profile.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});

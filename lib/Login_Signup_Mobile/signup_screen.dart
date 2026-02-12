@@ -10,10 +10,8 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-  // Only First and Last Name controllers
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -21,23 +19,44 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  // Validation Logic
   Future<void> _handleSignUp() async {
-    // Basic validation
-    if (_emailController.text.isEmpty || 
-        _passwordController.text.isEmpty || 
-        _firstNameController.text.isEmpty ||
-        _lastNameController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill in all required fields")),
-      );
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    // 1. Basic Empty Check
+    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showError("Please fill in all required fields");
       return;
     }
 
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Passwords do not match"), backgroundColor: Colors.redAccent),
-      );
+    // 2. Name Validation (Letters only, no numbers or special characters)
+    final nameRegex = RegExp(r'^[a-zA-Z\s]+$');
+    if (!nameRegex.hasMatch(firstName) || !nameRegex.hasMatch(lastName)) {
+      _showError("Names should only contain letters");
+      return;
+    }
+
+    // 3. Gmail Validation
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      _showError("Only @gmail.com addresses are allowed");
+      return;
+    }
+
+    // 4. Password Complexity Validation
+    // Min 6 chars, 1 uppercase, 1 number, 1 special char
+    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$&*~]).{6,}$');
+    if (!passwordRegex.hasMatch(password)) {
+      _showError("Password must be at least 6 characters, include an uppercase letter, a number, and a special character (!@#\$&*~)");
+      return;
+    }
+
+    // 5. Password Match Check
+    if (password != confirmPassword) {
+      _showError("Passwords do not match");
       return;
     }
 
@@ -46,26 +65,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final supabase = Supabase.instance.client;
       
-      // 1. Perform Auth Sign Up
       final AuthResponse res = await supabase.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
       if (res.user != null) {
-        final String fullName = "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}";
+        final String fullName = "$firstName $lastName";
 
-        // 2. Insert profile data
         await supabase.from('profiles').insert({
           'id': res.user!.id,
           'full_name': fullName,
-          'first_name': _firstNameController.text.trim(),
-          'last_name': _lastNameController.text.trim(),
-          'email': _emailController.text.trim(),
+          'first_name': firstName,
+          'last_name': lastName,
+          'email': email,
           'role': 'user', 
         });
 
-        // 3. FORCE SIGN OUT - This prevents the auto-login redirect
         await supabase.auth.signOut();
 
         if (mounted) {
@@ -73,20 +89,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
         }
       }
     } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message), backgroundColor: Colors.redAccent),
-        );
-      }
+      if (mounted) _showError(e.message);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Database Error: ${e.toString()}")),
-        );
-      }
+      if (mounted) _showError("Database Error: ${e.toString()}");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  // Helper for error messages
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+    );
   }
 
   void _showSuccessPopup() {
@@ -112,7 +127,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
             Center(
               child: ElevatedButton(
                 onPressed: () {
-                  // Wipes the stack and forces user to the login screen
                   Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
                 },
                 style: ElevatedButton.styleFrom(
@@ -151,34 +165,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                      // ⚪ THE LOGO CARD
-Container(
-  width: 80,
-  height: 80,
-  decoration: const BoxDecoration(
-    color: Colors.white,
-    shape: BoxShape.circle,
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black12,
-        blurRadius: 20,
-        offset: Offset(0, 10),
-      )
-    ],
-  ),
-  child: Center(
-    child: Image.asset(
-      'logo2.png', // Reference directly to fix Web 404 path doubling
-      width: 80,   // SET TO 60
-      height: 80,  // SET TO 60
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        // Red icon indicates the asset is still not being found by the engine
-        return const Icon(Icons.broken_image, color: Colors.red, size: 40);
-      },
-    ),
-  ),
-),
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
+                      ),
+                      child: Center(
+                        child: Image.asset(
+                          'logo2.png',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.red, size: 40),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     const Text("Create Account", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
                     const Text("Join the conservation effort", style: TextStyle(fontSize: 13, color: Colors.black54)),
@@ -189,9 +193,7 @@ Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
-                        ],
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,9 +208,7 @@ Container(
                                     TextField(
                                       controller: _firstNameController,
                                       decoration: ecoInputStyle(label: "Jane", icon: Icons.person_outline).copyWith(
-                                        hintText: "Jane", 
-                                        labelText: null, 
-                                        floatingLabelBehavior: FloatingLabelBehavior.never
+                                        hintText: "Jane", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never
                                       ),
                                     ),
                                   ],
@@ -223,9 +223,7 @@ Container(
                                     TextField(
                                       controller: _lastNameController,
                                       decoration: ecoInputStyle(label: "Doe", icon: Icons.person_outline).copyWith(
-                                        hintText: "Doe", 
-                                        labelText: null, 
-                                        floatingLabelBehavior: FloatingLabelBehavior.never
+                                        hintText: "Doe", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never
                                       ),
                                     ),
                                   ],
@@ -280,7 +278,6 @@ Container(
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 20),
                     Row(
                       children: [

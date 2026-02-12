@@ -21,8 +21,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
 
-  Uint8List? _imageBytes; 
-  String? _existingAvatarUrl; 
+  Uint8List? _imageBytes;
+  String? _existingAvatarUrl;
   bool _isLoading = false;
 
   @override
@@ -34,17 +34,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _loadInitialData() async {
     final user = _supabase.auth.currentUser;
     if (user != null) {
-      final data = await _supabase.from('profiles').select().eq('id', user.id).single();
-      setState(() {
-        String fullName = data['full_name'] ?? "";
-        List<String> parts = fullName.split(" ");
-        _firstNameController.text = parts.isNotEmpty ? parts[0] : "";
-        _lastNameController.text = parts.length > 1 ? parts.sublist(1).join(" ") : "";
-        _emailController.text = user.email ?? "";
-        _phoneController.text = data['phone'] ?? "";
-        _locationController.text = data['location'] ?? "";
-        _existingAvatarUrl = data['avatar_url']; 
-      });
+      try {
+        final data = await _supabase.from('profiles').select().eq('id', user.id).single();
+        setState(() {
+          // Splitting full_name if separate first/last names aren't in the DB yet
+          String fullName = data['full_name'] ?? "";
+          List<String> parts = fullName.split(" ");
+          
+          _firstNameController.text = data['first_name'] ?? (parts.isNotEmpty ? parts[0] : "");
+          _lastNameController.text = data['last_name'] ?? (parts.length > 1 ? parts.sublist(1).join(" ") : "");
+          
+          _emailController.text = user.email ?? "";
+          _phoneController.text = data['phone'] ?? "";
+          _locationController.text = data['location'] ?? "";
+          _existingAvatarUrl = data['avatar_url'];
+        });
+      } catch (e) {
+        debugPrint("Error loading profile: $e");
+      }
     }
   }
 
@@ -57,20 +64,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _handleSave() async {
+    // Triggers the validators in each TextFormField
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
 
     try {
       final user = _supabase.auth.currentUser;
       String? finalAvatarUrl = _existingAvatarUrl;
 
+      // Clean the inputs
+      final fName = _firstNameController.text.trim();
+      final lName = _lastNameController.text.trim();
+      final phone = _phoneController.text.trim();
+      final location = _locationController.text.trim();
+
       if (_imageBytes != null) {
-        // SECURE PATH: Putting file inside a folder named after the user's ID
         final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
         final path = '${user!.id}/$fileName';
 
         await _supabase.storage.from('Profiles').uploadBinary(
-          path, 
+          path,
           _imageBytes!,
           fileOptions: const FileOptions(upsert: true),
         );
@@ -79,18 +93,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
 
       await _supabase.from('profiles').update({
-        'full_name': "${_firstNameController.text} ${_lastNameController.text}",
-        'phone': _phoneController.text,
-        'location': _locationController.text,
+        'full_name': "$fName $lName",
+        'first_name': fName,
+        'last_name': lName,
+        'phone': phone,
+        'location': location,
         'avatar_url': finalAvatarUrl,
       }).eq('id', user!.id);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile updated!"), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profile updated!"), backgroundColor: Colors.green)
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent)
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -101,17 +123,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFEAF7EA),
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)), onPressed: () => Navigator.pop(context)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text("Edit Profile", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
-          key: _formKey,
+          key: _formKey, // Needed for validation
           child: Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.black12)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.black12),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -167,7 +197,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       Expanded(
         child: ElevatedButton(
           onPressed: _isLoading ? null : _handleSave,
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5D7A5D), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF5D7A5D),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
           child: _isLoading 
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
               : const Text("SAVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -177,30 +211,60 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       Expanded(
         child: OutlinedButton(
           onPressed: () => Navigator.pop(context),
-          style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), side: const BorderSide(color: Colors.black12)),
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            side: const BorderSide(color: Colors.black12),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
           child: const Text("CANCEL", style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
         ),
       ),
     ],
   );
 
-  Widget _buildInputField(String label, TextEditingController controller, {bool isEnabled = true}) => Padding(
-    padding: const EdgeInsets.only(bottom: 20),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller, enabled: isEnabled,
-          decoration: InputDecoration(
-            filled: true, fillColor: isEnabled ? Colors.white : const Color(0xFFF9F9F9),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.black12)),
+  Widget _buildInputField(String label, TextEditingController controller, {bool isEnabled = true}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: controller,
+            enabled: isEnabled,
+            // Automatically show numeric keyboard for Phone
+            keyboardType: label == "PHONE" ? TextInputType.phone : TextInputType.text,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: isEnabled ? Colors.white : const Color(0xFFF9F9F9),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.black12)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF5D7A5D))),
+            ),
+            validator: (value) {
+              final val = value ?? "";
+              if (val.trim().isEmpty) return "This field is required";
+
+              // Name Validation: Letters and spaces only
+              if (label == "FIRST NAME" || label == "LAST NAME") {
+                if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(val)) {
+                  return "Letters only, no numbers or symbols";
+                }
+              }
+
+              // Phone Validation: Exactly 11 digits
+              if (label == "PHONE") {
+                if (!RegExp(r'^\d{11}$').hasMatch(val)) {
+                  return "Must be exactly 11 digits";
+                }
+              }
+
+              return null;
+            },
           ),
-          validator: (val) => val!.isEmpty ? "Field required" : null,
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }

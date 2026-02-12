@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart'; // REQUIRED: run 'flutter pub add intl'
+import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 
 class CreateMeetingScreen extends StatefulWidget {
   const CreateMeetingScreen({super.key});
@@ -20,82 +21,56 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   
   List<String> _selectedRoles = [];
   bool _isPublishing = false;
+  PlatformFile? _selectedFile;
 
-  // --- FIXED DATE PICKER LOGIC ---
   Future<void> _selectDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now(), // Prevents scheduling in the past
+      firstDate: DateTime.now(),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFF517156)),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF517156))),
+        child: child!,
+      ),
     );
-
-    if (picked != null) {
-      setState(() {
-        // FIXED: Formats specifically for Supabase DATE type (YYYY-MM-DD)
-        _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
-      });
-    }
+    if (picked != null) setState(() => _dateController.text = DateFormat('yyyy-MM-dd').format(picked));
   }
 
-  // --- FIXED TIME PICKER LOGIC ---
   Future<void> _selectTime() async {
-    TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
+    TimeOfDay? picked = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    if (picked != null) setState(() => _timeController.text = picked.format(context));
+  }
 
-    if (picked != null) {
-      setState(() {
-        // Formats to human-readable string for the TEXT column in database
-        _timeController.text = picked.format(context); 
-      });
-    }
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.any);
+    if (result != null) setState(() => _selectedFile = result.files.first);
   }
 
   Future<void> _publishMeeting() async {
-    // Validation: Title and Date are mandatory
-    if (_titleController.text.isEmpty || _dateController.text.isEmpty) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         const SnackBar(content: Text("Please fill in the title and date"), backgroundColor: Colors.redAccent)
-       );
-       return;
-    }
-
+    if (_titleController.text.isEmpty || _dateController.text.isEmpty) return;
     setState(() => _isPublishing = true);
     try {
+      String? fileUrl;
+      if (_selectedFile != null) {
+        final fileName = 'mtg_${DateTime.now().millisecondsSinceEpoch}_${_selectedFile!.name}';
+        await _supabase.storage.from('meeting-attachments').uploadBinary(fileName, _selectedFile!.bytes!);
+        fileUrl = _supabase.storage.from('meeting-attachments').getPublicUrl(fileName);
+      }
       await _supabase.from('meetings').insert({
         'title': _titleController.text,
-        'meeting_date': _dateController.text, // Sending the formatted YYYY-MM-DD string
+        'meeting_date': _dateController.text,
         'meeting_time': _timeController.text,
         'location': _locationController.text,
         'max_attendees': int.tryParse(_maxAttendeesController.text) ?? 25,
         'agenda': _agendaController.text,
+        'attachment_url': fileUrl,
         'target_roles': _selectedRoles,
         'status': 'Scheduled',
       });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Meeting scheduled successfully!"), backgroundColor: Color(0xFF517156))
-        );
-        Navigator.pop(context);
-      }
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      debugPrint("Database insert failed: $e"); // Helpful for debugging schema mismatches
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent)
-        );
-      }
+      debugPrint("Error: $e");
     } finally {
       if (mounted) setState(() => _isPublishing = false);
     }
@@ -103,143 +78,41 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 480,
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF4EA), // Design Background
-        borderRadius: BorderRadius.circular(8),
-      ),
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("CREATE NEW MEETING", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, size: 18)),
-            ],
-          ),
-          const Text("Schedule a new meeting and send invitations to field staff", style: TextStyle(fontSize: 12, color: Colors.black45)),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text("CREATE NEW MEETING", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF2D3E2D))),
+            IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, size: 20))
+          ]),
           const SizedBox(height: 24),
-          _buildField("MEETING TITLE *", _titleController, "e.g., Monthly Conservation Review"),
+          _label("MEETING TITLE *"),
+          _field(_titleController, "Title"),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildPickerField(
-                  "DATE *", 
-                  _dateController, 
-                  Icons.calendar_today, 
-                  _selectDate
-                )
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildPickerField(
-                  "TIME *", 
-                  _timeController, 
-                  Icons.access_time, 
-                  _selectTime
-                )
-              ),
-            ],
-          ),
+          Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_label("DATE *"), _picker(_dateController, Icons.calendar_today, _selectDate)])),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_label("TIME *"), _picker(_timeController, Icons.access_time, _selectTime)])),
+          ]),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildField("LOCATION *", _locationController, "e.g., DENR Cavite Office")),
-              const SizedBox(width: 16),
-              Expanded(child: _buildField("MAX ATTENDEES *", _maxAttendeesController, "25")),
-            ],
-          ),
+          _label("AGENDA & ATTACHMENT"),
+          _agendaBox(),
           const SizedBox(height: 16),
-          _buildField("MEETING AGENDA *", _agendaController, "Describe the purpose...", maxLines: 3),
-          const SizedBox(height: 24),
-          const Text("TARGET ROLES *", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _buildRoleCheckboxes(),
+          _label("TARGET ROLES"),
+          _roles(),
           const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isPublishing ? null : _publishMeeting,
-              icon: const Icon(Icons.send_outlined, size: 18),
-              label: Text(_isPublishing ? "PUBLISHING..." : "CREATE & ANNOUNCE MEETING"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF517156), // Design Button Color
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.all(22),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              ),
-            ),
-          )
+          SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: _isPublishing ? null : _publishMeeting, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF517156)), child: Text(_isPublishing ? "PUBLISHING..." : "CREATE & ANNOUNCE", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
         ],
       ),
     );
   }
 
-  // Text field helper
-  Widget _buildField(String label, TextEditingController controller, String hint, {int maxLines = 1}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          maxLines: maxLines,
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: Colors.white,
-            border: const OutlineInputBorder(borderSide: BorderSide.none),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Date/Time picker helper
-  Widget _buildPickerField(String label, TextEditingController controller, IconData icon, VoidCallback onTap) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          readOnly: true, // Forces user to use the UI picker
-          onTap: onTap,
-          decoration: InputDecoration(
-            suffixIcon: Icon(icon, size: 18, color: Colors.black38),
-            filled: true,
-            fillColor: Colors.white,
-            border: const OutlineInputBorder(borderSide: BorderSide.none),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRoleCheckboxes() {
-    return Row(
-      children: ["Field Officer", "Admin", "System Admin"].map((role) {
-        return Row(
-          children: [
-            Checkbox(
-              value: _selectedRoles.contains(role),
-              activeColor: const Color(0xFF517156),
-              onChanged: (val) {
-                setState(() => val! ? _selectedRoles.add(role) : _selectedRoles.remove(role));
-              },
-            ),
-            Text(role, style: const TextStyle(fontSize: 12)),
-            const SizedBox(width: 8),
-          ],
-        );
-      }).toList(),
-    );
-  }
+  Widget _label(String t) => Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(t, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)));
+  Widget _field(TextEditingController c, String h) => TextField(controller: c, decoration: InputDecoration(hintText: h, filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.all(12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Colors.black12))));
+  Widget _picker(TextEditingController c, IconData i, VoidCallback t) => TextField(controller: c, readOnly: true, onTap: t, decoration: InputDecoration(suffixIcon: Icon(i, size: 18), filled: true, fillColor: Colors.white, contentPadding: const EdgeInsets.all(12), border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: Colors.black12))));
+  Widget _agendaBox() => Container(decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.black12), borderRadius: BorderRadius.circular(4)), child: Column(children: [TextField(controller: _agendaController, maxLines: 2, decoration: const InputDecoration(contentPadding: EdgeInsets.all(12), border: InputBorder.none)), const Divider(height: 1), Row(children: [TextButton.icon(onPressed: _pickFile, icon: const Icon(Icons.attach_file, size: 16), label: Text(_selectedFile?.name ?? "Attach File", style: const TextStyle(fontSize: 11)))] )]));
+  Widget _roles() => Wrap(spacing: 8, children: ["Field Officer", "Admin"].map((r) => Row(mainAxisSize: MainAxisSize.min, children: [Checkbox(value: _selectedRoles.contains(r), onChanged: (v) => setState(() => v! ? _selectedRoles.add(r) : _selectedRoles.remove(r))), Text(r, style: const TextStyle(fontSize: 12))])).toList());
 }
