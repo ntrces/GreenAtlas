@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../theme_provider.dart';
-import '../../User_Mobile/UserProfile/user_profile.dart';
+import '../../UserProfile/user_profile.dart';
 import 'Attendance.dart'; // Verified path
 
 class MeetingsScreen extends StatefulWidget {
@@ -26,13 +26,20 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
         elevation: 0,
         toolbarHeight: 70,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 16.0),
-          child: CircleAvatar(
-            backgroundColor: Color(0xFF5D7A5D),
-            child: Icon(Icons.eco, color: Colors.white, size: 24),
-          ),
-        ),
+         leading: Padding( // Removed 'const' from here
+  padding: const EdgeInsets.only(left: 16.0),
+  child: CircleAvatar(
+    radius: 30,
+    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    child: Transform.scale(
+      scale:1.3, // 0.5 makes it half the size of the circle
+      child: Image.asset(
+        'assets/logo2.png', 
+        fit: BoxFit.contain,
+      ),
+    ),
+  ),
+),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

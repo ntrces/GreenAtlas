@@ -4,9 +4,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // --- PROJECT MODULE IMPORTS ---
 // Ensure these files exist and the class names match
 import 'Admin_Dashboard.dart'; 
-import 'Validation/Admin_ValidationQueue.dart';
-import 'Plant_Database/Admin_PlantDatabase.dart';
-import '../Login_Signup_Mobile/login_screen.dart'; 
+import '../Validation/Admin_ValidationQueue.dart';
+import '../Plant_Database/Admin_PlantDatabase.dart';
+import '../../Login_Signup_Mobile/login_screen.dart';
+import '../../Web_Admin/Public_Enforcement/public_enforcement.dart';
+import '../../Web_Admin/Audit_logs/admin_auditlogs.dart';
+import '../../Web_Admin/Admin_Meeting/Admin_Meetings.dart';
+import '../../Web_Admin/Admin_UserManagment/Admin_Users.dart';
+
+
+
 
 class AdminWebPortal extends StatefulWidget {
   const AdminWebPortal({super.key});
@@ -25,14 +32,14 @@ class _AdminWebPortalState extends State<AdminWebPortal> {
   // --- MODULE NAVIGATION LIST ---
   // Maps the Sidebar index to the specific view
   final List<Widget> _adminModules = [
-    const AdminDashboardView(),
-    const ValidationQueueView(),
-    const PlantDatabaseView(),
-    const Center(child: Text("Public Enforcement Module")),
-    const Center(child: Text("Audit & Compliance Logs")),
-    const Center(child: Text("Meeting Coordination")),
-    const Center(child: Text("User Management")),
-  ];
+  const AdminDashboardView(),        // Index 0
+  const ValidationQueueView(),       // Index 1
+  const PlantDatabaseView(),         // Index 2
+  const PublicEnforcementView(),     // Index 3 (The one we created previously)
+  const AuditLogsView(),             // Index 4
+  const MeetingCoordinationView(),   // Index 5
+  const UserManagementView(),        // Index 6
+];
 
   // --- 🔒 LOGOUT LOGIC ---
   Future<void> _handleLogout() async {

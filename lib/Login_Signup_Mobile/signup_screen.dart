@@ -151,11 +151,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 60, height: 60, 
-                      decoration: const BoxDecoration(color: primaryForest, shape: BoxShape.circle),
-                      child: const Icon(Icons.eco_rounded, size: 40, color: Colors.white),
-                    ),
+                      // ⚪ THE LOGO CARD
+Container(
+  width: 80,
+  height: 80,
+  decoration: const BoxDecoration(
+    color: Colors.white,
+    shape: BoxShape.circle,
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black12,
+        blurRadius: 20,
+        offset: Offset(0, 10),
+      )
+    ],
+  ),
+  child: Center(
+    child: Image.asset(
+      'logo2.png', // Reference directly to fix Web 404 path doubling
+      width: 80,   // SET TO 60
+      height: 80,  // SET TO 60
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        // Red icon indicates the asset is still not being found by the engine
+        return const Icon(Icons.broken_image, color: Colors.red, size: 40);
+      },
+    ),
+  ),
+),
                     const SizedBox(height: 12),
                     const Text("Create Account", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
                     const Text("Join the conservation effort", style: TextStyle(fontSize: 13, color: Colors.black54)),

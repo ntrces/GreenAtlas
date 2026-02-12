@@ -17,11 +17,33 @@ class LandingScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              const CircleAvatar(
-                radius: 45,
-                backgroundColor: primaryForest,
-                child: Icon(Icons.eco_rounded, size: 50, color: Colors.white),
-              ),
+             Container(
+  width: 140,
+  height: 140,
+  decoration: const BoxDecoration(
+    color: Colors.white,
+    shape: BoxShape.circle,
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black12,
+        blurRadius: 10,
+        offset: Offset(0, 5),
+      )
+    ],
+  ),
+  child: Center(
+    child: Image.asset(
+      'logo2.png', // Reference directly to fix Web 404 path doubling
+      width: 120,   // SET TO 60
+      height: 120,  // SET TO 60
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        // Red icon indicates the asset is still not being found by the engine
+        return const Icon(Icons.broken_image, color: Colors.red, size: 40);
+      },
+    ),
+  ),
+),
               const SizedBox(height: 30),
               const Text(
                 "Explore Nature\nResponsibly",

@@ -1,64 +1,100 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class NotificationScreen extends StatelessWidget {
+class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
   @override
+  State<NotificationScreen> createState() => _NotificationScreenState();
+}
+
+class _NotificationScreenState extends State<NotificationScreen> {
+  final _supabase = Supabase.instance.client;
+  
+  // This Set persists for the lifetime of this screen instance
+  // ensuring read IDs are never lost when the stream refreshes
+  final Set<String> _readIds = {};
+
+  void _markAllAsRead(List<Map<String, dynamic>> reports) {
+    setState(() {
+      for (var report in reports) {
+        _readIds.add(report['id'].toString());
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEAF7EA), // Thematic mint background
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "Notifications",
-          style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {},
-            child: const Text("Mark all as read", style: TextStyle(color: Color(0xFF5D7A5D), fontSize: 12)),
-          )
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text("TODAY", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black38, letterSpacing: 1)),
-          const SizedBox(height: 12),
-          _buildNotifTile(
-            icon: Icons.check_circle_outline,
-            iconColor: Colors.green,
-            title: "Report Resolved",
-            body: "Your report RPT-001 (Illegal Logging) has been marked as resolved. Thank you!",
-            time: "2h ago",
-            isUnread: true,
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabase.from('reports').stream(primaryKey: ['id']).order('created_at', ascending: false),
+      builder: (context, snapshot) {
+        // We filter out 'Pending' status as per your requirement
+        final reports = snapshot.data?.where((r) => r['status'] != 'Pending').toList() ?? [];
+        
+        // Calculate unread count based on the IDs NOT in our persistence Set
+        final unreadCount = reports.where((r) => !_readIds.contains(r['id'].toString())).length;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFEAF7EA),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Row(
+              children: [
+                const Text("Notifications", 
+                  style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18)),
+                if (unreadCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(10)),
+                    child: Text(unreadCount.toString(), 
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ]
+              ],
+            ),
+            actions: [
+              TextButton(
+                // Button only active if there are notifications to read
+                onPressed: reports.isEmpty ? null : () => _markAllAsRead(reports),
+                child: const Text("Mark all as read", style: TextStyle(color: Color(0xFF5D7A5D), fontSize: 12)),
+              )
+            ],
           ),
-          _buildNotifTile(
-            icon: Icons.info_outline,
-            iconColor: Colors.orange,
-            title: "Investigation Update",
-            body: "A Forest Ranger is currently on-site investigating your report in Zone A-2.",
-            time: "5h ago",
-            isUnread: true,
-          ),
-          const SizedBox(height: 20),
-          const Text("YESTERDAY", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black38, letterSpacing: 1)),
-          const SizedBox(height: 12),
-          _buildNotifTile(
-            icon: Icons.assignment_turned_in_outlined,
-            iconColor: const Color(0xFF5D7A5D),
-            title: "Report Submitted",
-            body: "Your report regarding Water Pollution has been successfully received.",
-            time: "1d ago",
-            isUnread: false,
-          ),
-        ],
-      ),
+          body: reports.isEmpty 
+            ? const Center(child: Text("No notifications yet.", style: TextStyle(color: Colors.black38)))
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: reports.length,
+                itemBuilder: (context, index) {
+                  final report = reports[index];
+                  final String id = report['id'].toString();
+                  final String status = report['status'] ?? "Updated";
+                  
+                  // Check against our persistent State Set
+                  final bool isUnread = !_readIds.contains(id);
+
+                  return InkWell(
+                    // Individual read logic: add ID to set and refresh UI
+                    onTap: () => setState(() => _readIds.add(id)),
+                    child: _buildNotifTile(
+                      icon: status == 'Resolved' ? Icons.check_circle_outline : Icons.info_outline,
+                      iconColor: status == 'Resolved' ? Colors.green : Colors.orange,
+                      title: "Report $status",
+                      body: "Your report RPT-${id.substring(0,3)} (${report['incident_type']}) is now $status.",
+                      time: "Update",
+                      isUnread: isUnread,
+                    ),
+                  );
+                },
+              ),
+        );
+      }
     );
   }
 
@@ -74,11 +110,15 @@ class NotificationScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isUnread ? Colors.white : Colors.white.withOpacity(0.6),
+        // READ: Faint grey background | UNREAD: Solid white background
+        color: isUnread ? Colors.white : const Color(0xFFF1F4F1),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isUnread ? const Color(0xFF5D7A5D).withOpacity(0.2) : Colors.black12),
+        border: Border.all(
+          color: isUnread ? const Color(0xFF5D7A5D).withOpacity(0.3) : Colors.black12,
+          width: isUnread ? 1.5 : 1,
+        ),
         boxShadow: [
-          if (isUnread) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+          if (isUnread) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
         ],
       ),
       child: Row(
@@ -86,8 +126,12 @@ class NotificationScreen extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 20),
+            decoration: BoxDecoration(
+              // Icon background fades when read
+              color: isUnread ? iconColor.withOpacity(0.1) : Colors.black.withOpacity(0.05), 
+              shape: BoxShape.circle
+            ),
+            child: Icon(icon, color: isUnread ? iconColor : Colors.black38, size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -97,18 +141,26 @@ class NotificationScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF2D3E2D))),
+                    Text(title, 
+                      style: TextStyle(
+                        fontWeight: isUnread ? FontWeight.bold : FontWeight.w500, 
+                        fontSize: 14, 
+                        color: isUnread ? const Color(0xFF2D3E2D) : Colors.black45
+                      )),
                     Text(time, style: const TextStyle(fontSize: 11, color: Colors.black38)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  body,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.4),
-                ),
+                Text(body, 
+                  style: TextStyle(
+                    fontSize: 12, 
+                    color: isUnread ? Colors.black87 : Colors.black38, 
+                    height: 1.4
+                  )),
               ],
             ),
           ),
+          // Unread Green Dot: Disappears completely when marked read
           if (isUnread)
             Padding(
               padding: const EdgeInsets.only(left: 8.0, top: 4),

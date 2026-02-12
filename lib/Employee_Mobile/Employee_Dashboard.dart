@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../theme_provider.dart';
 import '../theme_constants.dart';
-import '../User_Mobile/UserProfile/user_profile.dart';
+import '../../UserProfile/user_profile.dart';
 // Import specialized employee screens
 import '../Employee_Mobile/Field_Diary/Employee_FieldDiary.dart';
 import '../Employee_Mobile/EmployeeMeeting/Employee_Meetings.dart';
@@ -76,13 +76,20 @@ class EmployeeDashboardContent extends StatelessWidget {
             surfaceTintColor: Colors.white,
             elevation: 0,
             toolbarHeight: 70,
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 16.0),
-              child: CircleAvatar(
-                backgroundColor: Color(0xFF5D7A5D),
-                child: Icon(Icons.eco, color: Colors.white, size: 24),
-              ),
-            ),
+            leading: Padding( // Removed 'const' from here
+  padding: const EdgeInsets.only(left: 16.0),
+  child: CircleAvatar(
+    radius: 30,
+    backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    child: Transform.scale(
+      scale:1.3, // 0.5 makes it half the size of the circle
+      child: Image.asset(
+        'assets/logo2.png', 
+        fit: BoxFit.contain,
+      ),
+    ),
+  ),
+),
             title: const Text(
               "Field Diary", 
               style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)
