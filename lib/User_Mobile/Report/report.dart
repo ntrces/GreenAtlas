@@ -19,6 +19,9 @@ class _ReportScreenState extends State<ReportScreen> {
   int _selectedIndex = 2; 
   String _activeFilter = "All";
 
+  // Get the current logged-in user's ID
+  String? get _userId => supabase.auth.currentUser?.id;
+
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
     if (index == 0) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const UserDashboard()));
@@ -27,6 +30,11 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If there is no user logged in, show an empty state or login redirect
+    if (_userId == null) {
+      return const Scaffold(body: Center(child: Text("Please log in to view your reports.")));
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFEAF7EA),
       bottomNavigationBar: BottomNavigationBar(
@@ -50,11 +58,18 @@ class _ReportScreenState extends State<ReportScreen> {
       ),
 
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: supabase.from('reports').stream(primaryKey: ['id']).order('created_at', ascending: false),
+        // --- THE CRITICAL FIX: Added .eq('user_id', _userId!) to ensure data privacy ---
+        stream: supabase
+            .from('reports')
+            .stream(primaryKey: ['id'])
+            .eq('user_id', _userId!) 
+            .order('created_at', ascending: false),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF4A634A)));
-          
-          final reports = snapshot.data!;
+          if (snapshot.connectionState == ConnectionState.waiting) {
+             return const Center(child: CircularProgressIndicator(color: Color(0xFF4A634A)));
+          }
+
+          final reports = snapshot.data ?? [];
           final filteredReports = _activeFilter == "All" 
               ? reports 
               : reports.where((r) => r['status'] == _activeFilter).toList();
@@ -81,41 +96,26 @@ class _ReportScreenState extends State<ReportScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- UPDATED METRIC CARDS: INCLUDES INVESTIGATING ---
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildMetricCard(reports.length.toString(), "Total", const Color(0xFF2D3E2D)),
-                            const SizedBox(width: 8),
-                            _buildMetricCard(reports.where((r) => r['status'] == 'Pending').length.toString(), "Pending", Colors.orange),
-                            const SizedBox(width: 8),
-                            _buildMetricCard(reports.where((r) => r['status'] == 'Investigating').length.toString(), "Active", Colors.blue),
-                            const SizedBox(width: 8),
-                            _buildMetricCard(reports.where((r) => r['status'] == 'Resolved').length.toString(), "Resolved", Colors.green),
-                          ],
-                        ),
-                      ),
+                      _buildMetricRow(reports),
                       const SizedBox(height: 24),
-                      
-                      // --- UPDATED FILTER CHIPS: INCLUDES INVESTIGATING ---
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildFilterChip("All", icon: Icons.list),
-                            _buildFilterChip("Pending", icon: Icons.access_time),
-                            _buildFilterChip("Investigating", icon: Icons.search),
-                            _buildFilterChip("Resolved", icon: Icons.check_circle_outline),
-                          ],
-                        ),
-                      ),
+                      _buildFilterRow(),
                       const SizedBox(height: 24),
                       const Text("YOUR REPORTS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.8)),
                       const SizedBox(height: 12),
                       
                       if (filteredReports.isEmpty)
-                        const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No reports found for this status."))),
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 60), 
+                            child: Column(
+                              children: [
+                                Icon(Icons.folder_open, size: 50, color: Colors.black12),
+                                SizedBox(height: 8),
+                                Text("No reports found for this account.", style: TextStyle(color: Colors.black26)),
+                              ],
+                            )
+                          )
+                        ),
 
                       ...filteredReports.map((data) => _buildReportCard(data)).toList(),
                       
@@ -133,7 +133,34 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
-  // --- UI HELPERS ---
+  // --- UI COMPONENTS ---
+
+  Widget _buildMetricRow(List<Map<String, dynamic>> reports) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: [
+        _buildMetricCard(reports.length.toString(), "Total", const Color(0xFF2D3E2D)),
+        const SizedBox(width: 8),
+        _buildMetricCard(reports.where((r) => r['status'] == 'Pending').length.toString(), "Pending", Colors.orange),
+        const SizedBox(width: 8),
+        _buildMetricCard(reports.where((r) => r['status'] == 'Investigating').length.toString(), "Active", Colors.blue),
+        const SizedBox(width: 8),
+        _buildMetricCard(reports.where((r) => r['status'] == 'Resolved').length.toString(), "Resolved", Colors.green),
+      ],
+    ),
+  );
+
+  Widget _buildFilterRow() => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: [
+        _buildFilterChip("All", icon: Icons.list),
+        _buildFilterChip("Pending", icon: Icons.access_time),
+        _buildFilterChip("Investigating", icon: Icons.search),
+        _buildFilterChip("Resolved", icon: Icons.check_circle_outline),
+      ],
+    ),
+  );
 
   Widget _buildMetricCard(String val, String lab, Color col) => Container(
     width: 90, padding: const EdgeInsets.symmetric(vertical: 16),
@@ -165,7 +192,8 @@ class _ReportScreenState extends State<ReportScreen> {
   Widget _buildReportCard(Map<String, dynamic> data) {
     final status = data['status'] ?? "Pending";
     final type = data['incident_type'] ?? "Incident";
-    final id = "RPT-${(data['id'] ?? "000").toString().padLeft(3, '0').substring(0,3)}";
+    final String idStr = data['id'].toString();
+    final idLabel = "RPT-${idStr.length > 3 ? idStr.substring(0,3) : idStr}";
 
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ViewReportScreen(reportData: data))),
@@ -182,7 +210,7 @@ class _ReportScreenState extends State<ReportScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Text(id, style: const TextStyle(fontSize: 11, color: Colors.black26, fontWeight: FontWeight.bold)),
+          Text(idLabel, style: const TextStyle(fontSize: 11, color: Colors.black26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Text(data['description'] ?? "", maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Colors.black54, height: 1.4)),
           const SizedBox(height: 16),
@@ -201,26 +229,12 @@ class _ReportScreenState extends State<ReportScreen> {
   Widget _buildStatusBadge(String status) {
     Color col;
     IconData icon;
-    
-    // Mapping status to colors from Admin panel
     switch (status) {
-      case "Resolved":
-        col = Colors.green;
-        icon = Icons.check_circle_outline;
-        break;
-      case "Investigating":
-        col = Colors.blue;
-        icon = Icons.search;
-        break;
-      case "Forwarded":
-        col = Colors.purple;
-        icon = Icons.forward_to_inbox;
-        break;
-      default: // Pending
-        col = Colors.orange;
-        icon = Icons.access_time;
+      case "Resolved": col = Colors.green; icon = Icons.check_circle_outline; break;
+      case "Investigating": col = Colors.blue; icon = Icons.search; break;
+      case "Forwarded": col = Colors.purple; icon = Icons.forward_to_inbox; break;
+      default: col = Colors.orange; icon = Icons.access_time;
     }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: col.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
@@ -232,7 +246,6 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
-  // (Notification, Profile, Contacts helpers remain identical)
   Widget _buildInfoRow(IconData icon, String text) => Row(children: [Icon(icon, size: 14, color: Colors.black26), const SizedBox(width: 6), Text(text, style: const TextStyle(fontSize: 11, color: Colors.black45))]);
   Widget _buildNotificationIcon() => Stack(alignment: Alignment.center, children: [IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())))]);
   Widget _buildProfileIcon() => Padding(padding: const EdgeInsets.only(right: 16.0, left: 8), child: InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), child: Container(height: 38, width: 38, decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)), child: const Icon(Icons.person_outline, color: Colors.black54))));
