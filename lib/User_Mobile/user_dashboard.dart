@@ -66,7 +66,7 @@ class _UserDashboardState extends State<UserDashboard> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Dashboard"),
-          BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "AR Gallery"),
+          BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "Plants Gallery"),
           BottomNavigationBarItem(icon: Icon(Icons.report_problem_outlined), label: "Report Issue"),
         ],
       ),
