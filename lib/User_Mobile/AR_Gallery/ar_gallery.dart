@@ -241,9 +241,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     children: [
       IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), 
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
-      Positioned(right: 8, top: 12, child: Container(padding: const EdgeInsets.all(4), 
-        decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle), 
-        child: const Text("2", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)))),
+      
     ],
   );
 

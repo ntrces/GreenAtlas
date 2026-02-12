@@ -203,7 +203,7 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
                 const Divider(height: 40),
                 const Text("Case Management", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black45)),
                 const SizedBox(height: 16),
-                _buildDropdown("Status", _newStatus ?? report['status'] ?? "Pending", ["Pending", "Investigating", "Resolved", "Forwarded"], (v) => setState(() => _newStatus = v)),
+                _buildDropdown("Status", _newStatus ?? report['status'] ?? "Pending", ["Pending", "Investigating", "Resolved"], (v) => setState(() => _newStatus = v)),
                 const SizedBox(height: 16),
                 _buildDropdown("Assign To", _assignedTeam ?? "Enforcement Team Alpha", ["Enforcement Team Alpha", "Team Beta", "Rangers"], (v) => setState(() => _assignedTeam = v)),
                 const SizedBox(height: 24),
@@ -262,11 +262,9 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
   Widget _buildMetricRow(List<Map<String, dynamic>> reports) {
     int pending = reports.where((r) => r['status'] == 'Pending' || r['status'] == 'Investigating').length;
     int resolved = reports.where((r) => r['status'] == 'Resolved').length;
-    int forwarded = reports.where((r) => r['status'] == 'Forwarded').length;
     return Row(children: [
       _statCard(pending.toString(), "Under Investigation", "ACTIVE CASES", Colors.orange),
       _statCard(resolved.toString(), "Resolved", "Cases closed", Colors.black87),
-      _statCard(forwarded.toString(), "Forwarded", "External authorities", Colors.black87),
       _statCard("3", "High Priority", "URGENT ACTION", Colors.red),
     ]);
   }
