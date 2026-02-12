@@ -6,7 +6,7 @@ import 'Report/report.dart';
 import 'Report/submit_report.dart';
 import '../../UserProfile/user_profile.dart';
 import 'notification.dart';
-import 'AR_Gallery/ar_camera.dart'; // Import for direct AR navigation
+import 'AR_Gallery/ar_camera.dart'; 
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -19,6 +19,9 @@ class _UserDashboardState extends State<UserDashboard> {
   final _supabase = Supabase.instance.client;
   int _selectedIndex = 0; 
   int _activeFilterIndex = 0;
+
+  // Access current user ID
+  String? get _userId => _supabase.auth.currentUser?.id;
 
   @override
   void initState() {
@@ -69,14 +72,13 @@ class _UserDashboardState extends State<UserDashboard> {
       ),
       body: CustomScrollView(
         slivers: [
-          // --- 1. PINNED BRANDING HEADER ---
           _buildSliverAppBar(),
 
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- 2. DYNAMIC STAT CARDS (Depends on Supabase Data) ---
+                // --- 1. DYNAMIC STAT CARDS ---
                 StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _supabase.from('plants').stream(primaryKey: ['id']),
                   builder: (context, snapshot) {
@@ -96,7 +98,7 @@ class _UserDashboardState extends State<UserDashboard> {
                   }
                 ),
 
-                // --- 3. FILTER BUTTONS ---
+                // --- 2. FILTER BUTTONS ---
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: Row(
@@ -110,7 +112,7 @@ class _UserDashboardState extends State<UserDashboard> {
 
                 const SizedBox(height: 16),
 
-                // --- 4. QUICK ACCESS ---
+                // --- 3. QUICK ACCESS ---
                 if (_activeFilterIndex == 0) ...[
                   _buildSectionLabel("QUICK ACCESS"),
                   _buildListTile("AR Gallery", Icons.visibility_outlined, 
@@ -119,7 +121,7 @@ class _UserDashboardState extends State<UserDashboard> {
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubmitReportScreen())), tag: "Quick"),
                 ],
 
-                // --- 5. DYNAMIC FEATURED PLANTS (WITH IMAGES FROM ADMIN) ---
+                // --- 4. DYNAMIC FEATURED PLANTS ---
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 1) ...[
                   _buildSectionLabelWithAction("FEATURED PLANTS", "See all", 
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()))),
@@ -132,7 +134,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       
                       return Column(
                         children: plants.map((plant) => _buildPlantTile(
-                          plant, // Passing the whole map for easy access
+                          plant, 
                           () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant)))
                         )).toList(),
                       );
@@ -141,12 +143,41 @@ class _UserDashboardState extends State<UserDashboard> {
                   const SizedBox(height: 16),
                 ],
 
-                // --- 6. RECENT ACTIVITY ---
+                // --- 5. RECENT ACTIVITY (FILTERED BY USER ID) ---
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 2) ...[
                   _buildSectionLabel("RECENT ACTIVITY"),
-                  _buildActivityTile("Illegal logging reported", "2 hours ago", Icons.error_outline, 
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen())), status: "Under Review"),
-                  _buildActivityTile("Viewed Philippine Orchid in AR", "5 hours ago", Icons.camera_alt_outlined, () {}),
+                  
+                  if (_userId == null)
+                    const Padding(padding: EdgeInsets.all(20), child: Text("Log in to see your activity"))
+                  else
+                    StreamBuilder<List<Map<String, dynamic>>>(
+                      // Stream only this user's reports
+                      stream: _supabase
+                          .from('reports')
+                          .stream(primaryKey: ['id'])
+                          .eq('user_id', _userId!)
+                          .limit(2),
+                      builder: (context, snapshot) {
+                        final userReports = snapshot.data ?? [];
+                        
+                        if (userReports.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text("No recent reports.", style: TextStyle(color: Colors.black26, fontSize: 13)),
+                          );
+                        }
+
+                        return Column(
+                          children: userReports.map((report) => _buildActivityTile(
+                            "${report['incident_type']} reported", 
+                            "Recent", 
+                            Icons.error_outline, 
+                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen())), 
+                            status: report['status']
+                          )).toList(),
+                        );
+                      }
+                    ),
                 ],
                 
                 const SizedBox(height: 32), 
@@ -158,8 +189,7 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  // --- COMPONENT BUILDERS ---
-
+  // --- UPDATED APP BAR WITH DYNAMIC NOTIFICATION ICON ---
   Widget _buildSliverAppBar() => SliverAppBar(
     pinned: true, backgroundColor: Colors.white, surfaceTintColor: Colors.white,
     elevation: 0, toolbarHeight: 80, leadingWidth: 70,
@@ -181,17 +211,43 @@ class _UserDashboardState extends State<UserDashboard> {
         Text("Explore the Cavite Protected Area", style: TextStyle(color: Colors.black54, fontSize: 12)),
       ],
     ),
-    actions: [
-      IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
-      _buildProfileIcon()
-    ],
+    actions: [_buildNotificationIcon(), _buildProfileIcon()],
   );
+
+  Widget _buildNotificationIcon() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabase.from('reports').stream(primaryKey: ['id']).eq('user_id', _userId ?? ''),
+      builder: (context, snapshot) {
+        final reports = snapshot.data?.where((r) => r['status'] != 'Pending').toList() ?? [];
+        // Note: For full accuracy, link this to your global _readIds logic
+        final unreadCount = reports.length; 
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), 
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: 8, top: 12, 
+                child: Container(
+                  padding: const EdgeInsets.all(4), 
+                  decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle), 
+                  child: Text(unreadCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))
+                )
+              ),
+          ],
+        );
+      }
+    );
+  }
+
+  // --- REUSABLE COMPONENT BUILDERS ---
 
   Widget _buildPlantTile(Map<String, dynamic> plant, VoidCallback onTap) {
     final imgUrl = plant['image_url'];
-    final name = plant['common_name'] ?? "Unknown";
-    final sub = "${plant['location_zone']} • ${plant['conservation_status']}";
-
     return Material(
       color: Colors.white,
       child: Column(
@@ -202,8 +258,7 @@ class _UserDashboardState extends State<UserDashboard> {
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                width: 50, height: 50,
-                color: const Color(0xFFF0F4F0),
+                width: 50, height: 50, color: const Color(0xFFF0F4F0),
                 child: (imgUrl != null && imgUrl.toString().isNotEmpty)
                   ? Image.network(imgUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Colors.black12))
                   : const Icon(Icons.eco, color: Colors.black12),
@@ -211,17 +266,14 @@ class _UserDashboardState extends State<UserDashboard> {
             ),
             title: Row(
               children: [
-                Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF2D3E2D))),
-                const SizedBox(width: 8),
-                if (plant['ar_model_url'] != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(6)),
-                    child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                  )
+                Text(plant['common_name'] ?? "Unknown", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF2D3E2D))),
+                if (plant['ar_model_url'] != null) ...[
+                  const SizedBox(width: 8),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(6)), child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))
+                ]
               ],
             ),
-            subtitle: Text(sub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            subtitle: Text("${plant['location_zone']} • ${plant['conservation_status']}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
             trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26),
           ),
           const Divider(height: 1, indent: 82, color: Color(0xFFF0F0F0)),
@@ -230,43 +282,8 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  // (Helper methods remain consistent with previous design)
-  Widget _buildFilterChip(String label, int index, IconData? icon) {
-    bool isSelected = _activeFilterIndex == index;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: FilterChip(
-        showCheckmark: false, 
-        avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null,
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (bool selected) {
-          setState(() => _activeFilterIndex = index);
-          _saveFilterPreference(index);
-        },
-        selectedColor: const Color(0xFF4A634A),
-        labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF4A634A), fontWeight: FontWeight.bold, fontSize: 13),
-        backgroundColor: const Color(0xFFD6E8D6),
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String val, String label, IconData icon) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        CircleAvatar(backgroundColor: const Color(0xFFF0F4F0), child: Icon(icon, color: const Color(0xFF5D7A5D), size: 20)),
-        const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
-        ])
-      ])),
-  );
-
+  Widget _buildStatCard(String val, String label, IconData icon) => Expanded(child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Row(children: [CircleAvatar(backgroundColor: const Color(0xFFF0F4F0), child: Icon(icon, color: const Color(0xFF5D7A5D), size: 20)), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54))])])));
+  Widget _buildFilterChip(String label, int index, IconData? icon) { bool isSelected = _activeFilterIndex == index; return Padding(padding: const EdgeInsets.only(right: 8.0), child: FilterChip(showCheckmark: false, avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null, label: Text(label), selected: isSelected, onSelected: (bool selected) { setState(() => _activeFilterIndex = index); _saveFilterPreference(index); }, selectedColor: const Color(0xFF4A634A), labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF4A634A), fontWeight: FontWeight.bold, fontSize: 13), backgroundColor: const Color(0xFFD6E8D6), side: BorderSide.none, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))); }
   Widget _buildSectionLabel(String title) => Container(width: double.infinity, padding: const EdgeInsets.all(16), color: const Color(0xFFE8F3E8), child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.8)));
   Widget _buildSectionLabelWithAction(String title, String action, VoidCallback onAction) => Container(padding: const EdgeInsets.symmetric(horizontal: 16), color: const Color(0xFFE8F3E8), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.8)), TextButton(onPressed: onAction, child: Text(action, style: const TextStyle(fontSize: 12, color: Colors.grey)))]));
   Widget _buildListTile(String title, IconData icon, VoidCallback onTap, {String? tag}) => Material(color: Colors.white, child: Column(children: [ListTile(onTap: onTap, leading: Icon(icon, color: const Color(0xFF2D3E2D), size: 22), title: Row(children: [Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)), if (tag != null) ...[const SizedBox(width: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFE8F3E8), borderRadius: BorderRadius.circular(12)), child: Text(tag, style: const TextStyle(fontSize: 11, color: Color(0xFF5D7A5D), fontWeight: FontWeight.bold)))]]), trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)), const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))]));
