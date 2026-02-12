@@ -12,6 +12,8 @@ dependencies:
   supabase_flutter: ^2.6.0
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.1
+  file_picker: ^8.0.0
+  shared_preferences: ^2.3.5
   provider: ^6.1.1 # Added here and aligned correctly
 
 dev_dependencies:

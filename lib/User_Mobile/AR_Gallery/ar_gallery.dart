@@ -81,7 +81,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                 children: [
                   Row(
                     children: [
-                      // --- 2. SEARCH BAR ---
                       Expanded(
                         child: TextField(
                           controller: _searchController,
@@ -96,7 +95,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // --- 3. FILTER BUTTON ---
                       Container(
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                         child: IconButton(
@@ -121,7 +119,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                       ),
                     ],
                   ),
-                  // --- SHOWING RESULTS COUNTER ---
                   const SizedBox(height: 12),
                   if (_activeType != "All Plants" || _activeStatus != "All Statuses")
                     Text("Filtering by: ${_activeType == "All Plants" ? "" : _activeType} ${_activeStatus == "All Statuses" ? "" : "• $_activeStatus"}",
@@ -131,7 +128,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             ),
           ),
 
-          // --- 4. DYNAMIC FILTERED STREAM ---
+          // --- 2. DYNAMIC FILTERED STREAM ---
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: _supabase.from('plants').stream(primaryKey: ['id']).order('common_name'),
             builder: (context, snapshot) {
@@ -139,14 +136,9 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                 return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
               }
               
-              // Local filtering logic
               final plants = snapshot.data?.where((p) {
                 final matchesSearch = p['common_name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
-                
-                // Map UI "Flowering Plants" to Database "Flowering" etc.
-                final dbCategory = _activeType.replaceAll(" Plants", "").trim();
-                final matchesType = _activeType == "All Plants" || p['category'] == dbCategory;
-                
+                final matchesType = _activeType == "All Plants" || p['category'] == _activeType;
                 final matchesStatus = _activeStatus == "All Statuses" || p['conservation_status'] == _activeStatus;
 
                 return matchesSearch && matchesType && matchesStatus;
@@ -162,11 +154,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final plant = plants[index];
-                    return _buildPlantListItem(
-                      plant['common_name'] ?? "Unknown", 
-                      "${plant['location_zone'] ?? 'N/A'} • ${plant['conservation_status'] ?? 'Common'}", 
-                      plant['image_url'] ?? "assets/logo1.png"
-                    );
+                    return _buildPlantListItem(plant); // Pass the whole map to the helper
                   },
                   childCount: plants.length,
                 ),
@@ -194,19 +182,31 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
 
   // --- UI HELPERS ---
 
-  Widget _buildPlantListItem(String name, String status, String imgPath) {
+  Widget _buildPlantListItem(Map<String, dynamic> plant) {
+    final String name = plant['common_name'] ?? "Unknown";
+    final String status = "${plant['location_zone'] ?? 'N/A'} • ${plant['conservation_status'] ?? 'Common'}";
+    final String? imgUrl = plant['image_url'];
+
     return Container(
       color: Colors.white,
       child: Column(
         children: [
           ListTile(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARCameraScreen())),
+            // FIXED: Passing plant data map to the AR Camera
+            onTap: () => Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))
+            ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.asset(imgPath, width: 55, height: 55, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: Colors.grey[200], width: 55, height: 55, child: const Icon(Icons.image_not_supported)),
-              ),
+              child: imgUrl != null && imgUrl.startsWith('http')
+                ? Image.network(
+                    imgUrl, 
+                    width: 55, height: 55, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+                  )
+                : _buildPlaceholderImage(),
             ),
             title: Row(
               children: [
@@ -217,8 +217,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                   decoration: BoxDecoration(color: const Color(0xFF4A634A), borderRadius: BorderRadius.circular(6)),
                   child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
-                const SizedBox(width: 6),
-                const Icon(Icons.volume_up_outlined, size: 18, color: Colors.black38),
               ],
             ),
             subtitle: Padding(
@@ -232,6 +230,11 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       ),
     );
   }
+
+  Widget _buildPlaceholderImage() => Container(
+    color: Colors.grey[200], width: 55, height: 55, 
+    child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 20)
+  );
 
   Widget _buildNotificationIcon() => Stack(
     alignment: Alignment.center,
