@@ -19,7 +19,6 @@ class _ReportScreenState extends State<ReportScreen> {
   int _selectedIndex = 2; 
   String _activeFilter = "All";
 
-  // Get the current logged-in user's ID
   String? get _userId => supabase.auth.currentUser?.id;
 
   void _onItemTapped(int index) {
@@ -30,7 +29,6 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // If there is no user logged in, show an empty state or login redirect
     if (_userId == null) {
       return const Scaffold(body: Center(child: Text("Please log in to view your reports.")));
     }
@@ -50,21 +48,20 @@ class _ReportScreenState extends State<ReportScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.report_problem_outlined), label: "Report Issue"),
         ],
       ),
-
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubmitReport1Screen())),
         backgroundColor: const Color(0xFF4A634A),
+        elevation: 4,
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
-
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        // --- THE CRITICAL FIX: Added .eq('user_id', _userId!) to ensure data privacy ---
         stream: supabase
             .from('reports')
             .stream(primaryKey: ['id'])
             .eq('user_id', _userId!) 
             .order('created_at', ascending: false),
         builder: (context, snapshot) {
+          if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
           if (snapshot.connectionState == ConnectionState.waiting) {
              return const Center(child: CircularProgressIndicator(color: Color(0xFF4A634A)));
           }
@@ -83,7 +80,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 leading: Padding(
                   padding: const EdgeInsets.only(left: 16.0),
                   child: Center(
-                    child: Image.asset('logo2.png', width: 40, height: 40, fit: BoxFit.contain,
+                    child: Image.asset('assets/logo2.png', width: 40, height: 40, fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Color(0xFF2D3E2D), size: 30)),
                   ),
                 ),
@@ -104,20 +101,14 @@ class _ReportScreenState extends State<ReportScreen> {
                       const SizedBox(height: 12),
                       
                       if (filteredReports.isEmpty)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 60), 
-                            child: Column(
-                              children: [
-                                Icon(Icons.folder_open, size: 50, color: Colors.black12),
-                                SizedBox(height: 8),
-                                Text("No reports found for this account.", style: TextStyle(color: Colors.black26)),
-                              ],
-                            )
-                          )
+                        _buildEmptyState()
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filteredReports.length,
+                          itemBuilder: (context, index) => _buildReportCard(filteredReports[index]),
                         ),
-
-                      ...filteredReports.map((data) => _buildReportCard(data)).toList(),
                       
                       const SizedBox(height: 16),
                       _buildCollapsibleContacts(),
@@ -135,24 +126,53 @@ class _ReportScreenState extends State<ReportScreen> {
 
   // --- UI COMPONENTS ---
 
-  Widget _buildMetricRow(List<Map<String, dynamic>> reports) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
+  Widget _buildEmptyState() => const Center(
+    child: Padding(
+      padding: EdgeInsets.symmetric(vertical: 60), 
+      child: Column(
+        children: [
+          Icon(Icons.folder_open, size: 50, color: Colors.black12),
+          SizedBox(height: 8),
+          Text("No reports found.", style: TextStyle(color: Colors.black26)),
+        ],
+      )
+    )
+  );
+
+  Widget _buildMetricRow(List<Map<String, dynamic>> reports) {
+    return Row(
       children: [
-        _buildMetricCard(reports.length.toString(), "Total", const Color(0xFF2D3E2D)),
+        _buildExpandedMetric("${reports.length}", "Total", const Color(0xFF2D3E2D)),
         const SizedBox(width: 8),
-        _buildMetricCard(reports.where((r) => r['status'] == 'Pending').length.toString(), "Pending", Colors.orange),
+        _buildExpandedMetric("${reports.where((r) => r['status'] == 'Pending').length}", "Pending", Colors.orange),
         const SizedBox(width: 8),
-        _buildMetricCard(reports.where((r) => r['status'] == 'Investigating').length.toString(), "Active", Colors.blue),
+        _buildExpandedMetric("${reports.where((r) => r['status'] == 'Investigating').length}", "Active", Colors.blue),
         const SizedBox(width: 8),
-        _buildMetricCard(reports.where((r) => r['status'] == 'Resolved').length.toString(), "Resolved", Colors.green),
+        _buildExpandedMetric("${reports.where((r) => r['status'] == 'Resolved').length}", "Resolved", Colors.green),
       ],
+    );
+  }
+
+  Widget _buildExpandedMetric(String val, String lab, Color col) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(12), 
+        border: Border.all(color: Colors.black.withOpacity(0.05))
+      ),
+      child: Column(children: [
+        Text(val, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: col)),
+        Text(lab, style: const TextStyle(fontSize: 9, color: Colors.black38, fontWeight: FontWeight.w600))
+      ]),
     ),
   );
 
-  Widget _buildFilterRow() => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
+  Widget _buildFilterRow() => SizedBox(
+    height: 40,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       children: [
         _buildFilterChip("All", icon: Icons.list),
         _buildFilterChip("Pending", icon: Icons.access_time),
@@ -162,27 +182,18 @@ class _ReportScreenState extends State<ReportScreen> {
     ),
   );
 
-  Widget _buildMetricCard(String val, String lab, Color col) => Container(
-    width: 90, padding: const EdgeInsets.symmetric(vertical: 16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black.withOpacity(0.05))),
-    child: Column(children: [
-      Text(val, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: col)),
-      Text(lab, style: const TextStyle(fontSize: 10, color: Colors.black38, fontWeight: FontWeight.w600))
-    ]),
-  );
-
   Widget _buildFilterChip(String label, {IconData? icon}) {
     bool isSelected = _activeFilter == label;
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: ChoiceChip(
         label: Text(label),
-        avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null,
+        avatar: icon != null ? Icon(icon, size: 14, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null,
         selected: isSelected,
         onSelected: (val) => setState(() => _activeFilter = label),
         selectedColor: const Color(0xFF4A634A),
         backgroundColor: Colors.white,
-        labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF4A634A), fontSize: 13, fontWeight: FontWeight.bold),
+        labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF4A634A), fontSize: 12, fontWeight: FontWeight.bold),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
         showCheckmark: false,
       ),
@@ -192,8 +203,7 @@ class _ReportScreenState extends State<ReportScreen> {
   Widget _buildReportCard(Map<String, dynamic> data) {
     final status = data['status'] ?? "Pending";
     final type = data['incident_type'] ?? "Incident";
-    final String idStr = data['id'].toString();
-    final idLabel = "RPT-${idStr.length > 3 ? idStr.substring(0,3) : idStr}";
+    final idLabel = "RPT-${data['id'].toString().split('-')[0].substring(0, 3)}";
 
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ViewReportScreen(reportData: data))),
@@ -205,19 +215,22 @@ class _ReportScreenState extends State<ReportScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2D3E2D)), overflow: TextOverflow.ellipsis)),
+              Expanded(child: Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2D3E2D)), overflow: TextOverflow.ellipsis)),
               _buildStatusBadge(status),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(idLabel, style: const TextStyle(fontSize: 11, color: Colors.black26, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
+          Text(idLabel, style: const TextStyle(fontSize: 10, color: Colors.black26, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
           Text(data['description'] ?? "", maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Colors.black54, height: 1.4)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          // FIXED: Using Expanded and ellipsis to ensure Date is pushed to the edge without being cut off
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildInfoRow(Icons.location_on_outlined, data['location'] ?? "N/A"),
-              const Spacer(),
+              Expanded(
+                child: _buildInfoRow(Icons.location_on_outlined, data['location'] ?? "N/A"),
+              ),
+              const SizedBox(width: 8),
               _buildInfoRow(Icons.calendar_today_outlined, (data['created_at'] ?? "").toString().split('T')[0]),
             ],
           ),
@@ -228,27 +241,69 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Widget _buildStatusBadge(String status) {
     Color col;
-    IconData icon;
     switch (status) {
-      case "Resolved": col = Colors.green; icon = Icons.check_circle_outline; break;
-      case "Investigating": col = Colors.blue; icon = Icons.search; break;
-      case "Forwarded": col = Colors.purple; icon = Icons.forward_to_inbox; break;
-      default: col = Colors.orange; icon = Icons.access_time;
+      case "Resolved": col = Colors.green; break;
+      case "Investigating": col = Colors.blue; break;
+      case "Forwarded": col = Colors.purple; break;
+      default: col = Colors.orange;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: col.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 12, color: col),
-        const SizedBox(width: 4),
-        Text(status.toUpperCase(), style: TextStyle(color: col, fontSize: 10, fontWeight: FontWeight.bold)),
-      ]),
+      child: Text(status.toUpperCase(), style: TextStyle(color: col, fontSize: 9, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) => Row(children: [Icon(icon, size: 14, color: Colors.black26), const SizedBox(width: 6), Text(text, style: const TextStyle(fontSize: 11, color: Colors.black45))]);
-  Widget _buildNotificationIcon() => Stack(alignment: Alignment.center, children: [IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())))]);
-  Widget _buildProfileIcon() => Padding(padding: const EdgeInsets.only(right: 16.0, left: 8), child: InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), child: Container(height: 38, width: 38, decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)), child: const Icon(Icons.person_outline, color: Colors.black54))));
-  Widget _buildCollapsibleContacts() { if (_activeFilter != "All") return const SizedBox.shrink(); return Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black12)), child: Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent), child: ExpansionTile(title: const Text("EMERGENCY CONTACTS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.5)), children: [_buildContactItem(Icons.phone_outlined, "DENR Cavite", "(046) 123-4567"), const Divider(height: 1, indent: 16, endIndent: 16), _buildContactItem(Icons.phone_outlined, "Forest Rangers Hotline", "0917-XXX-XXXX"), const Divider(height: 1, indent: 16, endIndent: 16), _buildContactItem(Icons.error_outline, "Emergency (Fire/Wildlife)", "911")]))); }
-  Widget _buildContactItem(IconData icon, String title, String subtitle) => ListTile(leading: Icon(icon, color: const Color(0xFF5D7A5D), size: 22), title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D))), subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)), trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.black26));
+  Widget _buildInfoRow(IconData icon, String text) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 12, color: Colors.black26), 
+      const SizedBox(width: 4), 
+      Flexible(
+        child: Text(
+          text, 
+          style: const TextStyle(fontSize: 11, color: Colors.black45), 
+          overflow: TextOverflow.ellipsis,
+        )
+      )
+    ]
+  );
+  
+  Widget _buildNotificationIcon() => IconButton(
+    icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 24), 
+    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
+  );
+  
+  Widget _buildProfileIcon() => Padding(
+    padding: const EdgeInsets.only(right: 12.0), 
+    child: InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), 
+      child: Container(height: 34, width: 34, decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)), child: const Icon(Icons.person_outline, color: Colors.black54, size: 20))
+    )
+  );
+
+  Widget _buildCollapsibleContacts() { 
+    if (_activeFilter != "All") return const SizedBox.shrink(); 
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black12)), 
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent), 
+        child: ExpansionTile(
+          title: const Text("EMERGENCY CONTACTS", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF4A634A))), 
+          children: [
+            _buildContactItem(Icons.phone_outlined, "DENR Cavite", "(046) 123-4567"), 
+            _buildContactItem(Icons.phone_outlined, "Rangers", "0917-XXX-XXXX"), 
+            _buildContactItem(Icons.error_outline, "Emergency", "911")
+          ]
+        )
+      )
+    ); 
+  }
+  
+  Widget _buildContactItem(IconData icon, String title, String subtitle) => ListTile(
+    visualDensity: VisualDensity.compact,
+    leading: Icon(icon, color: const Color(0xFF5D7A5D), size: 18), 
+    title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)), 
+    subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.black45)), 
+  );
 }
