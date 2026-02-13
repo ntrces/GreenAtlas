@@ -20,7 +20,6 @@ class _UserDashboardState extends State<UserDashboard> {
   int _selectedIndex = 0; 
   int _activeFilterIndex = 0;
 
-  // Access current user ID
   String? get _userId => _supabase.auth.currentUser?.id;
 
   @override
@@ -29,7 +28,6 @@ class _UserDashboardState extends State<UserDashboard> {
     _loadFilterPreference();
   }
 
-  // --- PERSISTENCE LOGIC ---
   Future<void> _loadFilterPreference() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
@@ -78,7 +76,6 @@ class _UserDashboardState extends State<UserDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- 1. DYNAMIC STAT CARDS ---
                 StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _supabase.from('plants').stream(primaryKey: ['id']),
                   builder: (context, snapshot) {
@@ -98,7 +95,6 @@ class _UserDashboardState extends State<UserDashboard> {
                   }
                 ),
 
-                // --- 2. FILTER BUTTONS ---
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: Row(
@@ -112,7 +108,6 @@ class _UserDashboardState extends State<UserDashboard> {
 
                 const SizedBox(height: 16),
 
-                // --- 3. QUICK ACCESS ---
                 if (_activeFilterIndex == 0) ...[
                   _buildSectionLabel("QUICK ACCESS"),
                   _buildListTile("AR Gallery", Icons.visibility_outlined, 
@@ -121,7 +116,6 @@ class _UserDashboardState extends State<UserDashboard> {
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubmitReportScreen())), tag: "Quick"),
                 ],
 
-                // --- 4. DYNAMIC FEATURED PLANTS ---
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 1) ...[
                   _buildSectionLabelWithAction("FEATURED PLANTS", "See all", 
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()))),
@@ -143,7 +137,6 @@ class _UserDashboardState extends State<UserDashboard> {
                   const SizedBox(height: 16),
                 ],
 
-                // --- 5. RECENT ACTIVITY (FILTERED BY USER ID) ---
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 2) ...[
                   _buildSectionLabel("RECENT ACTIVITY"),
                   
@@ -151,7 +144,6 @@ class _UserDashboardState extends State<UserDashboard> {
                     const Padding(padding: EdgeInsets.all(20), child: Text("Log in to see your activity"))
                   else
                     StreamBuilder<List<Map<String, dynamic>>>(
-                      // Stream only this user's reports
                       stream: _supabase
                           .from('reports')
                           .stream(primaryKey: ['id'])
@@ -179,7 +171,6 @@ class _UserDashboardState extends State<UserDashboard> {
                       }
                     ),
                 ],
-                
                 const SizedBox(height: 32), 
               ],
             ),
@@ -189,7 +180,7 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  // --- UPDATED APP BAR WITH DYNAMIC NOTIFICATION ICON ---
+  // --- FIXED APPBAR WITH DYNAMIC NAME FETCHING ---
   Widget _buildSliverAppBar() => SliverAppBar(
     pinned: true, backgroundColor: Colors.white, surfaceTintColor: Colors.white,
     elevation: 0, toolbarHeight: 80, leadingWidth: 70,
@@ -204,22 +195,35 @@ class _UserDashboardState extends State<UserDashboard> {
         ),
       ),
     ),
-    title: const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Welcome, User", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
-        Text("Explore the Cavite Protected Area", style: TextStyle(color: Colors.black54, fontSize: 12)),
-      ],
+    // FIXED: Using StreamBuilder to fetch first name from profiles table
+    title: StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabase.from('profiles').stream(primaryKey: ['id']).eq('id', _userId ?? ''),
+      builder: (context, snapshot) {
+        String firstName = "User";
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final fullName = snapshot.data!.first['full_name'] ?? "User";
+          firstName = fullName.split(' ')[0]; // Isolate first name
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Welcome, $firstName", 
+              style: const TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
+            const Text("Explore the Cavite Protected Area", 
+              style: TextStyle(color: Colors.black54, fontSize: 12)),
+          ],
+        );
+      }
     ),
     actions: [_buildNotificationIcon(), _buildProfileIcon()],
   );
 
+  // (Remaining helper methods remain unchanged)
   Widget _buildNotificationIcon() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase.from('reports').stream(primaryKey: ['id']).eq('user_id', _userId ?? ''),
       builder: (context, snapshot) {
         final reports = snapshot.data?.where((r) => r['status'] != 'Pending').toList() ?? [];
-        // Note: For full accuracy, link this to your global _readIds logic
         final unreadCount = reports.length; 
 
         return Stack(
@@ -233,9 +237,8 @@ class _UserDashboardState extends State<UserDashboard> {
               Positioned(
                 right: 8, top: 12, 
                 child: Container(
-                  padding: const EdgeInsets.all(4), 
-                  decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle), 
-                  child: Text(unreadCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))
+                  height: 8, width: 8,
+                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                 )
               ),
           ],
@@ -243,8 +246,6 @@ class _UserDashboardState extends State<UserDashboard> {
       }
     );
   }
-
-  // --- REUSABLE COMPONENT BUILDERS ---
 
   Widget _buildPlantTile(Map<String, dynamic> plant, VoidCallback onTap) {
     final imgUrl = plant['image_url'];
@@ -287,6 +288,6 @@ class _UserDashboardState extends State<UserDashboard> {
   Widget _buildSectionLabel(String title) => Container(width: double.infinity, padding: const EdgeInsets.all(16), color: const Color(0xFFE8F3E8), child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.8)));
   Widget _buildSectionLabelWithAction(String title, String action, VoidCallback onAction) => Container(padding: const EdgeInsets.symmetric(horizontal: 16), color: const Color(0xFFE8F3E8), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.8)), TextButton(onPressed: onAction, child: Text(action, style: const TextStyle(fontSize: 12, color: Colors.grey)))]));
   Widget _buildListTile(String title, IconData icon, VoidCallback onTap, {String? tag}) => Material(color: Colors.white, child: Column(children: [ListTile(onTap: onTap, leading: Icon(icon, color: const Color(0xFF2D3E2D), size: 22), title: Row(children: [Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)), if (tag != null) ...[const SizedBox(width: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFE8F3E8), borderRadius: BorderRadius.circular(12)), child: Text(tag, style: const TextStyle(fontSize: 11, color: Color(0xFF5D7A5D), fontWeight: FontWeight.bold)))]]), trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)), const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))]));
-  Widget _buildActivityTile(String title, String time, IconData icon, VoidCallback onTap, {String? status}) => Material(color: Colors.white, child: Column(children: [ListTile(onTap: onTap, leading: Icon(icon, color: Colors.black38, size: 22), title: Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))), if (status != null) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(12)), child: Text(status, style: const TextStyle(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.bold)))]), subtitle: Text(time, style: const TextStyle(fontSize: 12, color: Colors.grey)), trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)), const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))]));
+  Widget _buildActivityTile(String title, String time, IconData icon, VoidCallback onTap, {String? status}) => Material(color: Colors.white, child: Column(children: [ListTile(onTap: onTap, leading: Icon(icon, color: Colors.black38, size: 22), title: Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))), if (status != null) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(12)), child: Text(status, style: TextStyle(color: status == 'Resolved' ? Colors.green : Colors.black54, fontSize: 10, fontWeight: FontWeight.bold)))]), subtitle: Text(time, style: const TextStyle(fontSize: 12, color: Colors.grey)), trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)), const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))]));
   Widget _buildProfileIcon() => Padding(padding: const EdgeInsets.only(right: 16.0, left: 8), child: InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), child: Container(height: 40, width: 40, decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)), child: const Icon(Icons.person_outline, color: Colors.black54))));
 }
