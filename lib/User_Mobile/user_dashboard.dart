@@ -238,7 +238,7 @@ class _UserDashboardState extends State<UserDashboard> {
                 right: 8, top: 12, 
                 child: Container(
                   height: 8, width: 8,
-                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                 
                 )
               ),
           ],
