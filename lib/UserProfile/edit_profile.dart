@@ -15,11 +15,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
 
-  final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _municipalityController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
 
   Uint8List? _imageBytes;
   String? _existingAvatarUrl;
@@ -37,16 +38,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       try {
         final data = await _supabase.from('profiles').select().eq('id', user.id).single();
         setState(() {
-          // Splitting full_name if separate first/last names aren't in the DB yet
-          String fullName = data['full_name'] ?? "";
-          List<String> parts = fullName.split(" ");
-          
-          _firstNameController.text = data['first_name'] ?? (parts.isNotEmpty ? parts[0] : "");
-          _lastNameController.text = data['last_name'] ?? (parts.length > 1 ? parts.sublist(1).join(" ") : "");
-          
+          _firstNameController.text = data['first_name'] ?? "";
+          _lastNameController.text = data['last_name'] ?? "";
           _emailController.text = user.email ?? "";
           _phoneController.text = data['phone'] ?? "";
-          _locationController.text = data['location'] ?? "";
+          _municipalityController.text = data['municipality'] ?? "";
+          _cityController.text = data['city'] ?? "";
           _existingAvatarUrl = data['avatar_url'];
         });
       } catch (e) {
@@ -64,7 +61,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _handleSave() async {
-    // Triggers the validators in each TextFormField
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -73,12 +69,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final user = _supabase.auth.currentUser;
       String? finalAvatarUrl = _existingAvatarUrl;
 
-      // Clean the inputs
-      final fName = _firstNameController.text.trim();
-      final lName = _lastNameController.text.trim();
-      final phone = _phoneController.text.trim();
-      final location = _locationController.text.trim();
-
+      // 1. Upload Image if changed
       if (_imageBytes != null) {
         final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
         final path = '${user!.id}/$fileName';
@@ -92,20 +83,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         finalAvatarUrl = _supabase.storage.from('Profiles').getPublicUrl(path);
       }
 
+      // 2. Update Database
       await _supabase.from('profiles').update({
-        'full_name': "$fName $lName",
-        'first_name': fName,
-        'last_name': lName,
-        'phone': phone,
-        'location': location,
+        'full_name': "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}",
+        'first_name': _firstNameController.text.trim(),
+        'last_name': _lastNameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'municipality': _municipalityController.text.trim(),
+        'city': _cityController.text.trim(),
         'avatar_url': finalAvatarUrl,
       }).eq('id', user!.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Profile updated!"), backgroundColor: Colors.green)
+          const SnackBar(content: Text("Profile successfully updated!"), backgroundColor: Color(0xFF5D7A5D))
         );
-        Navigator.pop(context, true);
+        Navigator.pop(context, true); // Returns 'true' to trigger refresh on Profile Screen
       }
     } catch (e) {
       if (mounted) {
@@ -129,32 +122,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text("Edit Profile", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold)),
+        title: const Text("Edit Profile", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
-          key: _formKey, // Needed for validation
+          key: _formKey,
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.black12),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildAvatarPicker(),
                 const SizedBox(height: 30),
-                const Text("PERSONAL INFORMATION", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4A634A))),
-                const SizedBox(height: 24),
-                _buildInputField("LAST NAME", _lastNameController),
-                _buildInputField("FIRST NAME", _firstNameController),
-                _buildInputField("EMAIL", _emailController, isEnabled: false),
-                _buildInputField("PHONE", _phoneController),
-                _buildInputField("LOCATION", _locationController),
+                const Text("ACCOUNT DETAILS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5D7A5D), letterSpacing: 1.0)),
                 const SizedBox(height: 20),
+                
+                Row(
+                  children: [
+                    Expanded(child: _buildInputField("FIRST NAME", _firstNameController)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildInputField("LAST NAME", _lastNameController)),
+                  ],
+                ),
+                
+                _buildInputField("EMAIL ADDRESS", _emailController, isEnabled: false, icon: Icons.email_outlined),
+                _buildInputField("PHONE NUMBER", _phoneController, icon: Icons.phone_android_outlined),
+                
+                const Divider(height: 40),
+                const Text("LOCATION DETAILS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5D7A5D), letterSpacing: 1.0)),
+                const SizedBox(height: 20),
+                
+                _buildInputField("MUNICIPALITY", _municipalityController, icon: Icons.location_city_outlined),
+                _buildInputField("CITY / PROVINCE", _cityController, icon: Icons.map_outlined),
+                
+                const SizedBox(height: 30),
                 _buildActionButtons(),
               ],
             ),
@@ -170,21 +177,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Stack(
         children: [
           CircleAvatar(
-            radius: 50,
+            radius: 55,
             backgroundColor: const Color(0xFFF0F4F0),
             backgroundImage: _imageBytes != null 
                 ? MemoryImage(_imageBytes!) 
                 : (_existingAvatarUrl != null ? NetworkImage(_existingAvatarUrl!) : null) as ImageProvider?,
             child: (_imageBytes == null && _existingAvatarUrl == null) 
-                ? const Icon(Icons.person_outline, size: 50, color: Colors.black12) 
+                ? const Icon(Icons.person_outline, size: 55, color: Colors.black12) 
                 : null,
           ),
           Positioned(
-            bottom: 0, right: 0,
+            bottom: 0, right: 4,
             child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle),
-              child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF5D7A5D), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+              child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
             ),
           ),
         ],
@@ -192,74 +199,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ),
   );
 
-  Widget _buildActionButtons() => Row(
-    children: [
-      Expanded(
-        child: ElevatedButton(
-          onPressed: _isLoading ? null : _handleSave,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF5D7A5D),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-          child: _isLoading 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-              : const Text("SAVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: OutlinedButton(
-          onPressed: () => Navigator.pop(context),
-          style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            side: const BorderSide(color: Colors.black12),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-          child: const Text("CANCEL", style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
-        ),
-      ),
-    ],
-  );
-
-  Widget _buildInputField(String label, TextEditingController controller, {bool isEnabled = true}) {
+  Widget _buildInputField(String label, TextEditingController controller, {bool isEnabled = true, IconData? icon}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black45)),
           const SizedBox(height: 8),
           TextFormField(
             controller: controller,
             enabled: isEnabled,
-            // Automatically show numeric keyboard for Phone
-            keyboardType: label == "PHONE" ? TextInputType.phone : TextInputType.text,
+            keyboardType: label.contains("PHONE") ? TextInputType.phone : TextInputType.text,
+            style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
+              prefixIcon: icon != null ? Icon(icon, size: 18, color: const Color(0xFF5D7A5D)) : null,
               filled: true,
-              fillColor: isEnabled ? Colors.white : const Color(0xFFF9F9F9),
+              fillColor: isEnabled ? Colors.white : const Color(0xFFF5F5F5),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.black12)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF5D7A5D))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF5D7A5D))),
+              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
+              errorStyle: const TextStyle(fontSize: 10),
             ),
             validator: (value) {
               final val = value ?? "";
-              if (val.trim().isEmpty) return "This field is required";
-
-              // Name Validation: Letters and spaces only
-              if (label == "FIRST NAME" || label == "LAST NAME") {
-                if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(val)) {
-                  return "Letters only, no numbers or symbols";
-                }
+              if (isEnabled && val.trim().isEmpty) return "Field required";
+              if ((label.contains("NAME") || label.contains("MUNICIPALITY")) && !RegExp(r'^[a-zA-Z\s]+$').hasMatch(val)) {
+                return "Letters only";
               }
-
-              // Phone Validation: Exactly 11 digits
-              if (label == "PHONE") {
-                if (!RegExp(r'^\d{11}$').hasMatch(val)) {
-                  return "Must be exactly 11 digits";
-                }
+              if (label.contains("PHONE") && !RegExp(r'^\d{11}$').hasMatch(val)) {
+                return "Enter 11 digits";
               }
-
               return null;
             },
           ),
@@ -267,4 +238,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
+
+  Widget _buildActionButtons() => Column(
+    children: [
+      SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: ElevatedButton(
+          onPressed: _isLoading ? null : _handleSave,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF5D7A5D),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
+          ),
+          child: _isLoading 
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+              : const Text("SAVE CHANGES", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        ),
+      ),
+      const SizedBox(height: 12),
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text("Discard changes", style: TextStyle(color: Colors.black45, fontSize: 13)),
+      ),
+    ],
+  );
 }

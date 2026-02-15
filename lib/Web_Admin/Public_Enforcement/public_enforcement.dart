@@ -47,17 +47,25 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
         const SizedBox(height: 32),
         
         StreamBuilder<List<Map<String, dynamic>>>(
+          // Realtime stream
           stream: _supabase.from('reports').stream(primaryKey: ['id']).order('created_at', ascending: false),
           builder: (context, snapshot) {
+            if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
             if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            
             final reports = snapshot.data ?? [];
 
-            // Filter logic matching the design tabs
+            // Filter logic
             final filteredReports = reports.where((r) {
               if (_activeTab == "ALL") return true;
               if (_activeTab == "ACTIVE") return (r['status'] ?? "") == 'Investigating' || (r['status'] ?? "") == 'Pending';
               return (r['status'] ?? "").toString().toUpperCase() == _activeTab;
             }).toList();
+
+            // SAFETY: Ensure selection is valid after filtering
+            if (_selectedReportIndex >= filteredReports.length) {
+              _selectedReportIndex = 0;
+            }
 
             return Column(
               children: [
@@ -66,13 +74,11 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // LEFT SIDE: Incident List
                     Expanded(flex: 6, child: _buildIncidentList(filteredReports)),
                     const SizedBox(width: 32),
-                    // RIGHT SIDE: Case Details with Image Preview
                     Expanded(
                       flex: 4, 
-                      child: (filteredReports.isEmpty || _selectedReportIndex >= filteredReports.length)
+                      child: filteredReports.isEmpty
                         ? const Card(child: Padding(padding: EdgeInsets.all(32), child: Text("No reports found")))
                         : _buildCaseDetails(filteredReports[_selectedReportIndex])
                     ),
@@ -139,12 +145,6 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
                           children: [
                             Text(report['incident_type'] ?? "Unknown Incident", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                             Text(report['location'] ?? "Unknown Location", style: const TextStyle(fontSize: 12, color: Colors.black45)),
-                            Row(children: [
-                              const Icon(Icons.person_outline, size: 12, color: Colors.black38),
-                              const Text(" Anonymous Citizen • ", style: TextStyle(fontSize: 12, color: Colors.black38)),
-                              if (report['evidence_url'] != null) const Icon(Icons.link, size: 12, color: Colors.blueAccent),
-                              if (report['evidence_url'] != null) const Text(" Evidence", style: TextStyle(color: Colors.blueAccent, fontSize: 12)),
-                            ]),
                           ],
                         ),
                       ),
@@ -161,13 +161,9 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
   }
 
   Widget _buildCaseDetails(Map<String, dynamic> report) {
-    final String? evidenceUrl = report['evidence_url'];
-
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white, 
-        border: Border.all(color: Colors.black12), 
-        borderRadius: BorderRadius.circular(4)
+        color: Colors.white, border: Border.all(color: Colors.black12), borderRadius: BorderRadius.circular(4)
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,55 +174,26 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // EVIDENCE IMAGE PREVIEW
-                if (evidenceUrl != null && evidenceUrl.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: Image.network(evidenceUrl, fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[100], child: const Icon(Icons.broken_image, color: Colors.black12))),
-                      ),
-                    ),
-                  ),
-
                 Text(report['incident_type'] ?? "Incident", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                Text("RPT-${(report['id'] ?? "0").toString().substring(0,3)} • ${report['created_at'] ?? 'N/A'}", style: const TextStyle(fontSize: 12, color: Colors.black38)),
                 const SizedBox(height: 16),
                 _statusBanner(report['status'] ?? "Pending"),
                 const SizedBox(height: 24),
                 _detailField("Location", report['location'] ?? "N/A"),
-                _detailField("Incident Description", report['description'] ?? "No description provided."),
-                _detailField("Current Assignment", report['assigned_team'] ?? "Unassigned"),
+                _detailField("Description", report['description'] ?? "No description."),
                 const Divider(height: 40),
-                const Text("Case Management", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black45)),
-                const SizedBox(height: 16),
                 _buildDropdown("Status", _newStatus ?? report['status'] ?? "Pending", ["Pending", "Investigating", "Resolved"], (v) => setState(() => _newStatus = v)),
                 const SizedBox(height: 16),
-                _buildDropdown("Assign To", _assignedTeam ?? "Enforcement Team Alpha", ["Enforcement Team Alpha", "Team Beta", "Rangers"], (v) => setState(() => _assignedTeam = v)),
+                _buildDropdown("Assign To", _assignedTeam ?? report['assigned_team'] ?? "Enforcement Team Alpha", ["Enforcement Team Alpha", "Team Beta", "Rangers"], (v) => setState(() => _assignedTeam = v)),
                 const SizedBox(height: 24),
-                
-                // --- THE UPDATED BUTTON WITH BRAND COLOR #517156 ---
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _updateReport((report['id'] ?? "").toString()),
-                    icon: const Icon(Icons.assignment_turned_in_outlined, size: 18),
-                    label: const Text("UPDATE CASE STATUS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
-                        if (states.contains(WidgetState.pressed)) return const Color(0xFF3B523E);
-                        if (states.contains(WidgetState.hovered)) return const Color(0xFF628968);
-                        return const Color(0xFF517156); // BRAND COLOR
-                      }),
-                      foregroundColor: WidgetStateProperty.all(Colors.white),
-                      padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
-                      elevation: WidgetStateProperty.all(0),
-                      shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(4))),
-                      mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+                  child: ElevatedButton(
+                    onPressed: () => _updateReport(report['id'].toString()),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF517156),
+                      padding: const EdgeInsets.all(20),
                     ),
+                    child: const Text("UPDATE CASE STATUS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -237,25 +204,18 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
     );
   }
 
-  // --- REUSABLE UI HELPERS WITH DECORATION FIXES ---
-
+  // --- REUSABLE HELPERS ---
   Widget _panelHeader(String title, String sub) => Container(
-    width: double.infinity, padding: const EdgeInsets.all(16), 
-    decoration: const BoxDecoration(
-      color: Colors.white, // FIX: MUST BE INSIDE DECORATION
-      border: Border(bottom: BorderSide(color: Colors.black12))
-    ),
+    padding: const EdgeInsets.all(16),
+    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black12))),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), Text(sub, style: const TextStyle(color: Colors.black38, fontSize: 12))]),
   );
 
   Widget _statCard(String val, String title, String sub, Color color) => Expanded(
     child: Container(
       margin: const EdgeInsets.only(right: 12), padding: const EdgeInsets.all(20), 
-      decoration: BoxDecoration(
-        color: Colors.white, // FIX: MUST BE INSIDE DECORATION
-        border: Border.all(color: Colors.black12), borderRadius: BorderRadius.circular(4)
-      ), 
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Text(val, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)), const SizedBox(width: 8), Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))]), const SizedBox(height: 4), Text(sub, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color.withOpacity(0.6), letterSpacing: 1))])
+      decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.black12), borderRadius: BorderRadius.circular(4)), 
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Text(val, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color)), const SizedBox(width: 8), Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))]), Text(sub, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color.withOpacity(0.6)))])
     )
   );
 
@@ -263,17 +223,16 @@ class _PublicEnforcementViewState extends State<PublicEnforcementView> {
     int pending = reports.where((r) => r['status'] == 'Pending' || r['status'] == 'Investigating').length;
     int resolved = reports.where((r) => r['status'] == 'Resolved').length;
     return Row(children: [
-      _statCard(pending.toString(), "Under Investigation", "ACTIVE CASES", Colors.orange),
-      _statCard(resolved.toString(), "Resolved", "Cases closed", Colors.black87),
+      _statCard(pending.toString(), "Active", "UNDER INVESTIGATION", Colors.orange),
+      _statCard(resolved.toString(), "Resolved", "CASES CLOSED", Colors.green),
       _statCard("3", "High Priority", "URGENT ACTION", Colors.red),
     ]);
   }
 
-  Widget _buildFilterTabs() => Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), color: const Color(0xFFF9FAFB), child: Row(children: ["ALL", "ACTIVE", "RESOLVED", "FORWARDED"].map((tab) { bool active = _activeTab == tab; return Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(tab, style: TextStyle(color: active ? Colors.white : Colors.black87, fontSize: 11, fontWeight: FontWeight.bold)), selected: active, onSelected: (v) => setState(() => _activeTab = tab), selectedColor: const Color(0xFF4D6D4D), backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)))); }).toList()));
-  Widget _statusBanner(String status) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFFF9E6), borderRadius: BorderRadius.circular(4)), child: Row(children: [const Icon(Icons.access_time, size: 16, color: Colors.orange), const SizedBox(width: 8), Text(status, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13))]));
-  Widget _detailField(String label, String value) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, color: Colors.black38, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFF9FAFB), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.black12)), child: Text(value, style: const TextStyle(fontSize: 13)))]));
-  Widget _buildDropdown(String label, String current, List<String> options, Function(String?) onChanged) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black45)), const SizedBox(height: 8), DropdownButtonFormField<String>(value: current, items: options.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 13)))).toList(), onChanged: onChanged, decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12), border: OutlineInputBorder()))]);
-  Color _getStatusColor(String? status) => status == "Investigating" ? Colors.orange : status == "Resolved" ? Colors.green : status == "Forwarded" ? Colors.blue : Colors.black38;
-  Widget _buildHeader() => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("PUBLIC ENFORCEMENT MANAGEMENT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D))), Text("Citizen incident reports • violation tracking • Case management", style: TextStyle(fontSize: 13, color: Colors.black38))]), Row(children: [_miniMetric("Avg. resolution time:", "2.4 days"), const SizedBox(width: 24), _miniMetric("Response rate:", "98%")])]);
-  Widget _miniMetric(String label, String val) => Column(crossAxisAlignment: CrossAxisAlignment.end, children: [Text(label, style: const TextStyle(fontSize: 11, color: Colors.black38)), Text(val, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D)))]);
+  Widget _buildFilterTabs() => Container(padding: const EdgeInsets.all(8), color: const Color(0xFFF9FAFB), child: Row(children: ["ALL", "ACTIVE", "RESOLVED"].map((tab) { bool active = _activeTab == tab; return Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(tab, style: TextStyle(color: active ? Colors.white : Colors.black87, fontSize: 11)), selected: active, onSelected: (v) => setState(() => _activeTab = tab), selectedColor: const Color(0xFF4D6D4D))); }).toList()));
+  Widget _statusBanner(String status) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFFFF9E6), borderRadius: BorderRadius.circular(4)), child: Text(status, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)));
+  Widget _detailField(String label, String value) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black38)), Text(value, style: const TextStyle(fontSize: 13))]));
+  Widget _buildDropdown(String label, String current, List<String> options, Function(String?) onChanged) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)), DropdownButtonFormField<String>(value: current, items: options.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: onChanged)]);
+  Color _getStatusColor(String? status) => status == "Investigating" ? Colors.orange : status == "Resolved" ? Colors.green : Colors.black38;
+  Widget _buildHeader() => const Text("PUBLIC ENFORCEMENT MANAGEMENT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold));
 }

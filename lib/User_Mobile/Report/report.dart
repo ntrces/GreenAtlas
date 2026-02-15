@@ -55,13 +55,15 @@ class _ReportScreenState extends State<ReportScreen> {
         child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
+        // REAL-TIME FIX: Listening for changes to current user's reports
         stream: supabase
             .from('reports')
-            .stream(primaryKey: ['id'])
+            .stream(primaryKey: ['id']) 
             .eq('user_id', _userId!) 
             .order('created_at', ascending: false),
         builder: (context, snapshot) {
           if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+          
           if (snapshot.connectionState == ConnectionState.waiting) {
              return const Center(child: CircularProgressIndicator(color: Color(0xFF4A634A)));
           }
@@ -223,7 +225,6 @@ class _ReportScreenState extends State<ReportScreen> {
           const SizedBox(height: 8),
           Text(data['description'] ?? "", maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Colors.black54, height: 1.4)),
           const SizedBox(height: 12),
-          // FIXED: Using Expanded and ellipsis to ensure Date is pushed to the edge without being cut off
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

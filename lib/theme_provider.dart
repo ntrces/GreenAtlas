@@ -11,3 +11,4 @@ class ThemeProvider with ChangeNotifier {
     notifyListeners(); // Refreshes the UI across the whole app
   }
 }
+

@@ -19,7 +19,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // Validation Logic
   Future<void> _handleSignUp() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -33,7 +32,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
-    // 2. Name Validation (Letters only, no numbers or special characters)
+    // 2. Name Validation
     final nameRegex = RegExp(r'^[a-zA-Z\s]+$');
     if (!nameRegex.hasMatch(firstName) || !nameRegex.hasMatch(lastName)) {
       _showError("Names should only contain letters");
@@ -47,7 +46,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
 
     // 4. Password Complexity Validation
-    // Min 6 chars, 1 uppercase, 1 number, 1 special char
     final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$&*~]).{6,}$');
     if (!passwordRegex.hasMatch(password)) {
       _showError("Password must be at least 6 characters, include an uppercase letter, a number, and a special character (!@#\$&*~)");
@@ -65,6 +63,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final supabase = Supabase.instance.client;
       
+      // Attempt Sign Up
       final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
@@ -73,6 +72,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (res.user != null) {
         final String fullName = "$firstName $lastName";
 
+        // Insert into profiles table
         await supabase.from('profiles').insert({
           'id': res.user!.id,
           'full_name': fullName,
@@ -82,29 +82,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'role': 'user', 
         });
 
+        // FORCE SIGN OUT: Supabase sometimes auto-logs in on signup.
+        // Since we want verification first, we must sign them out so they can't access the app yet.
         await supabase.auth.signOut();
 
         if (mounted) {
-          _showSuccessPopup();
+          _showVerificationPopup(email);
         }
       }
     } on AuthException catch (e) {
       if (mounted) _showError(e.message);
     } catch (e) {
-      if (mounted) _showError("Database Error: ${e.toString()}");
+      if (mounted) _showError("Error: ${e.toString()}");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Helper for error messages
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
     );
   }
 
-  void _showSuccessPopup() {
+  // UPDATED: Success Popup now emphasizes Email Verification
+  void _showVerificationPopup(String email) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -114,13 +116,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
           backgroundColor: Colors.white,
           title: const Column(
             children: [
-              Icon(Icons.check_circle_rounded, color: primaryForest, size: 60),
+              Icon(Icons.mark_email_read_rounded, color: primaryForest, size: 60),
               SizedBox(height: 12),
-              Text("Account Created!", style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold)),
+              Text("Verify Your Email", style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold)),
             ],
           ),
-          content: const Text(
-            "Welcome to GreenAtlas. Your account is ready. \n Please sign in to start exploring.",
+          content: Text(
+            "A verification link has been sent to:\n$email\n\nPlease click the link in your inbox to activate your GreenAtlas account.",
             textAlign: TextAlign.center,
           ),
           actions: [
@@ -134,7 +136,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                child: const Text("Go to Sign In", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text("Got it!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 10),
@@ -165,21 +167,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // Logo Section
                     Container(
-                      width: 80,
-                      height: 80,
+                      width: 80, height: 80,
                       decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
+                        color: Colors.white, shape: BoxShape.circle,
                         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
                       ),
                       child: Center(
-                        child: Image.asset(
-                          'logo2.png',
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.red, size: 40),
+                        child: Image.asset('logo2.png', width: 80, height: 80, fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.eco, color: primaryForest, size: 40),
                         ),
                       ),
                     ),
@@ -188,11 +185,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     const Text("Join the conservation effort", style: TextStyle(fontSize: 13, color: Colors.black54)),
                     const SizedBox(height: 24),
 
+                    // Form Container
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
+                        color: Colors.white, borderRadius: BorderRadius.circular(25),
                         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
                       ),
                       child: Column(
@@ -205,12 +202,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildLabel("* First Name"),
-                                    TextField(
-                                      controller: _firstNameController,
-                                      decoration: ecoInputStyle(label: "Jane", icon: Icons.person_outline).copyWith(
-                                        hintText: "Jane", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never
-                                      ),
-                                    ),
+                                    TextField(controller: _firstNameController, decoration: ecoInputStyle(label: "Jane", icon: Icons.person_outline)),
                                   ],
                                 ),
                               ),
@@ -220,56 +212,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildLabel("* Last Name"),
-                                    TextField(
-                                      controller: _lastNameController,
-                                      decoration: ecoInputStyle(label: "Doe", icon: Icons.person_outline).copyWith(
-                                        hintText: "Doe", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never
-                                      ),
-                                    ),
+                                    TextField(controller: _lastNameController, decoration: ecoInputStyle(label: "Doe", icon: Icons.person_outline)),
                                   ],
                                 ),
                               ),
                             ],
                           ),
-
                           _buildLabel("* Email Address"),
-                          TextField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: ecoInputStyle(label: "email@example.com", icon: Icons.email_outlined).copyWith(hintText: "email@example.com", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never),
-                          ),
-
+                          TextField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: ecoInputStyle(label: "email@gmail.com", icon: Icons.email_outlined)),
                           _buildLabel("* Password"),
                           TextField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
-                            decoration: ecoInputStyle(label: "Strong password", icon: Icons.lock_outline).copyWith(
-                              hintText: "Strong password", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never,
+                            decoration: ecoInputStyle(label: "••••••••", icon: Icons.lock_outline).copyWith(
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey, size: 20),
                                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
                             ),
                           ),
-
                           _buildLabel("* Confirm Password"),
-                          TextField(
-                            controller: _confirmPasswordController,
-                            obscureText: _obscurePassword,
-                            decoration: ecoInputStyle(label: "Repeat password", icon: Icons.lock_reset_outlined).copyWith(hintText: "Repeat password", labelText: null, floatingLabelBehavior: FloatingLabelBehavior.never),
-                          ),
-
+                          TextField(controller: _confirmPasswordController, obscureText: _obscurePassword, decoration: ecoInputStyle(label: "••••••••", icon: Icons.lock_reset_outlined)),
                           const SizedBox(height: 30),
-
                           SizedBox(
-                            width: double.infinity,
-                            height: 50,
+                            width: double.infinity, height: 50,
                             child: ElevatedButton(
                               onPressed: _isLoading ? null : _handleSignUp,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryForest,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
+                              style: ElevatedButton.styleFrom(backgroundColor: primaryForest, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                               child: _isLoading 
                                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
                                 : const Text("Create Account", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
@@ -288,15 +257,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
-                      width: double.infinity,
-                      height: 50,
+                      width: double.infinity, height: 50,
                       child: ElevatedButton(
                         onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryForest.withOpacity(0.1),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                        style: ElevatedButton.styleFrom(backgroundColor: primaryForest.withOpacity(0.1), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         child: const Text("Sign In", style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                     ),
