@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditPlantDialog extends StatefulWidget {
-  final Map<String, String> plant;
+  final Map<String, dynamic> plant; // Changed to dynamic to match database
   const EditPlantDialog({super.key, required this.plant});
 
   @override
@@ -9,21 +10,70 @@ class EditPlantDialog extends StatefulWidget {
 }
 
 class _EditPlantDialogState extends State<EditPlantDialog> {
-  late bool _arEnabled;
-  late bool _audioEnabled;
+  final _supabase = Supabase.instance.client;
+  
+  // Controllers initialized with current database values
+  late TextEditingController _nameController;
+  late TextEditingController _scientificController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _habitatController;
+  
+  String? _selectedCategory;
+  String? _selectedStatus;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _arEnabled = widget.plant['ar_path'] != null;
-    _audioEnabled = widget.plant['audio_path'] != null;
+    _nameController = TextEditingController(text: widget.plant['common_name']);
+    _scientificController = TextEditingController(text: widget.plant['scientific_name']);
+    _descriptionController = TextEditingController(text: widget.plant['description']);
+    _habitatController = TextEditingController(text: widget.plant['location_zone']);
+    _selectedCategory = widget.plant['category'];
+    _selectedStatus = widget.plant['conservation_status'];
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _scientificController.dispose();
+    _descriptionController.dispose();
+    _habitatController.dispose();
+    super.dispose();
+  }
+
+  // --- CONNECTED DATABASE UPDATE LOGIC ---
+  Future<void> _updatePlant() async {
+    if (_nameController.text.isEmpty) return;
+
+    setState(() => _isSaving = true);
+    try {
+      // Perform the Update query using the record ID
+      await _supabase.from('plants').update({
+        'common_name': _nameController.text.trim(),
+        'scientific_name': _scientificController.text.trim(),
+        'category': _selectedCategory,
+        'conservation_status': _selectedStatus,
+        'location_zone': _habitatController.text.trim(),
+        'description': _descriptionController.text.trim(),
+      }).eq('id', widget.plant['id']); // MUST target the correct ID
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Plant Updated Successfully"), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      backgroundColor: const Color(0xFFEDF7ED), //
+      backgroundColor: const Color(0xFFEDF7ED), 
       child: Container(
         width: 700,
         padding: const EdgeInsets.all(32),
@@ -35,43 +85,35 @@ class _EditPlantDialogState extends State<EditPlantDialog> {
               _buildHeader(context),
               const SizedBox(height: 24),
               
-              Row(
-                children: [
-                  Expanded(child: _buildTextField("COMMON NAME *", widget.plant['name']!)),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildTextField("SCIENTIFIC NAME *", widget.plant['scientific']!)),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _buildTextField("COMMON NAME *", _nameController)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTextField("SCIENTIFIC NAME *", _scientificController)),
+              ]),
               const SizedBox(height: 16),
               
-              Row(
-                children: [
-                  Expanded(child: _buildDropdown("CATEGORY *", ["Fern", "Orchid", "Tree", "Vine"])),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildDropdown("CONSERVATION STATUS *", ["Common", "Rare", "Endangered"])),
-                ],
-              ),
+              Row(children: [
+                Expanded(child: _buildDropdown("CATEGORY *", ["Flowering Plants", "Ferns", "Trees"], _selectedCategory, (v) => setState(() => _selectedCategory = v))),
+                const SizedBox(width: 16),
+                Expanded(child: _buildDropdown("STATUS *", ["Common", "Uncommon", "Rare", "Endangered"], _selectedStatus, (v) => setState(() => _selectedStatus = v))),
+              ]),
               const SizedBox(height: 16),
               
-              _buildTextField("DESCRIPTION *", widget.plant['desc']!, maxLines: 4),
+              _buildTextField("DESCRIPTION *", _descriptionController, maxLines: 4),
               const SizedBox(height: 16),
               
-              Row(
-                children: [
-                  Expanded(child: _buildTextField("HABITAT *", widget.plant['habitat']!)),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildTextField("CONSERVATION NOTES", widget.plant['conservation']!)),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              const Text("AR & MEDIA FEATURES", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
-              const SizedBox(height: 12),
-              _buildToggleRow(Icons.visibility_outlined, "AR 3D Model", "3D model for AR visualization", _arEnabled, (v) => setState(() => _arEnabled = v)),
-              _buildToggleRow(Icons.volume_up_outlined, "Audio Guide", "Educational audio narration", _audioEnabled, (v) => setState(() => _audioEnabled = v)),
-              
+              _buildTextField("HABITAT/ZONE *", _habitatController),
               const SizedBox(height: 32),
-              _buildActionButton("UPDATE DATABASE", const Color(0xFF4D6D4D)),
+              
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _updatePlant,
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4D6D4D), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text("UPDATE DATABASE", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
             ],
           ),
         ),
@@ -79,91 +121,10 @@ class _EditPlantDialogState extends State<EditPlantDialog> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("EDIT PLANT DATA", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            Text("Update plant information and AR content", style: TextStyle(fontSize: 13, color: Colors.black38)),
-          ],
-        ),
-        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-      ],
-    );
-  }
+  // --- UI COMPONENTS ---
+  Widget _buildHeader(BuildContext context) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("EDIT PLANT DATA", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text("Update plant information and AR metadata", style: TextStyle(fontSize: 13, color: Colors.black38))]), IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context))]);
 
-  Widget _buildTextField(String label, String initialValue, {int maxLines = 1}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
-        const SizedBox(height: 8),
-        TextFormField(
-          initialValue: initialValue,
-          maxLines: maxLines,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.all(16),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildTextField(String label, TextEditingController controller, {int maxLines = 1}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)), const SizedBox(height: 8), TextFormField(controller: controller, maxLines: maxLines, decoration: InputDecoration(filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: const EdgeInsets.all(16)))]);
 
-  Widget _buildDropdown(String label, List<String> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField(
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-          ),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) {},
-        ),
-      ],
-    );
-  }
-
-  Widget _buildToggleRow(IconData icon, String title, String sub, bool value, Function(bool) onChanged) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black.withOpacity(0.05))),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.black54),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              Text(sub, style: const TextStyle(fontSize: 11, color: Colors.black38)),
-            ]),
-          ),
-          Switch(value: value, onChanged: onChanged, activeColor: const Color(0xFF4D6D4D)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(String label, Color col) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: () => Navigator.pop(context),
-        style: ElevatedButton.styleFrom(backgroundColor: col, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
+  Widget _buildDropdown(String label, List<String> items, String? current, Function(String?) onChanged) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)), const SizedBox(height: 8), DropdownButtonFormField<String>(value: current, decoration: InputDecoration(filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none)), items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: onChanged)]);
 }
