@@ -13,15 +13,27 @@ import 'Employee_Mobile/Employee_dashboard.dart';
 import 'Login_Signup_Mobile/login_screen.dart'; 
 import 'Web_Admin/Web_Dashboard/Admin_Dashboard.dart';
 
+// 1. Create a Global Key to show Snackbars without a direct context
+final GlobalKey<ScaffoldMessengerState> messengerKey = GlobalKey<ScaffoldMessengerState>();
+
+// 2. REQUIRED: Top-level background message handler
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 1. Initialize Firebase
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 2. Initialize Supabase
+  // Initialize Background Messaging
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize Supabase
   await Supabase.initialize(
     url: 'https://ffczaraasatwduvenghj.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmY3phcmFhc2F0d2R1dmVuZ2hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODk2MTgsImV4cCI6MjA4NTY2NTYxOH0.8NAUxIy4C21VtGe6FD5CeoNKHwc3gYXMM97t8BUhArs', 
@@ -49,7 +61,6 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
   void initState() {
     super.initState();
 
-    // LISTEN FOR LOGIN: This ensures the token saves even if they log in later
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final session = data.session;
       if (session != null) {
@@ -57,10 +68,10 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
       }
     });
 
-    // FOREGROUND LISTENER: Show a notification banner while the app is open
+    // FIXED: Using messengerKey instead of context inside initState
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      if (message.notification != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (message.notification != null) {
+        messengerKey.currentState?.showSnackBar(
           SnackBar(
             content: Text("${message.notification!.title}: ${message.notification!.body}"),
             backgroundColor: const Color(0xFF2D3E2D),
@@ -70,39 +81,16 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
     });
   }
 
-  // Logic to save the unique phone ID to your profiles table
   Future<void> _updateFCMToken(String userId) async {
     try {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
-      
-      // Request permission (Required for Android 13+ and iOS)
       await messaging.requestPermission(alert: true, badge: true, sound: true);
-
-      // RETRY LOGIC: Wait briefly for the database to create the new profile row
-      await Future.delayed(const Duration(seconds: 2));
-
       String? token = await messaging.getToken();
       if (token != null) {
-        debugPrint("Captured FCM Token: $token");
-        
-        // Update the 'fcm_token' column in your 'profiles' table
-        final result = await Supabase.instance.client
+        await Supabase.instance.client
             .from('profiles')
             .update({'fcm_token': token})
-            .eq('id', userId)
-            .select();
-
-        if (result.isEmpty) {
-          debugPrint("Token save failed: Profile row not found for ID $userId. Retrying...");
-          // One final attempt if the first update failed
-          await Future.delayed(const Duration(seconds: 3));
-          await Supabase.instance.client
-              .from('profiles')
-              .update({'fcm_token': token})
-              .eq('id', userId);
-        } else {
-          debugPrint("FCM Token successfully synced to database.");
-        }
+            .eq('id', userId);
       }
     } catch (e) {
       debugPrint("Error updating token: $e");
@@ -114,6 +102,8 @@ class _EcoConservationAppState extends State<EcoConservationApp> {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
+      // 3. ATTACH THE KEY HERE
+      scaffoldMessengerKey: messengerKey, 
       debugShowCheckedModeBanner: false,
       title: 'Green Atlas',
       themeMode: themeProvider.themeMode, 
