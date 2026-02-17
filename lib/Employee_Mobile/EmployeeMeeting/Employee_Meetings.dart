@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../theme_provider.dart';
-import '../../UserProfile/user_profile.dart'; // Ensure correct path
+import '../../UserProfile/user_profile.dart'; 
 import 'Attendance.dart';
 
 class MeetingsScreen extends StatefulWidget {
@@ -13,7 +13,7 @@ class MeetingsScreen extends StatefulWidget {
 
 class _MeetingsScreenState extends State<MeetingsScreen> {
   final _supabase = Supabase.instance.client;
-  int _activeFilterIndex = 0;
+  int _activeFilterIndex = 0; // 0: All, 1: Attending, 2: Not Attending
 
   String? get _userId => _supabase.auth.currentUser?.id;
 
@@ -24,7 +24,6 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
-      // --- PROFESSIONAL HEADER INTEGRATED ---
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
         elevation: 0,
@@ -37,38 +36,24 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
             backgroundColor: Colors.white,
             child: Transform.scale(
               scale: 1.3,
-              child: Image.asset(
-                'assets/logo2.png', 
-                fit: BoxFit.contain,
-              ),
+              child: Image.asset('assets/logo2.png', fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Color(0xFF2D3E2D))),
             ),
           ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Meetings & RSVP", 
-              style: TextStyle(
-                color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
-                fontWeight: FontWeight.bold, 
-                fontSize: 18
-              )
-            ),
-            const Text(
-              "View invitations and submit confirmations", 
-              style: TextStyle(color: Colors.black38, fontSize: 10)
-            ),
+            Text("Meetings & RSVP", 
+              style: TextStyle(color: isDark ? Colors.white : const Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text("View invitations and submit confirmations", style: TextStyle(color: Colors.black38, fontSize: 10)),
           ],
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: InkWell(
-              onTap: () => Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => const UserProfileScreen())
-              ),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
               child: Container(
                 height: 40, width: 40,
                 decoration: BoxDecoration(
@@ -83,21 +68,21 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
         ],
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        // 1. Listen to all meetings set by Admin
         stream: _supabase.from('meetings').stream(primaryKey: ['id']).order('meeting_date', ascending: true),
         builder: (context, meetingSnapshot) {
           if (meetingSnapshot.hasError) return Center(child: Text("Sync Error: ${meetingSnapshot.error}"));
           if (!meetingSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
           
-          final meetings = meetingSnapshot.data!;
+          final meetings = meetingSnapshot.data!.where((m) {
+            final List roles = m['target_roles'] ?? [];
+            return roles.contains('Field Officer');
+          }).toList();
 
           return StreamBuilder<List<Map<String, dynamic>>>(
-            // 2. Listen specifically to THIS user's RSVPs
             stream: _supabase.from('meeting_rsvps').stream(primaryKey: ['id']).eq('user_id', _userId!),
             builder: (context, rsvpSnapshot) {
               final userRSVPs = rsvpSnapshot.data ?? [];
               
-              // 3. Merge Meeting data with Personal RSVP status
               final List<Map<String, dynamic>> consolidatedData = meetings.map((m) {
                 final rsvp = userRSVPs.firstWhere((r) => r['meeting_id'] == m['id'], orElse: () => {});
                 return {
@@ -106,13 +91,14 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                 };
               }).toList();
 
-              // 4. Update KPI metrics
               final upcomingCount = consolidatedData.length;
               final attendingCount = consolidatedData.where((m) => m['user_status'] == 'Accepted').length;
               final rsvpNeeded = consolidatedData.where((m) => m['user_status'] == null).length;
 
+              // FIXED: Added Logic for new filters
               final filteredMeetings = consolidatedData.where((m) {
                 if (_activeFilterIndex == 1) return m['user_status'] == 'Accepted';
+                if (_activeFilterIndex == 2) return m['user_status'] == 'Declined';
                 return true;
               }).toList();
 
@@ -123,13 +109,11 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                   children: [
                     _buildKPIRow(upcomingCount, attendingCount, rsvpNeeded, isDark),
                     const SizedBox(height: 24),
-                    _buildFilterRow(isDark),
+                    _buildFilterRow(isDark), // Now supports 3 options
                     const SizedBox(height: 24),
                     
-                    Text(
-                      _activeFilterIndex == 0 ? "UPCOMING MEETINGS" : "MY ATTENDANCE", 
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black38, letterSpacing: 1.2)
-                    ),
+                    Text(_getTitleForFilter(), 
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black38, letterSpacing: 1.2)),
                     const SizedBox(height: 12),
 
                     if (filteredMeetings.isEmpty)
@@ -146,27 +130,13 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     );
   }
 
-  Widget _buildMeetingCard(Map<String, dynamic> m, bool isDark) {
-    final bool isAttending = m['user_status'] == 'Accepted';
-    final String statusLabel = isAttending ? "Attending" : "RSVP";
-    final Color statusColor = isAttending ? Colors.green : Colors.orange;
-
-    return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingAttendanceScreen(meeting: m))),
-      child: _buildMeetingTile(
-        title: m['title'] ?? "Meeting",
-        date: m['meeting_date'] ?? "",
-        location: m['location'] ?? "",
-        attendingCount: "${m['max_attendees'] ?? 0} capacity", 
-        isDark: isDark,
-        status: statusLabel,
-        statusColor: statusColor,
-        hasAttachment: m['attachment_url'] != null, // Admin-connected file
-      ),
-    );
-  }
-
   // --- UI COMPONENTS ---
+
+  String _getTitleForFilter() {
+    if (_activeFilterIndex == 1) return "MY ATTENDANCE";
+    if (_activeFilterIndex == 2) return "DECLINED MEETINGS";
+    return "UPCOMING MEETINGS";
+  }
   
   Widget _buildKPIRow(int up, int at, int rs, bool d) => Row(children: [
     Expanded(child: _statCard("$up", "Upcoming", d, Colors.blue)),
@@ -191,9 +161,17 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     ])
   );
 
-  Widget _buildFilterRow(bool d) => Row(children: [
-    _filtBtn("Upcoming", 0, d), const SizedBox(width: 8), _filtBtn("Attending", 1, d)
-  ]);
+  // FIXED: Filter Row now includes Not Attending
+  Widget _buildFilterRow(bool d) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(children: [
+      _filtBtn("Upcoming", 0, d), 
+      const SizedBox(width: 8), 
+      _filtBtn("Attending", 1, d),
+      const SizedBox(width: 8),
+      _filtBtn("Not Attending", 2, d),
+    ]),
+  );
 
   Widget _filtBtn(String l, int i, bool d) => ChoiceChip(
     label: Text(l), selected: _activeFilterIndex == i, 
@@ -201,7 +179,40 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     selectedColor: const Color(0xFF5D7A5D), 
     labelStyle: TextStyle(color: _activeFilterIndex == i ? Colors.white : Colors.black54),
     backgroundColor: d ? Colors.white10 : Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    showCheckmark: false,
   );
+
+  Widget _buildMeetingCard(Map<String, dynamic> m, bool isDark) {
+    final status = m['user_status'];
+    final bool isAttending = status == 'Accepted';
+    final bool isDeclined = status == 'Declined';
+    
+    String label = "RSVP";
+    Color color = Colors.orange;
+
+    if (isAttending) {
+      label = "Attending";
+      color = Colors.green;
+    } else if (isDeclined) {
+      label = "Declined";
+      color = Colors.red;
+    }
+
+    return InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingAttendanceScreen(meeting: m))),
+      child: _buildMeetingTile(
+        title: m['title'] ?? "Meeting",
+        date: m['meeting_date'] ?? "",
+        location: m['location'] ?? "",
+        attendingCount: "${m['max_attendees'] ?? 0} capacity", 
+        isDark: isDark,
+        status: label,
+        statusColor: color,
+        hasAttachment: m['attachment_url'] != null, 
+      ),
+    );
+  }
 
   Widget _buildMeetingTile({required String title, required String date, required String location, required String attendingCount, required bool isDark, required String status, required Color statusColor, required bool hasAttachment}) => Container(
     margin: const EdgeInsets.only(bottom: 12),
