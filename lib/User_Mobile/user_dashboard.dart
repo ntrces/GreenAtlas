@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'AR_Gallery/ar_gallery.dart'; 
-import 'Report/report.dart';
-import 'Report/submit_report.dart';
+import 'Botanical_Gallery/ar_gallery.dart'; 
+import 'AR View/ar_view.dart'; // Corrected duplicate import
 import '../../UserProfile/user_profile.dart';
 import 'notification.dart';
-import 'AR_Gallery/ar_camera.dart'; 
+import 'Botanical_Gallery/ar_camera.dart'; 
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -47,7 +46,8 @@ class _UserDashboardState extends State<UserDashboard> {
     if (index == 1) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
     } else if (index == 2) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen()));
+      // Navigates to the AR View screen
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View()));
     }
   }
 
@@ -65,7 +65,8 @@ class _UserDashboardState extends State<UserDashboard> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Dashboard"),
           BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "Plants Gallery"),
-          BottomNavigationBarItem(icon: Icon(Icons.report_problem_outlined), label: "Report Issue"),
+          // UPDATED: Changed from Report Issue to AR View
+          BottomNavigationBarItem(icon: Icon(Icons.view_in_ar_outlined), label: "AR View"), 
         ],
       ),
       body: CustomScrollView(
@@ -112,8 +113,8 @@ class _UserDashboardState extends State<UserDashboard> {
                   _buildSectionLabel("QUICK ACCESS"),
                   _buildListTile("AR Gallery", Icons.visibility_outlined, 
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()))),
-                  _buildListTile("Report Issue", Icons.error_outline, 
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubmitReportScreen())), tag: "Quick"),
+                  _buildListTile("AR View", Icons.view_in_ar_outlined, 
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())), tag: "Quick"),
                 ],
 
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 1) ...[
@@ -164,7 +165,7 @@ class _UserDashboardState extends State<UserDashboard> {
                             "${report['incident_type']} reported", 
                             "Recent", 
                             Icons.error_outline, 
-                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen())), 
+                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())), 
                             status: report['status']
                           )).toList(),
                         );
@@ -180,7 +181,7 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  // --- FIXED APPBAR WITH DYNAMIC NAME FETCHING ---
+  // --- UI COMPONENTS ---
   Widget _buildSliverAppBar() => SliverAppBar(
     pinned: true, backgroundColor: Colors.white, surfaceTintColor: Colors.white,
     elevation: 0, toolbarHeight: 80, leadingWidth: 70,
@@ -195,14 +196,13 @@ class _UserDashboardState extends State<UserDashboard> {
         ),
       ),
     ),
-    // FIXED: Using StreamBuilder to fetch first name from profiles table
     title: StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase.from('profiles').stream(primaryKey: ['id']).eq('id', _userId ?? ''),
       builder: (context, snapshot) {
         String firstName = "User";
         if (snapshot.hasData && snapshot.data!.isNotEmpty) {
           final fullName = snapshot.data!.first['full_name'] ?? "User";
-          firstName = fullName.split(' ')[0]; // Isolate first name
+          firstName = fullName.split(' ')[0];
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,34 +218,10 @@ class _UserDashboardState extends State<UserDashboard> {
     actions: [_buildNotificationIcon(), _buildProfileIcon()],
   );
 
-  // (Remaining helper methods remain unchanged)
-  Widget _buildNotificationIcon() {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('reports').stream(primaryKey: ['id']).eq('user_id', _userId ?? ''),
-      builder: (context, snapshot) {
-        final reports = snapshot.data?.where((r) => r['status'] != 'Pending').toList() ?? [];
-        final unreadCount = reports.length; 
-
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), 
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
-            ),
-            if (unreadCount > 0)
-              Positioned(
-                right: 8, top: 12, 
-                child: Container(
-                  height: 8, width: 8,
-                 
-                )
-              ),
-          ],
-        );
-      }
-    );
-  }
+  Widget _buildNotificationIcon() => IconButton(
+    icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 28), 
+    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
+  );
 
   Widget _buildPlantTile(Map<String, dynamic> plant, VoidCallback onTap) {
     final imgUrl = plant['image_url'];

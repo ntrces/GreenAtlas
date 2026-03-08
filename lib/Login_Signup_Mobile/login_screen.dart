@@ -4,7 +4,7 @@ import '../theme_constants.dart';
 import 'signup_screen.dart'; 
 import '../User_Mobile/user_dashboard.dart'; 
 import '../Employee_Mobile/Employee_dashboard.dart'; 
-import '../Web_Admin/Web_Dashboard/Admin_Portal.dart'; // REQUIRED IMPORT
+// Admin import removed
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -45,22 +45,18 @@ class _LoginScreenState extends State<LoginScreen> {
             .from('profiles')
             .select('role')
             .eq('id', user.id)
-            .maybeSingle(); // Use maybeSingle to prevent crash if profile is missing
+            .maybeSingle(); 
 
         final String role = data?['role'] ?? 'user';
 
-        // 3. Navigation based on retrieved role
-        if (role == 'admin') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminWebPortal()),
-          );
-        } else if (role == 'employee') {
+        // 3. Navigation logic (Admin check removed)
+        if (role == 'employee') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const EmployeePortal()),
           );
         } else {
+          // Both 'user' and 'admin' (or undefined) roles will go here
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const UserDashboard()),
@@ -98,35 +94,33 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Branding
                     // ⚪ THE LOGO CARD
-Container(
-  width: 80,
-  height: 80,
-  decoration: const BoxDecoration(
-    color: Colors.white,
-    shape: BoxShape.circle,
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black12,
-        blurRadius: 20,
-        offset: Offset(0, 10),
-      )
-    ],
-  ),
-  child: Center(
-    child: Image.asset(
-      'logo2.png', // Reference directly to fix Web 404 path doubling
-      width: 80,   // SET TO 60
-      height: 80,  // SET TO 60
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        // Red icon indicates the asset is still not being found by the engine
-        return const Icon(Icons.broken_image, color: Colors.red, size: 40);
-      },
-    ),
-  ),
-),
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
+                          )
+                        ],
+                      ),
+                      child: Center(
+                        child: Image.asset(
+                          'logo2.png',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.broken_image, color: Colors.red, size: 40);
+                          },
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     const Text("Welcome Back", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
                     const Text("Sign in to explore the Green Atlas", style: TextStyle(fontSize: 12, color: Colors.black54)),

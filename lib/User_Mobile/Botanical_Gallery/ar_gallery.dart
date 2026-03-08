@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../user_dashboard.dart';
-import '../Report/report.dart';
+import '../AR View/ar_view.dart';
 import 'ar_camera.dart'; 
 import '../notification.dart';
 import '../../UserProfile/user_profile.dart';
@@ -19,8 +19,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   int _selectedIndex = 1;
   final TextEditingController _searchController = TextEditingController();
   
-  // --- ⚙️ LAYOUT & FILTER STATES ---
-  bool _isGridView = false; // Toggle between list and grid
+  bool _isGridView = false; 
   String _searchQuery = ""; 
   String _activeType = "All Plants";
   String _activeStatus = "All Statuses";
@@ -42,7 +41,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
     if (index == 0) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const UserDashboard()));
-    if (index == 2) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ReportScreen()));
+    if (index == 2) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Ar_View()));
   }
 
   @override
@@ -51,7 +50,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       backgroundColor: const Color(0xFFEAF7EA),
       body: CustomScrollView(
         slivers: [
-          // --- 1. BRANDING HEADER ---
           SliverAppBar(
             floating: false, pinned: true,
             backgroundColor: Colors.white, elevation: 0,
@@ -60,7 +58,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
               padding: const EdgeInsets.only(left: 16.0),
               child: Center(
                 child: Image.asset(
-                  'assets/logo2.png', // Ensure path is correct
+                  'assets/logo2.png',
                   width: 45, height: 45, fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Color(0xFF2D3E2D), size: 30),
                 ),
@@ -96,13 +94,11 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // --- LAYOUT TOGGLE BUTTON ---
                       _buildIconButton(
                         icon: _isGridView ? Icons.format_list_bulleted : Icons.grid_view_rounded,
                         onPressed: () => setState(() => _isGridView = !_isGridView),
                       ),
                       const SizedBox(width: 10),
-                      // --- FILTER BUTTON ---
                       _buildIconButton(
                         icon: Icons.tune,
                         onPressed: () => _openFilterSheet(),
@@ -118,7 +114,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             ),
           ),
 
-          // --- 2. DYNAMIC FILTERED STREAM ---
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: _supabase.from('plants').stream(primaryKey: ['id']).order('common_name'),
             builder: (context, snapshot) {
@@ -137,7 +132,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                 return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No species match your filter."))));
               }
 
-              // --- SWITCHING LAYOUTS ---
               return _isGridView 
                 ? _buildPlantGrid(plants) 
                 : _buildPlantList(plants);
@@ -156,13 +150,12 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "Plants Gallery"),
-          BottomNavigationBarItem(icon: Icon(Icons.report_problem_outlined), label: "Report Issue"),
+          // FIXED: Changed icon and label to AR View
+          BottomNavigationBarItem(icon: Icon(Icons.view_in_ar_outlined), label: "AR View"),
         ],
       ),
     );
   }
-
-  // --- UI COMPONENTS ---
 
   Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) {
     return Container(
@@ -190,7 +183,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     );
   }
 
-  // --- LIST VIEW LAYOUT ---
   Widget _buildPlantList(List<Map<String, dynamic>> plants) {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
@@ -200,7 +192,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     );
   }
 
-  // --- GRID VIEW LAYOUT (2 COLUMNS) ---
   Widget _buildPlantGrid(List<Map<String, dynamic>> plants) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
