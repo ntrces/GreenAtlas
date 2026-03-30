@@ -18,7 +18,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
   
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  // --- 1. HANDLE SIGN UP ---
   Future<void> _handleSignUp() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -26,33 +38,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    // 1. Basic Empty Check
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    // Validation checks
+    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty) {
       _showError("Please fill in all required fields");
       return;
     }
 
-    // 2. Name Validation
     final nameRegex = RegExp(r'^[a-zA-Z\s]+$');
     if (!nameRegex.hasMatch(firstName) || !nameRegex.hasMatch(lastName)) {
       _showError("Names should only contain letters");
       return;
     }
 
-    // 3. Gmail Validation
     if (!email.toLowerCase().endsWith('@gmail.com')) {
       _showError("Only @gmail.com addresses are allowed");
       return;
     }
 
-    // 4. Password Complexity Validation
     final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$&*~]).{6,}$');
     if (!passwordRegex.hasMatch(password)) {
-      _showError("Password must be at least 6 characters, include an uppercase letter, a number, and a special character (!@#\$&*~)");
+      _showError("Password needs: 6+ chars, 1 Uppercase, 1 Number, 1 Special Char");
       return;
     }
 
-    // 5. Password Match Check
     if (password != confirmPassword) {
       _showError("Passwords do not match");
       return;
@@ -63,37 +71,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final supabase = Supabase.instance.client;
       
-      // Attempt Sign Up
+      // Step A: Auth Sign Up
       final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
+        data: {
+          'first_name': firstName,
+          'last_name': lastName,
+          'full_name': "$firstName $lastName",
+        },
       );
 
       if (res.user != null) {
-        final String fullName = "$firstName $lastName";
+        // Step B: Attempt Profile Creation (Wrapped in its own try/catch)
+        try {
+          await supabase.from('profiles').upsert({
+            'id': res.user!.id,
+            'full_name': "$firstName $lastName",
+            'first_name': firstName,
+            'last_name': lastName,
+            'email': email,
+            'role': 'user', 
+          });
+        } catch (dbError) {
+          debugPrint("Profile DB Error (RLS likely): $dbError");
+          // We don't stop the flow here because the Auth account was created.
+        }
 
-        // Insert into profiles table
-        await supabase.from('profiles').insert({
-          'id': res.user!.id,
-          'full_name': fullName,
-          'first_name': firstName,
-          'last_name': lastName,
-          'email': email,
-          'role': 'user', 
-        });
-
-        // FORCE SIGN OUT: Supabase sometimes auto-logs in on signup.
-        // Since we want verification first, we must sign them out so they can't access the app yet.
+        // Step C: Force Sign Out (ensure no session until verified)
         await supabase.auth.signOut();
 
+        // Step D: Show the Pop-up
         if (mounted) {
           _showVerificationPopup(email);
         }
       }
     } on AuthException catch (e) {
-      if (mounted) _showError(e.message);
+      _showError(e.message);
     } catch (e) {
-      if (mounted) _showError("Error: ${e.toString()}");
+      _showError("An unexpected error occurred.");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -105,7 +121,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  // UPDATED: Success Popup now emphasizes Email Verification
+  // --- 2. THE VERIFICATION POP-UP ---
   void _showVerificationPopup(String email) {
     showDialog(
       context: context,
@@ -114,16 +130,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
           backgroundColor: Colors.white,
-          title: const Column(
+          title: Column(
             children: [
-              Icon(Icons.mark_email_read_rounded, color: primaryForest, size: 60),
-              SizedBox(height: 12),
-              Text("Verify Your Email", style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold)),
+              const Icon(Icons.mark_email_unread_rounded, color: primaryForest, size: 60),
+              const SizedBox(height: 15),
+              const Text(
+                "Confirm Your Email", 
+                style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold, fontSize: 20)
+              ),
+              const Divider(color: softGreen, thickness: 1, indent: 20, endIndent: 20),
             ],
           ),
-          content: Text(
-            "A verification link has been sent to:\n$email\n\nPlease click the link in your inbox to activate your GreenAtlas account.",
-            textAlign: TextAlign.center,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "A verification link has been sent to:",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                email,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: primaryForest),
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                "Please click the link in your inbox to activate your GreenAtlas account. Check your spam folder if you don't see it!",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+            ],
           ),
           actions: [
             Center(
@@ -133,13 +171,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryForest,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 child: const Text("Got it!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
           ],
         );
       },
@@ -167,7 +205,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo Section
                     Container(
                       width: 80, height: 80,
                       decoration: const BoxDecoration(
@@ -175,7 +212,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
                       ),
                       child: Center(
-                        child: Image.asset('logo2.png', width: 80, height: 80, fit: BoxFit.contain,
+                        child: Image.asset('assets/logo2.png', width: 80, height: 80, fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) => const Icon(Icons.eco, color: primaryForest, size: 40),
                         ),
                       ),
@@ -184,8 +221,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     const Text("Create Account", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
                     const Text("Join the conservation effort", style: TextStyle(fontSize: 13, color: Colors.black54)),
                     const SizedBox(height: 24),
-
-                    // Form Container
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
@@ -232,7 +267,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           ),
                           _buildLabel("* Confirm Password"),
-                          TextField(controller: _confirmPasswordController, obscureText: _obscurePassword, decoration: ecoInputStyle(label: "••••••••", icon: Icons.lock_reset_outlined)),
+                          TextField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            decoration: ecoInputStyle(label: "••••••••", icon: Icons.lock_reset_outlined).copyWith(
+                              suffixIcon: IconButton(
+                                icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey, size: 20),
+                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 30),
                           SizedBox(
                             width: double.infinity, height: 50,
@@ -251,7 +295,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     Row(
                       children: [
                         const Expanded(child: Divider(color: Colors.grey)),
-                        const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold))),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8), 
+                          child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold))
+                        ),
                         const Expanded(child: Divider(color: Colors.grey)),
                       ],
                     ),
@@ -260,7 +307,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       width: double.infinity, height: 50,
                       child: ElevatedButton(
                         onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(backgroundColor: primaryForest.withOpacity(0.1), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryForest.withOpacity(0.1), 
+                          elevation: 0, 
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                        ),
                         child: const Text("Sign In", style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                     ),

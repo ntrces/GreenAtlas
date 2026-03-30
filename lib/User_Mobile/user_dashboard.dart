@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'Botanical_Gallery/ar_gallery.dart'; 
-import 'AR View/ar_view.dart'; // Corrected duplicate import
+import 'AR View/ar_view.dart'; 
 import '../../UserProfile/user_profile.dart';
 import 'notification.dart';
 import 'Botanical_Gallery/ar_camera.dart'; 
@@ -46,7 +46,6 @@ class _UserDashboardState extends State<UserDashboard> {
     if (index == 1) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
     } else if (index == 2) {
-      // Navigates to the AR View screen
       Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View()));
     }
   }
@@ -65,7 +64,6 @@ class _UserDashboardState extends State<UserDashboard> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Dashboard"),
           BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "Plants Gallery"),
-          // UPDATED: Changed from Report Issue to AR View
           BottomNavigationBarItem(icon: Icon(Icons.view_in_ar_outlined), label: "AR View"), 
         ],
       ),
@@ -109,12 +107,15 @@ class _UserDashboardState extends State<UserDashboard> {
 
                 const SizedBox(height: 16),
 
+                // --- UPDATED QUICK ACCESS SECTION ---
                 if (_activeFilterIndex == 0) ...[
                   _buildSectionLabel("QUICK ACCESS"),
                   _buildListTile("AR Gallery", Icons.visibility_outlined, 
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()))),
                   _buildListTile("AR View", Icons.view_in_ar_outlined, 
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())), tag: "Quick"),
+                  _buildListTile("View Profile", Icons.person_outline, 
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()))),
                 ],
 
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 1) ...[

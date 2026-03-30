@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
 class GalleryFilterSheet extends StatefulWidget {
-  final Function(String type, String status, String sort) onApply;
-  final String currentType;
-  final String currentStatus;
-  final String currentSort;
+  final Function(Set<String> types, Set<String> statuses, String sort) onApply;
+  final Set<String> initialTypes;
+  final Set<String> initialStatuses;
+  final String initialSort;
+  
+  // ADD THIS: Receives the calculated numbers from the Database list
+  final Map<String, int> counts;
 
   const GalleryFilterSheet({
-    super.key, 
+    super.key,
     required this.onApply,
-    required this.currentType,
-    required this.currentStatus,
-    required this.currentSort,
+    required this.initialTypes,
+    required this.initialStatuses,
+    required this.initialSort,
+    required this.counts, 
   });
 
   @override
@@ -19,25 +23,37 @@ class GalleryFilterSheet extends StatefulWidget {
 }
 
 class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
-  late String selectedType;
-  late String selectedStatus;
+  late Set<String> selectedTypes;
+  late Set<String> selectedStatuses;
   late String selectedSort;
 
   @override
   void initState() {
     super.initState();
-    selectedType = widget.currentType;
-    selectedStatus = widget.currentStatus;
-    selectedSort = widget.currentSort;
+    selectedTypes = Set.from(widget.initialTypes);
+    selectedStatuses = Set.from(widget.initialStatuses);
+    selectedSort = widget.initialSort;
   }
 
-  void _handleSelection({String? type, String? status, String? sort}) {
+  void _toggle(Set<String> set, String value, String allLabel) {
     setState(() {
-      if (type != null) selectedType = type;
-      if (status != null) selectedStatus = status;
-      if (sort != null) selectedSort = sort;
+      if (value == allLabel) {
+        set.clear();
+        set.add(allLabel);
+      } else {
+        set.remove(allLabel);
+        if (set.contains(value)) {
+          set.remove(value);
+          if (set.isEmpty) set.add(allLabel);
+        } else {
+          set.add(value);
+        }
+      }
     });
   }
+
+  // Helper to safely get the count string
+  String _getCount(String key) => widget.counts[key]?.toString() ?? "0";
 
   @override
   Widget build(BuildContext context) {
@@ -45,128 +61,127 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, 
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Filter Options", 
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D))),
-              IconButton(
-                onPressed: () => Navigator.pop(context), 
-                icon: const Icon(Icons.close, color: Colors.black38)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Filters", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF2D3E2D))),
+                  Text("${_getCount('Total')} plants available", style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                ],
+              ),
+              TextButton(
+                onPressed: () {
+                  widget.onApply(selectedTypes, selectedStatuses, selectedSort);
+                  Navigator.pop(context);
+                },
+                child: const Text("Done", style: TextStyle(color: Color(0xFF4A634A), fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           Flexible(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Plant Type", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  _buildOption("All Plants", isSelected: selectedType == "All Plants", 
-                    onTap: () => _handleSelection(type: "All Plants")),
-                  _buildOption("Flowering Plants", icon: Icons.local_florist, isSelected: selectedType == "Flowering Plants", 
-                    onTap: () => _handleSelection(type: "Flowering Plants")),
-                  _buildOption("Ferns", icon: Icons.eco, isSelected: selectedType == "Ferns", 
-                    onTap: () => _handleSelection(type: "Ferns")),
-                  _buildOption("Trees", icon: Icons.park, isSelected: selectedType == "Trees", 
-                    onTap: () => _handleSelection(type: "Trees")),
+                  // --- PLANT TYPE ---
+                  _buildSectionHeader("Plant Type", onClear: () => setState(() => selectedTypes = {"All Plants"})),
+                  _buildOption("All Plants", _getCount('Total'), isSelected: selectedTypes.contains("All Plants"), onTap: () => _toggle(selectedTypes, "All Plants", "All Plants")),
+                  _buildOption("Flowering Plants", _getCount('Flowering Plants'), isSelected: selectedTypes.contains("Flowering Plants"), onTap: () => _toggle(selectedTypes, "Flowering Plants", "All Plants")),
+                  _buildOption("Ferns", _getCount('Ferns'), isSelected: selectedTypes.contains("Ferns"), onTap: () => _toggle(selectedTypes, "Ferns", "All Plants")),
+                  _buildOption("Trees", _getCount('Trees'), isSelected: selectedTypes.contains("Trees"), onTap: () => _toggle(selectedTypes, "Trees", "All Plants")),
 
                   const SizedBox(height: 24),
-                  const Text("Status", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+
+                  // --- CONSERVATION STATUS ---
+                  const Text("Conservation Status", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  _buildOption("All Statuses", isSelected: selectedStatus == "All Statuses", 
-                    onTap: () => _handleSelection(status: "All Statuses")),
-                  _buildOption("Common", isSelected: selectedStatus == "Common", 
-                    onTap: () => _handleSelection(status: "Common")),
-                  _buildOption("Uncommon", isSelected: selectedStatus == "Uncommon", 
-                    onTap: () => _handleSelection(status: "Uncommon")),
-                  _buildOption("Rare", isSelected: selectedStatus == "Rare", 
-                    onTap: () => _handleSelection(status: "Rare")),
-                  _buildOption("Endangered", isSelected: selectedStatus == "Endangered", 
-                    onTap: () => _handleSelection(status: "Endangered")),
+                  _buildOption("All Statuses", _getCount('Total'), isSelected: selectedStatuses.contains("All Statuses"), onTap: () => _toggle(selectedStatuses, "All Statuses", "All Statuses")),
+                  _buildOption("Critically Endangered", _getCount('Critically Endangered'), isSelected: selectedStatuses.contains("Critically Endangered"), onTap: () => _toggle(selectedStatuses, "Critically Endangered", "All Statuses")),
+                  _buildOption("Endangered", _getCount('Endangered'), isSelected: selectedStatuses.contains("Endangered"), onTap: () => _toggle(selectedStatuses, "Endangered", "All Statuses")),
+                  _buildOption("Vulnerable", _getCount('Vulnerable'), isSelected: selectedStatuses.contains("Vulnerable"), onTap: () => _toggle(selectedStatuses, "Vulnerable", "All Statuses")),
+                  _buildOption("Threatened", _getCount('Threatened'), isSelected: selectedStatuses.contains("Threatened"), onTap: () => _toggle(selectedStatuses, "Threatened", "All Statuses")),
+                  _buildOption("Other Threatened Status", _getCount('Other Threatened Status'), isSelected: selectedStatuses.contains("Other Threatened Status"), onTap: () => _toggle(selectedStatuses, "Other Threatened Status", "All Statuses")),
+                  _buildOption("Near Threatened", _getCount('Near Threatened'), isSelected: selectedStatuses.contains("Near Threatened"), onTap: () => _toggle(selectedStatuses, "Near Threatened", "All Statuses")),
+                  _buildOption("Not Threatened", _getCount('Not Threatened'), isSelected: selectedStatuses.contains("Not Threatened"), onTap: () => _toggle(selectedStatuses, "Not Threatened", "All Statuses")),
+                  _buildOption("Least Concern (LC)", _getCount('Least Concern (LC)'), isSelected: selectedStatuses.contains("Least Concern (LC)"), onTap: () => _toggle(selectedStatuses, "Least Concern (LC)", "All Statuses")),
+                  _buildOption("Data Deficient", _getCount('Data Deficient'), isSelected: selectedStatuses.contains("Data Deficient"), onTap: () => _toggle(selectedStatuses, "Data Deficient", "All Statuses")),
+
+                  const SizedBox(height: 24),
+
+                  // --- SORT BY ---
+                  const Text("Sort By", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _buildOption("Ascending (A-Z)", "", isSelected: selectedSort == "Ascending (A-Z)", onTap: () => setState(() => selectedSort = "Ascending (A-Z)")),
+                  _buildOption("Descending (Z-A)", "", isSelected: selectedSort == "Descending (Z-A)", onTap: () => setState(() => selectedSort = "Descending (Z-A)")),
                 ],
               ),
             ),
           ),
-
-          const SizedBox(height: 32),
-          Column(
-            children: [
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () {
-                    widget.onApply(selectedType, selectedStatus, selectedSort);
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A634A),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text("Apply Filters", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ),
+          
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton(
+              onPressed: () => setState(() {
+                selectedTypes = {"All Plants"};
+                selectedStatuses = {"All Statuses"};
+                selectedSort = "Ascending (A-Z)";
+              }),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFFEAF7EA), 
+                side: BorderSide.none, 
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
               ),
-              const SizedBox(height: 12),
-              
-              // --- FIXED RESET BUTTON: Apply defaults and close ---
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: () {
-                    // 1. Send default values back to the Gallery screen
-                    widget.onApply("All Plants", "All Statuses", "Default Order");
-                    // 2. Immediately close the sheet
-                    Navigator.pop(context);
-                  },
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEAF7EA),
-                    side: const BorderSide(color: Colors.black12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text("Reset All Filters", 
-                    style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
+              child: const Text("Reset All Filters", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold)),
+            ),
           ),
-          const SizedBox(height: 12),
         ],
       ),
     );
   }
 
-  Widget _buildOption(String label, {IconData? icon, bool isSelected = false, VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.transparent : const Color(0xFFEAF7EA).withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: isSelected ? Border.all(color: const Color(0xFF4A634A), width: 1.5) : null,
-        ),
-        child: Row(children: [
-          if (icon != null) Icon(icon, size: 18, color: const Color(0xFF4A634A)),
-          if (icon != null) const SizedBox(width: 12),
+  Widget _buildSectionHeader(String title, {required VoidCallback onClear}) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      TextButton(onPressed: onClear, child: const Text("Clear", style: TextStyle(color: Colors.grey, fontSize: 13))),
+    ],
+  );
+
+  Widget _buildOption(String label, String count, {required bool isSelected, required VoidCallback onTap}) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.transparent : const Color(0xFFEAF7EA).withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: isSelected ? Border.all(color: const Color(0xFF4A634A), width: 1.5) : null,
+      ),
+      child: Row(
+        children: [
           Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF2D3E2D))),
           const Spacer(),
-          if (isSelected) const Icon(Icons.check_circle, size: 20, color: Color(0xFF4A634A)),
-        ]),
+          if (count.isNotEmpty) 
+            Text(count, style: TextStyle(fontSize: 14, color: isSelected ? const Color(0xFF4A634A) : Colors.grey)),
+          if (isSelected) ...[
+            const SizedBox(width: 10), 
+            const Icon(Icons.check_circle, size: 20, color: Color(0xFF4A634A))
+          ],
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
