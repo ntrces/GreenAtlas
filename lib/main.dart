@@ -12,9 +12,6 @@ import 'Login_Signup_Mobile/login_screen.dart';
 void main() async {
   // Ensure Flutter is ready before calling native code
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 1. Initialize Supabase ONLY
-  // No more Firebase wall to hit!
   await Supabase.initialize(
     url: 'https://ffczaraasatwduvenghj.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmY3phcmFhc2F0d2R1dmVuZ2hqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODk2MTgsImV4cCI6MjA4NTY2NTYxOH0.8NAUxIy4C21VtGe6FD5CeoNKHwc3gYXMM97t8BUhArs', 
