@@ -3,7 +3,7 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../user_dashboard.dart';
 import '../Botanical_Gallery/ar_gallery.dart';
 import '../../UserProfile/user_profile.dart';
-import '../notification.dart';
+import '../notification.dart'; // Ensure this matches your file name
 
 class Ar_View extends StatefulWidget {
   const Ar_View({super.key});
@@ -13,7 +13,7 @@ class Ar_View extends StatefulWidget {
 }
 
 class _Ar_ViewState extends State<Ar_View> {
-  int _selectedIndex = 2; 
+  int _selectedIndex = 2;
 
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
@@ -24,11 +24,12 @@ class _Ar_ViewState extends State<Ar_View> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A), 
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         toolbarHeight: 70,
+        centerTitle: false, // Ensures title stays left-aligned like other pages
         leadingWidth: 70,
         leading: Padding(
           padding: const EdgeInsets.only(left: 16.0),
@@ -36,20 +37,25 @@ class _Ar_ViewState extends State<Ar_View> {
             child: Image.asset('assets/logo2.png', width: 45, height: 45, fit: BoxFit.contain),
           ),
         ),
-        title: const Text("AR View", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)),
-        actions: [_buildNotificationIcon(), _buildProfileIcon()],
+        title: const Text("AR View", 
+          style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)),
+        actions: [
+          _buildNotificationIcon(), 
+          _buildProfileIcon(),
+          const SizedBox(width: 8), // Padding at the end of actions
+        ],
       ),
       body: Stack(
         children: [
-          // 3D Model Viewer using the file from your assets
           ModelViewer(
             backgroundColor: const Color(0xFF0A0A0A),
-            src: 'assets/red_rose.glb', 
+            src: 'assets/red_rose.glb',
             alt: "A 3D Red Rose",
-            ar: true, 
+            ar: true,
             autoRotate: true,
             cameraControls: true,
-            arModes: ['scene-viewer', 'webxr-ar-module'],
+            // 'scene-viewer' is required for Android AR, 'quick-look' for iOS
+            arModes: ['scene-viewer', 'webxr-ar-module', 'quick-look'],
           ),
           const Positioned(
             bottom: 40,
@@ -57,12 +63,14 @@ class _Ar_ViewState extends State<Ar_View> {
             right: 0,
             child: Column(
               children: [
-                Text("AR Camera Active", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text("AR Camera Active", 
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 SizedBox(height: 8),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 50),
-                  child: Text("Tap the cube icon to place the Red Rose in your space", 
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  child: Text("Tap the cube icon to place the Red Rose in your space",
+                      textAlign: TextAlign.center, 
+                      style: TextStyle(color: Colors.white70, fontSize: 13)),
                 ),
               ],
             ),
@@ -85,14 +93,47 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
-  // --- Header Icons ---
-  Widget _buildNotificationIcon() => Stack(
-    alignment: Alignment.center,
-    children: [
-      IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 26), onPressed: () {}),
-      Positioned(right: 10, top: 14, child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle), child: const Text('2', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)))),
-    ],
-  );
+  // --- Header Icons Fixed with Navigation ---
 
-  Widget _buildProfileIcon() => Padding(padding: const EdgeInsets.only(right: 16, left: 8), child: Container(height: 36, width: 36, decoration: BoxDecoration(color: const Color(0xFFEAF7EA), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)), child: const Icon(Icons.person_outline, color: Color(0xFF2D3E2D), size: 20)));
+  Widget _buildNotificationIcon() => Stack(
+        alignment: Alignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 26),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()));
+            },
+          ),
+          Positioned(
+            right: 10,
+            top: 14,
+            child: IgnorePointer( // Prevents badge from blocking button taps
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle),
+                child: const Text('2', 
+                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _buildProfileIcon() => GestureDetector(
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+        },
+        child: Padding(
+          padding: const EdgeInsets.only(right: 8, left: 8),
+          child: Container(
+            height: 36,
+            width: 36,
+            decoration: BoxDecoration(
+                color: const Color(0xFFEAF7EA),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.black12)),
+            child: const Icon(Icons.person_outline, color: Color(0xFF2D3E2D), size: 20),
+          ),
+        ),
+      );
 }
