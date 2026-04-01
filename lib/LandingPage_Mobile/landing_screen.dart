@@ -32,16 +32,15 @@ class LandingScreen extends StatelessWidget {
     ],
   ),
   child: Center(
-    child: Image.asset(
-      'logo2.png', // Reference directly to fix Web 404 path doubling
-      width: 120,   // SET TO 60
-      height: 120,  // SET TO 60
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        // Red icon indicates the asset is still not being found by the engine
-        return const Icon(Icons.broken_image, color: Colors.red, size: 40);
-      },
-    ),
+    child:Image.asset(
+  'assets/logo1.png', // Must match the pubspec.yaml entry exactly
+  width: 150,  // Updated per your notes
+  height:150, // Updated per your notes
+  fit: BoxFit.contain,
+  errorBuilder: (context, error, stackTrace) {
+    return const Icon(Icons.broken_image, color: Colors.red, size: 40);
+  },
+),
   ),
 ),
               const SizedBox(height: 30),

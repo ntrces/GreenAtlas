@@ -1,0 +1,341 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import '../Collect/observation_model.dart';
+import '../../../theme_provider.dart';
+import '../../../UserProfile/user_profile.dart';
+import '../../EmployeeNotification/employeenotif.dart';
+import '../Employee_FieldDiary.dart'; 
+import '../clearentry.dart';
+import 'collect3.dart';
+
+class CollectStep2Screen extends StatefulWidget {
+  const CollectStep2Screen({super.key});
+
+  @override
+  State<CollectStep2Screen> createState() => _CollectStep2ScreenState();
+}
+
+class _CollectStep2ScreenState extends State<CollectStep2Screen> {
+  final Color forestGreen = const Color(0xFF5D7A5D);
+  final Color darkGreen = const Color(0xFF2D3E2D);
+  final Color lightGreenBG = const Color(0xFFEAF7EA);
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure the auto-filled data is synced to the model for Supabase submission
+    Future.microtask(() {
+      final model = context.read<ObservationModel>();
+      model.updateLocationData(
+        region: "Region IV-A (CALABARZON)",
+        province: "Cavite",
+        protectedArea: "Cavite Protected Landscape",
+      );
+    });
+  }
+
+  // --- LOGIC: Validation for Next Button ---
+  void _handleNextStep(ObservationModel model) {
+    if (model.weatherCondition.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select a weather condition."), 
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep3Screen()));
+    }
+  }
+
+  // --- LOGIC: Clear All entries across all pages ---
+  void _handleClearAll(ObservationModel model) {
+    showDialog(
+      context: context,
+      builder: (context) => ClearEntryDialog(
+        onClear: () {
+          setState(() {
+            model.reset(); // Resets the global provider data
+          });
+        },
+      ),
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context, ObservationModel model) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: model.observationDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(primary: forestGreen),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      model.observationDate = picked;
+      model.updateData();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final model = Provider.of<ObservationModel>(context);
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
+      body: Column(
+        children: [
+          _buildTopNavBar(context, isDark),
+          _buildSecondaryHeader(context, model),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              children: [
+                const Text(
+                  "Step 2 of 3", 
+                  style: TextStyle(fontSize: 13, color: Colors.black45, fontWeight: FontWeight.w500)
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Date and Location", 
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: darkGreen)
+                ),
+                const SizedBox(height: 24),
+
+                _buildCardTitle("GEOGRAPHIC DATA", isDark),
+                _whiteCard(isDark, [
+                  _buildAutoFillField("Region *", model.region),
+                  const SizedBox(height: 20),
+                  _buildAutoFillField("Province *", model.province),
+                  const SizedBox(height: 20),
+                  _buildAutoFillField("Protected Area *", model.protectedArea),
+                  const Divider(height: 40, thickness: 0.5),
+                  
+                  _buildLabel("Weather *"),
+                  const SizedBox(height: 8),
+                  _buildDropdownField(
+                    model.weatherCondition, 
+                    ['Sunny', 'Cloudy', 'Rainy', 'Windy'], 
+                    (v) {
+                      model.weatherCondition = v!;
+                      model.updateData();
+                    }
+                  ),
+                  const Divider(height: 40, thickness: 0.5),
+
+                  _buildLabel("Date Observation *"),
+                  const SizedBox(height: 8),
+                  _buildDateField(
+                    DateFormat('MMMM dd, yyyy').format(model.observationDate), 
+                    () => _selectDate(context, model)
+                  ),
+                ]),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _buildBottomStepper(context, model),
+    );
+  }
+
+  // --- UI COMPONENTS ---
+
+  Widget _buildTopNavBar(BuildContext context, bool isDark) {
+    return Container(
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 10, left: 16, right: 16),
+      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+      child: Row(
+        children: [
+          Image.asset('assets/logo2.png', height: 32),
+          const SizedBox(width: 12),
+          Text(
+            "Field Observation", 
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : darkGreen)
+          ),
+          const Spacer(),
+          IconButton(
+            icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeNotifications())),
+          ),
+          _buildProfileIcon(context, isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecondaryHeader(BuildContext context, ObservationModel model) {
+    return Container(
+      color: darkGreen,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 20), 
+            onPressed: () => Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (_) => const FieldObservationScreen())
+            ),
+          ),
+          const Text(
+            "BMS Field Diary", 
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+          ),
+          TextButton(
+            onPressed: () => _handleClearAll(model), 
+            child: const Text("Clear all", style: TextStyle(color: Colors.white70, fontSize: 12))
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return RichText(
+      text: TextSpan(
+        text: text.replaceFirst('*', ''),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+        children: [
+          if (text.contains('*')) 
+            const TextSpan(text: '*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdownField(String? v, List<String> items, Function(String?) onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(12), 
+        border: Border.all(color: Colors.black12)
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: (v == null || v.isEmpty) ? null : v,
+          isExpanded: true,
+          hint: const Text("Select weather", style: TextStyle(fontSize: 14, color: Colors.black38)),
+          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 14)))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _whiteCard(bool d, List<Widget> children) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: d ? const Color(0xFF1F1F1F) : Colors.white, 
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+  );
+
+  Widget _buildCardTitle(String t, bool d) => Padding(
+    padding: const EdgeInsets.only(bottom: 12, left: 4),
+    child: Text(
+      t, 
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: d ? Colors.white38 : Colors.black45)
+    ),
+  );
+
+  Widget _buildAutoFillField(String label, String value) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildLabel(label),
+      const SizedBox(height: 8),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F5), 
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black.withOpacity(0.05))
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+            const Text("Auto-filled", style: TextStyle(color: Colors.black26, fontSize: 10, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildDateField(String value, VoidCallback onTap) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5), 
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black.withOpacity(0.05))
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+          Icon(Icons.calendar_month_outlined, color: forestGreen, size: 20),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildBottomStepper(BuildContext context, ObservationModel model) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: const Text("Back", style: TextStyle(color: Colors.black45))
+          ),
+          const Text("2 of 3", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
+          ElevatedButton(
+            onPressed: () => _handleNextStep(model),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: darkGreen,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text("Next", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileIcon(BuildContext context, bool isDark) => InkWell(
+    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
+    child: Container(
+      height: 36, width: 36,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), 
+        borderRadius: BorderRadius.circular(8), 
+        border: Border.all(color: Colors.black12)
+      ),
+      child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+    ),
+  );
+}

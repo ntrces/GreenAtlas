@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
 import 'signup_screen.dart'; 
-import '../IntroPages/intro1.dart'; // Ensure this matches your file path
+import '../IntroPages/intro1.dart'; 
 import '../User_Mobile/user_dashboard.dart'; 
-import '../Employee_Mobile/Employee_dashboard.dart'; 
+import '../Employee_Mobile/Employee_Dashboard.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,12 +20,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // --- SIGN IN LOGIC ---
+  // --- UPDATED SIGN IN LOGIC ---
   Future<void> _handleSignIn() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter both email and password")),
-      );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackBar("Please enter both email and password", Colors.orange);
       return;
     }
 
@@ -34,33 +35,52 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       // 1. Authenticate with Supabase
       final response = await _supabase.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
       final user = response.user;
-      if (user != null && mounted) {
-        // 2. Navigation logic: Redirect to Intro1Screen after login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const Intro1Screen()),
-        );
+
+      if (user != null) {
+        // 2. Fetch the user's role from the 'profiles' table
+        final userData = await _supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        final String role = userData['role'] ?? 'user';
+
+        if (!mounted) return;
+
+        // 3. Navigation logic based on role
+        if (role == 'employee') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const EmployeePortal()),
+          );
+        } else {
+          // If role is 'user', go to Intro/User Dashboard
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const UserDashboard()),
+          );
+        }
       }
     } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message), backgroundColor: Colors.redAccent),
-        );
-      }
+      _showSnackBar(e.message, Colors.redAccent);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login Error: $e"), backgroundColor: Colors.redAccent),
-        );
-      }
+      _showSnackBar("An unexpected error occurred: $e", Colors.redAccent);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color),
+    );
   }
 
   @override
@@ -77,70 +97,42 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // THE LOGO CARD
                     Container(
-                      width: 80,
-                      height: 80,
+                      width: 80, height: 80,
                       decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 20,
-                            offset: Offset(0, 10),
-                          )
-                        ],
+                        color: Colors.white, shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
                       ),
                       child: Center(
                         child: Image.asset(
-                          'logo2.png',
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.eco, color: primaryForest, size: 40);
-                          },
+                          'assets/logo2.png', // Ensure path is correct
+                          width: 80, height: 80, fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.eco, color: primaryForest, size: 40),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text("Welcome Back", 
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
-                    const Text("Sign in to explore the Green Atlas", 
-                        style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    const Text("Welcome Back", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
+                    const Text("Sign in to explore the Green Atlas", style: TextStyle(fontSize: 12, color: Colors.black54)),
                     const SizedBox(height: 24),
 
                     // Login Card
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.12),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
+                        color: Colors.white, borderRadius: BorderRadius.circular(25),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 20, offset: const Offset(0, 10))],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Center(
-                            child: Text("Sign In", 
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))
-                          ),
+                          const Center(child: Text("Sign In", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))),
                           const SizedBox(height: 16),
                           _buildLabel("* Email Address"),
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: ecoInputStyle(label: "Enter email", icon: Icons.email_outlined).copyWith(
-                              hintText: "your.email@example.com",
-                              floatingLabelBehavior: FloatingLabelBehavior.never,
-                            ),
+                            decoration: ecoInputStyle(label: "Enter email", icon: Icons.email_outlined),
                           ),
                           const SizedBox(height: 12),
                           _buildLabel("* Password"),
@@ -148,8 +140,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             decoration: ecoInputStyle(label: "Enter password", icon: Icons.lock_outline).copyWith(
-                              hintText: "Enter password",
-                              floatingLabelBehavior: FloatingLabelBehavior.never,
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
                                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -175,14 +165,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 24),
-                    // FIXED: Removed 'const' from Row to prevent Expanded errors
                     Row(
                       children: [
                         const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8), 
-                          child: Text("DON’T HAVE AN ACCOUNT?", 
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade600))
+                          child: Text("DON’T HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade600))
                         ),
                         const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
                       ],
@@ -197,8 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text("Create Account", 
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryForest)),
+                        child: const Text("Create Account", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryForest)),
                       ),
                     ),
                   ],

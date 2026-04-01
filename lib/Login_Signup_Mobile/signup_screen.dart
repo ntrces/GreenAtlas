@@ -237,7 +237,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildLabel("* First Name"),
-                                    TextField(controller: _firstNameController, decoration: ecoInputStyle(label: "Jane", icon: Icons.person_outline)),
+                                    TextField(controller: _firstNameController, decoration: ecoInputStyle(label: "First  Name", icon: Icons.person_outline)),
                                   ],
                                 ),
                               ),
@@ -247,7 +247,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildLabel("* Last Name"),
-                                    TextField(controller: _lastNameController, decoration: ecoInputStyle(label: "Doe", icon: Icons.person_outline)),
+                                    TextField(controller: _lastNameController, decoration: ecoInputStyle(label: "Last Name", icon: Icons.person_outline)),
                                   ],
                                 ),
                               ),
