@@ -8,6 +8,7 @@ import '../../EmployeeNotification/employeenotif.dart';
 import '../Employee_FieldDiary.dart'; 
 import '../clearentry.dart';
 import 'collect3.dart';
+import '../../Employee_Dashboard.dart';
 
 class CollectStep2Screen extends StatefulWidget {
   const CollectStep2Screen({super.key});
@@ -21,10 +22,18 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color lightGreenBG = const Color(0xFFEAF7EA);
 
+  // Categorized Weather Options
+  final Map<String, List<String>> _weatherCategories = {
+    '☀️ Basic Weather': ['Sunny', 'Partly Cloudy', 'Cloudy', 'Overcast'],
+    '🌧️ Precipitation': ['Light Rain', 'Moderate Rain', 'Heavy Rain', 'Drizzle', 'Thunderstorm'],
+    ' Temperature': ['Hot', 'Warm', 'Cool', 'Cold'],
+    '💨 Wind Conditions': ['Calm (No Wind)', 'Light Breeze', 'Windy', 'Strong Winds'],
+    '🌫️ Atmospheric': ['Humid', 'Dry', 'Foggy / Misty', 'Hazy'],
+  };
+
   @override
   void initState() {
     super.initState();
-    // Ensure the auto-filled data is synced to the model for Supabase submission
     Future.microtask(() {
       final model = context.read<ObservationModel>();
       model.updateLocationData(
@@ -35,53 +44,72 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     });
   }
 
-  // --- LOGIC: Validation for Next Button ---
-  void _handleNextStep(ObservationModel model) {
-    if (model.weatherCondition.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please select a weather condition."), 
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep3Screen()));
-    }
-  }
-
-  // --- LOGIC: Clear All entries across all pages ---
-  void _handleClearAll(ObservationModel model) {
+  // --- LOGIC: Multi-Select Dialog ---
+  void _showWeatherPicker(ObservationModel model) {
     showDialog(
       context: context,
-      builder: (context) => ClearEntryDialog(
-        onClear: () {
-          setState(() {
-            model.reset(); // Resets the global provider data
-          });
-        },
-      ),
-    );
-  }
-
-  Future<void> _selectDate(BuildContext context, ObservationModel model) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: model.observationDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(primary: forestGreen),
-          ),
-          child: child!,
+      builder: (context) {
+        return StatefulBuilder( // Allows checkboxes to update inside the dialog
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("Select Weather Conditions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView(
+                  shrinkWrap: true,
+                  children: _weatherCategories.entries.map((category) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Text(category.key, style: TextStyle(color: forestGreen, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                        ...category.value.map((condition) {
+                          final isSelected = model.weatherConditions.contains(condition);
+                          return CheckboxListTile(
+                            title: Text(condition, style: const TextStyle(fontSize: 14)),
+                            value: isSelected,
+                            activeColor: forestGreen,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            onChanged: (bool? checked) {
+                              setDialogState(() {
+                                if (checked == true) {
+                                  model.weatherConditions.add(condition);
+                                } else {
+                                  model.weatherConditions.remove(condition);
+                                }
+                                model.updateData();
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("Done", style: TextStyle(color: forestGreen, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
         );
       },
     );
-    if (picked != null) {
-      model.observationDate = picked;
-      model.updateData();
+  }
+
+  void _handleNextStep(ObservationModel model) {
+    if (model.weatherConditions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select at least one weather condition."), backgroundColor: Colors.redAccent),
+      );
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep3Screen()));
     }
   }
 
@@ -100,15 +128,9 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               children: [
-                const Text(
-                  "Step 2 of 3", 
-                  style: TextStyle(fontSize: 13, color: Colors.black45, fontWeight: FontWeight.w500)
-                ),
+                const Text("Step 2 of 3", style: TextStyle(fontSize: 13, color: Colors.black45, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 4),
-                Text(
-                  "Date and Location", 
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: darkGreen)
-                ),
+                Text("Date and Location", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: darkGreen)),
                 const SizedBox(height: 24),
 
                 _buildCardTitle("GEOGRAPHIC DATA", isDark),
@@ -118,25 +140,37 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
                   _buildAutoFillField("Province *", model.province),
                   const SizedBox(height: 20),
                   _buildAutoFillField("Protected Area *", model.protectedArea),
+                  
                   const Divider(height: 40, thickness: 0.5),
                   
-                  _buildLabel("Weather *"),
+                  _buildLabel("Weather (Select all that apply) *"),
                   const SizedBox(height: 8),
-                  _buildDropdownField(
-                    model.weatherCondition, 
-                    ['Sunny', 'Cloudy', 'Rainy', 'Windy'], 
-                    (v) {
-                      model.weatherCondition = v!;
-                      model.updateData();
-                    }
+                  _buildPickerField(
+                    model.weatherConditions.isEmpty 
+                        ? "Select weather conditions" 
+                        : model.weatherConditions.join(", "), 
+                    Icons.filter_drama_outlined,
+                    () => _showWeatherPicker(model),
+                    isPlaceholder: model.weatherConditions.isEmpty,
                   ),
+
                   const Divider(height: 40, thickness: 0.5),
 
                   _buildLabel("Date Observation *"),
                   const SizedBox(height: 8),
-                  _buildDateField(
+                  _buildPickerField(
                     DateFormat('MMMM dd, yyyy').format(model.observationDate), 
+                    Icons.calendar_month_outlined,
                     () => _selectDate(context, model)
+                  ),
+                  const SizedBox(height: 20),
+
+                  _buildLabel("Observation Time *"),
+                  const SizedBox(height: 8),
+                  _buildPickerField(
+                    DateFormat('hh:mm a').format(model.observationDate), 
+                    Icons.access_time_outlined,
+                    () => _selectTime(context, model)
                   ),
                 ]),
                 const SizedBox(height: 40),
@@ -149,7 +183,72 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     );
   }
 
-  // --- UI COMPONENTS ---
+  // --- UI HELPERS ---
+
+  Widget _buildPickerField(String value, IconData icon, VoidCallback onTap, {bool isPlaceholder = false}) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5), 
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black.withOpacity(0.05))
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              value, 
+              maxLines: 1, 
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: isPlaceholder ? FontWeight.normal : FontWeight.bold, 
+                fontSize: 14, 
+                color: isPlaceholder ? Colors.black38 : Colors.black87
+              )
+            ),
+          ),
+          Icon(icon, color: forestGreen, size: 20),
+        ],
+      ),
+    ),
+  );
+
+  // ... (Keep your existing _buildTopNavBar, _buildSecondaryHeader, _selectDate, _selectTime, etc. here)
+  
+  // Note: Ensure your _selectTime and _selectDate use model.updateData() to refresh the UI.
+  
+  Future<void> _selectDate(BuildContext context, ObservationModel model) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: model.observationDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: forestGreen)),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      model.observationDate = DateTime(picked.year, picked.month, picked.day, model.observationDate.hour, model.observationDate.minute);
+      model.updateData();
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context, ObservationModel model) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(model.observationDate),
+    );
+    if (picked != null) {
+      final now = model.observationDate;
+      model.observationDate = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+      model.updateData();
+    }
+  }
 
   Widget _buildTopNavBar(BuildContext context, bool isDark) {
     return Container(
@@ -159,10 +258,7 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
         children: [
           Image.asset('assets/logo2.png', height: 32),
           const SizedBox(width: 12),
-          Text(
-            "Field Observation", 
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : darkGreen)
-          ),
+          Text("Field Observation", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : darkGreen)),
           const Spacer(),
           IconButton(
             icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87),
@@ -182,21 +278,37 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white, size: 20), 
-            onPressed: () => Navigator.pushReplacement(
-              context, 
-              MaterialPageRoute(builder: (_) => const FieldObservationScreen())
-            ),
-          ),
-          const Text(
-            "BMS Field Diary", 
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
-          ),
+  icon: const Icon(Icons.close, color: Colors.white, size: 20), 
+  onPressed: () {
+    // This closes the form and goes back to the Portal.
+    // initialIndex: 1 ensures it lands on the Field Diary tab, not the Dashboard.
+    Navigator.pushAndRemoveUntil(
+      context, 
+      MaterialPageRoute(
+        builder: (_) => const EmployeePortal(initialIndex: 1),
+      ),
+      (route) => false, // This clears the "Steps" from memory so they are fully closed
+    );
+  },
+),
+          const Text("BMS Field Observation", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
           TextButton(
             onPressed: () => _handleClearAll(model), 
             child: const Text("Clear all", style: TextStyle(color: Colors.white70, fontSize: 12))
           ),
         ],
+      ),
+    );
+  }
+
+  void _handleClearAll(ObservationModel model) {
+    showDialog(
+      context: context,
+      builder: (context) => ClearEntryDialog(
+        onClear: () {
+          model.reset();
+          setState(() {});
+        },
       ),
     );
   }
@@ -207,29 +319,8 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
         text: text.replaceFirst('*', ''),
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
         children: [
-          if (text.contains('*')) 
-            const TextSpan(text: '*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          if (text.contains('*')) const TextSpan(text: '*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDropdownField(String? v, List<String> items, Function(String?) onChanged) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(12), 
-        border: Border.all(color: Colors.black12)
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: (v == null || v.isEmpty) ? null : v,
-          isExpanded: true,
-          hint: const Text("Select weather", style: TextStyle(fontSize: 14, color: Colors.black38)),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 14)))).toList(),
-          onChanged: onChanged,
-        ),
       ),
     );
   }
@@ -246,10 +337,7 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
 
   Widget _buildCardTitle(String t, bool d) => Padding(
     padding: const EdgeInsets.only(bottom: 12, left: 4),
-    child: Text(
-      t, 
-      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: d ? Colors.white38 : Colors.black45)
-    ),
+    child: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: d ? Colors.white38 : Colors.black45)),
   );
 
   Widget _buildAutoFillField(String label, String value) => Column(
@@ -276,41 +364,14 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     ],
   );
 
-  Widget _buildDateField(String value, VoidCallback onTap) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(12),
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5), 
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.05))
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
-          Icon(Icons.calendar_month_outlined, color: forestGreen, size: 20),
-        ],
-      ),
-    ),
-  );
-
   Widget _buildBottomStepper(BuildContext context, ObservationModel model) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))
-      ),
+      decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("Back", style: TextStyle(color: Colors.black45))
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Back", style: TextStyle(color: Colors.black45))),
           const Text("2 of 3", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54)),
           ElevatedButton(
             onPressed: () => _handleNextStep(model),
@@ -330,11 +391,7 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
     child: Container(
       height: 36, width: 36,
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), 
-        borderRadius: BorderRadius.circular(8), 
-        border: Border.all(color: Colors.black12)
-      ),
+      decoration: BoxDecoration(color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)),
       child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
     ),
   );

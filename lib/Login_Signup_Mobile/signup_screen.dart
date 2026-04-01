@@ -50,14 +50,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    // ✅ NEW: Comprehensive Email Regex
+    // This ensures there is a name, an @, a domain, and a dot.
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      _showError("Please enter a valid email address");
+      return;
+    }
+
+    // Keep your specific business rule if you only want Gmail
     if (!email.toLowerCase().endsWith('@gmail.com')) {
       _showError("Only @gmail.com addresses are allowed");
       return;
     }
 
-    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$&*~]).{6,}$');
+    // Password needs: 8+ chars, 1 Uppercase, 1 Number, 1 Special Char
+    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$&*~]).{8,}$');
     if (!passwordRegex.hasMatch(password)) {
-      _showError("Password needs: 6+ chars, 1 Uppercase, 1 Number, 1 Special Char");
+      _showError("Password needs: 8+ chars, 1 Uppercase, 1 Number, 1 Special Char");
       return;
     }
 
@@ -70,6 +80,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
     
     try {
       final supabase = Supabase.instance.client;
+
+      // Check if the email already exists in the profiles table
+      final existingEmail = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('email', email)
+          .maybeSingle();
+
+      if (existingEmail != null) {
+        _showError("This email is already registered.");
+        setState(() => _isLoading = false);
+        return;
+      }
       
       // Step A: Auth Sign Up
       final AuthResponse res = await supabase.auth.signUp(
@@ -83,7 +106,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (res.user != null) {
-        // Step B: Attempt Profile Creation (Wrapped in its own try/catch)
+        // Step B: Attempt Profile Creation
         try {
           await supabase.from('profiles').upsert({
             'id': res.user!.id,
@@ -95,7 +118,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           });
         } catch (dbError) {
           debugPrint("Profile DB Error (RLS likely): $dbError");
-          // We don't stop the flow here because the Auth account was created.
         }
 
         // Step C: Force Sign Out (ensure no session until verified)
@@ -237,7 +259,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildLabel("* First Name"),
-                                    TextField(controller: _firstNameController, decoration: ecoInputStyle(label: "First  Name", icon: Icons.person_outline)),
+                                    TextField(controller: _firstNameController, decoration: ecoInputStyle(label: "First Name", icon: Icons.person_outline)),
                                   ],
                                 ),
                               ),
@@ -254,7 +276,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ],
                           ),
                           _buildLabel("* Email Address"),
-                          TextField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: ecoInputStyle(label: "email@gmail.com", icon: Icons.email_outlined)),
+                          // ✅ ADDED: keyboardType for better UX
+                          TextField(
+                            controller: _emailController, 
+                            keyboardType: TextInputType.emailAddress, 
+                            decoration: ecoInputStyle(label: "email@gmail.com", icon: Icons.email_outlined)
+                          ),
                           _buildLabel("* Password"),
                           TextField(
                             controller: _passwordController,

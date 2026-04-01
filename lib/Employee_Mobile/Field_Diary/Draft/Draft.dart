@@ -75,7 +75,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
     model.region = draft['region'] ?? model.region;
     model.province = draft['province'] ?? model.province;
     model.protectedArea = draft['protected_area'] ?? model.protectedArea;
-    model.weatherCondition = draft['weather'] ?? 'Sunny';
+    model.weatherConditions = draft['weather'] ?? 'Sunny';
     model.habitat = draft['habitat'] ?? 'Mangrove forest';
     model.habitatOthers = draft['habitat_others'];
     model.observationCategory = draft['observation_category'] ?? 'Wildlife';

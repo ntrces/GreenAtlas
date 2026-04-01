@@ -1,41 +1,43 @@
 import 'package:flutter/material.dart';
 
 class ObservationModel extends ChangeNotifier {
-  // --- Step 1 Fields ---
-  String? userId; 
+  // --- Step 1 Fields: Basic Info & Team ---
+  String? userId;
   String observerName = 'FO-12345'; 
-  
+
   List<Map<String, String>> members = [
     {'firstname': '', 'lastname': '', 'role': ''}
   ];
 
-  // --- Step 2 Fields ---
+  // --- Step 2 Fields: Date, Time & Location ---
   DateTime observationDate = DateTime.now();
+  
   String region = "Region IV-A (CALABARZON)";
   String province = "Cavite";
   String protectedArea = "Cavite Protected Landscape";
-  String weatherCondition = ''; 
 
-  // --- Step 3 Fields ---
+  List<String> weatherConditions = []; 
+
+  // --- Step 3 Fields: Wildlife Details ---
   String habitat = '';            
   String? habitatOthers;
   String observationCategory = ''; 
   String? obsCategoryOthers;
 
   String taxon = '';
-  String speciesName = ''; 
-  bool isUnfamiliar = false; 
-  int quantity = 0; // Set to 0 so "Enter count" hint shows
-  
-  bool seen = false; 
-  bool heard = false; 
-  bool presence = false; 
+  String speciesName = '';
+  bool isUnfamiliar = false;
+  int quantity = 0;               
 
-  // --- NEW FIELD: Photo Upload ---
-  String? imagePath; // Stores the local path of the picked photo
+  bool seen = false;
+  bool heard = false;
+  bool presence = false;
 
-  String status = 'Sent'; 
-  String observationNotes = ''; 
+  // --- UPDATED: Multiple Photo Support ---
+  List<String> imagePaths = []; // Now stores a collection of local file paths
+
+  String status = 'Sent';
+  String observationNotes = '';
 
   // --- Methods ---
 
@@ -50,36 +52,36 @@ class ObservationModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // UPDATED: Reset all fields to BLANK/DEFAULT
+  /// COMPREHENSIVE RESET
   void reset() {
-    // Step 1 Reset
+    // Step 1
     members = [
       {'firstname': '', 'lastname': '', 'role': ''}
     ];
 
-    // Step 2 Reset
+    // Step 2
     observationDate = DateTime.now();
-    weatherCondition = ''; 
+    weatherConditions = []; 
     
-    // Step 3 Reset
-    habitat = '';            // Blank for "Select habitat" hint
+    // Step 3
+    habitat = '';
     habitatOthers = null;
-    observationCategory = ''; // Blank for "Select category" hint
+    observationCategory = '';
     obsCategoryOthers = null;
     taxon = '';
     speciesName = '';
     isUnfamiliar = false;
-    quantity = 0;            // 0 for "Enter count" hint
+    quantity = 0;
     seen = false;
     heard = false;
     presence = false;
     
     // Photo Reset
-    imagePath = null;        // Physically clears the photo box UI
+    imagePaths = []; // Wipes all selected photos from the list
     
     status = 'Sent';
     observationNotes = '';
 
-    notifyListeners(); // Updates all 3 steps simultaneously
+    notifyListeners(); 
   }
 }

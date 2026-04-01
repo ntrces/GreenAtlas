@@ -137,7 +137,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Digital logbook for recording activities...",
+              const Text("Digital logbook for recording observations in GreenAtlas",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, height: 1.4)),
               const SizedBox(height: 12),
               _metaText("Version: v.1.1.25"),
@@ -155,7 +155,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   );
 
   Widget _buildDescriptionText(bool isDark) => Text(
-    "document daily patrols and species observations to enhance ecological monitoring efforts.",
+    "Document daily patrols and species observations to enhance ecological monitoring efforts in the Cavite Protected Area.",
     style: TextStyle(fontSize: 13, height: 1.5, color: isDark ? Colors.white70 : const Color(0xFF5D7A5D).withOpacity(0.8)),
   );
 
@@ -168,6 +168,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         label: "Collect", 
         color: const Color(0xFF4285F4), 
         isDark: isDark, 
+        // FIXED: Using Navigator.push ensures the Navbar remains in the background stack
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep1Screen())),
       ),
       _actionRow(
@@ -194,9 +195,11 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     decoration: BoxDecoration(
       color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
       borderRadius: BorderRadius.circular(12),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
     ),
     child: ListTile(
       onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       leading: CircleAvatar(backgroundColor: color, radius: 18, child: Icon(icon, color: Colors.white, size: 18)),
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       trailing: badge != null 
@@ -213,7 +216,6 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
 
   Widget _buildRecentEntriesList(bool isDark) {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      // .limit(5) ensures we only fetch 5 rows from Supabase
       stream: _supabase
           .from('field_entries')
           .stream(primaryKey: ['id'])
@@ -235,14 +237,14 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           );
         }
 
-        // Sorting client-side to ensure the absolute latest is on top
+        // Sorting client-side to ensure latest is on top
         entries.sort((a, b) => b['created_at'].compareTo(a['created_at']));
         
         return Column(
           children: entries.take(5).map((e) => _buildEntryCard(
             e['id'].toString(), 
             DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(e['created_at'])),
-            e['location'] ?? "Unknown Area",
+            e['protected_area'] ?? "Unknown Area", // Updated to match Step 2 field
             e['status'] ?? "Sent",
             isDark
           )).toList(),
