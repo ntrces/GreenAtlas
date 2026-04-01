@@ -68,7 +68,7 @@ class _LoadingPageState extends State<LoadingPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Image.asset(
-                    'logo2.png',
+                    'logo1.png',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return const Icon(Icons.broken_image, color: Colors.red);

@@ -65,13 +65,14 @@ class _SplashScreenState extends State<SplashScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(20.0), // Adjust padding for your logo
                   child: Image.asset(
-  'logo2.png', 
+  'assets/logo2.png', // Must match the pubspec.yaml entry exactly
+  width: 160,  // Updated per your notes
+  height: 160, // Updated per your notes
   fit: BoxFit.contain,
   errorBuilder: (context, error, stackTrace) {
-     // This helps you see if it's still failing
-     return const Icon(Icons.broken_image, color: Colors.red);
+    return const Icon(Icons.broken_image, color: Colors.red, size: 40);
   },
-)
+),
                 ),
               ),
             ),

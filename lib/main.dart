@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'theme_provider.dart';
+import './Employee_Mobile/Field_Diary/Collect/observation_model.dart'; // Ensure path is correct
 import './LoadingScreen/splash_sceen.dart'; 
 import 'LandingPage_Mobile/landing_screen.dart';
 import 'User_Mobile/user_dashboard.dart'; 
@@ -10,7 +11,6 @@ import 'Employee_Mobile/Employee_dashboard.dart';
 import 'Login_Signup_Mobile/login_screen.dart'; 
 
 void main() async {
-  // Ensure Flutter is ready before calling native code
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
     url: 'https://ffczaraasatwduvenghj.supabase.co',
@@ -19,8 +19,11 @@ void main() async {
   );
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => ObservationModel()),
+      ],
       child: const EcoConservationApp(),
     ),
   );
@@ -31,7 +34,6 @@ class EcoConservationApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Theme logic remains intact
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
@@ -49,14 +51,12 @@ class EcoConservationApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF121212),
       ),
-      // Starts clean at the SplashScreen
       home: const SplashScreen(), 
       routes: {
         '/login': (context) => const LoginScreen(),
         '/landing': (context) => const LandingScreen(),
         '/home': (context) => const UserDashboard(), 
         '/employee': (context) => const EmployeePortal(),
-        // Admin route has been removed
       },
     );
   }
