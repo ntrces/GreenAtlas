@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 // Colors
-const Color primaryForest = Color(0xFF1B5E20);
-const Color softGreen = Color(0xFFF1F8E9);
+const Color primaryForest = Color(0xFF517156);
+const Color softGreen = Color(0xFFE5F5E8);
 const Color leafAccent = Color(0xFF81C784);
 const Color surfaceWhite = Colors.white;
 

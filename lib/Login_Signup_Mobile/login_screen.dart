@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
 import 'signup_screen.dart'; 
+import '../IntroPages/intro1.dart'; // Ensure this matches your file path
 import '../User_Mobile/user_dashboard.dart'; 
 import '../Employee_Mobile/Employee_dashboard.dart'; 
-import '../Web_Admin/Web_Dashboard/Admin_Portal.dart'; // REQUIRED IMPORT
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // --- ROLE-BASED SIGN IN LOGIC ---
+  // --- SIGN IN LOGIC ---
   Future<void> _handleSignIn() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Authenticate with Supabase Auth
+      // 1. Authenticate with Supabase
       final response = await _supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -40,32 +40,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final user = response.user;
       if (user != null && mounted) {
-        // 2. Fetch the role from your 'profiles' table
-        final data = await _supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle(); // Use maybeSingle to prevent crash if profile is missing
-
-        final String role = data?['role'] ?? 'user';
-
-        // 3. Navigation based on retrieved role
-        if (role == 'admin') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminWebPortal()),
-          );
-        } else if (role == 'employee') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const EmployeePortal()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const UserDashboard()),
-          );
-        }
+        // 2. Navigation logic: Redirect to Intro1Screen after login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Intro1Screen()),
+        );
       }
     } on AuthException catch (e) {
       if (mounted) {
@@ -76,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Profile Error: $e"), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text("Login Error: $e"), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -98,38 +77,38 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Branding
-                    // ⚪ THE LOGO CARD
-Container(
-  width: 80,
-  height: 80,
-  decoration: const BoxDecoration(
-    color: Colors.white,
-    shape: BoxShape.circle,
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black12,
-        blurRadius: 20,
-        offset: Offset(0, 10),
-      )
-    ],
-  ),
-  child: Center(
-    child: Image.asset(
-      'logo2.png', // Reference directly to fix Web 404 path doubling
-      width: 80,   // SET TO 60
-      height: 80,  // SET TO 60
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        // Red icon indicates the asset is still not being found by the engine
-        return const Icon(Icons.broken_image, color: Colors.red, size: 40);
-      },
-    ),
-  ),
-),
+                    // THE LOGO CARD
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
+                          )
+                        ],
+                      ),
+                      child: Center(
+                        child: Image.asset(
+                          'logo2.png',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.eco, color: primaryForest, size: 40);
+                          },
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
-                    const Text("Welcome Back", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
-                    const Text("Sign in to explore the Green Atlas", style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    const Text("Welcome Back", 
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
+                    const Text("Sign in to explore the Green Atlas", 
+                        style: TextStyle(fontSize: 12, color: Colors.black54)),
                     const SizedBox(height: 24),
 
                     // Login Card
@@ -149,7 +128,10 @@ Container(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Center(child: Text("Sign In", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))),
+                          const Center(
+                            child: Text("Sign In", 
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))
+                          ),
                           const SizedBox(height: 16),
                           _buildLabel("* Email Address"),
                           TextField(
@@ -157,7 +139,6 @@ Container(
                             keyboardType: TextInputType.emailAddress,
                             decoration: ecoInputStyle(label: "Enter email", icon: Icons.email_outlined).copyWith(
                               hintText: "your.email@example.com",
-                              labelText: null,
                               floatingLabelBehavior: FloatingLabelBehavior.never,
                             ),
                           ),
@@ -168,7 +149,6 @@ Container(
                             obscureText: _obscurePassword,
                             decoration: ecoInputStyle(label: "Enter password", icon: Icons.lock_outline).copyWith(
                               hintText: "Enter password",
-                              labelText: null,
                               floatingLabelBehavior: FloatingLabelBehavior.never,
                               suffixIcon: IconButton(
                                 icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
@@ -195,11 +175,15 @@ Container(
                     ),
 
                     const SizedBox(height: 24),
-                    // Footer
+                    // FIXED: Removed 'const' from Row to prevent Expanded errors
                     Row(
                       children: [
                         const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
-                        Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text("DON’T HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade600))),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8), 
+                          child: Text("DON’T HAVE AN ACCOUNT?", 
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade600))
+                        ),
                         const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
                       ],
                     ),
@@ -213,7 +197,8 @@ Container(
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text("Create Account", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryForest)),
+                        child: const Text("Create Account", 
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryForest)),
                       ),
                     ),
                   ],
