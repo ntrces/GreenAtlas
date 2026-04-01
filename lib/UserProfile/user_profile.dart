@@ -76,16 +76,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _email = user.email ?? _email;
             _phone = (data['phone'] != null && data['phone'].isNotEmpty) ? data['phone'] : "Add phone number";
             
-            // Sync toggles with database values
             _emailNotif = data['email_notifications_enabled'] ?? true;
             _pushNotif = data['push_notifications_enabled'] ?? true;
 
-            // Location Logic
             String muni = data['municipality'] ?? "";
             String city = data['city'] ?? "";
             _location = (muni.isNotEmpty || city.isNotEmpty) ? "$muni, $city" : "Location not set";
 
-            // Date Logic
             if (data['created_at'] != null) {
               DateTime dt = DateTime.parse(data['created_at']);
               List<String> months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -101,6 +98,56 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         debugPrint("Load Error: $e");
       }
     }
+  }
+
+  // --- 🚪 LOGOUT CONFIRMATION DIALOG ---
+  void _showLogoutDialog(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevents closing by tapping outside
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text(
+            "Logout Confirmation",
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black, 
+              fontWeight: FontWeight.bold
+            ),
+          ),
+          content: Text(
+            "Are you sure you want to log out of your account?",
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "CANCEL", 
+                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _supabase.auth.signOut();
+                if (context.mounted) {
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text("LOGOUT", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -260,8 +307,35 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   );
 
   Widget _buildSecurityButton({required IconData icon, required String label, required VoidCallback onTap}) => 
-    SizedBox(width: double.infinity, height: 50, child: OutlinedButton.icon(onPressed: onTap, icon: Icon(icon, size: 18), label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))));
+    SizedBox(
+      width: double.infinity, 
+      height: 50, 
+      child: OutlinedButton.icon(
+        onPressed: onTap, 
+        icon: Icon(icon, size: 18), 
+        label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)), 
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.black, 
+          side: const BorderSide(color: Colors.black12), 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+        )
+      )
+    );
 
   Widget _buildLogoutButton(BuildContext context) => 
-    SizedBox(width: double.infinity, height: 50, child: ElevatedButton.icon(onPressed: () => _supabase.auth.signOut().then((_) => Navigator.pushReplacementNamed(context, '/login')), icon: const Icon(Icons.logout), label: const Text("LOGOUT", style: TextStyle(fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0)));
+    SizedBox(
+      width: double.infinity, 
+      height: 50, 
+      child: ElevatedButton.icon(
+        onPressed: () => _showLogoutDialog(context), // Trigger the confirmation popup
+        icon: const Icon(Icons.logout), 
+        label: const Text("LOGOUT", style: TextStyle(fontWeight: FontWeight.bold)), 
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.redAccent, 
+          foregroundColor: Colors.white, 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), 
+          elevation: 0
+        )
+      )
+    );
 }
