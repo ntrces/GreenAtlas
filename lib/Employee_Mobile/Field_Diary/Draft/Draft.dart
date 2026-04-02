@@ -40,24 +40,24 @@ class _DraftsScreenState extends State<DraftsScreen> {
     }
   }
 
-  void _showDeleteConfirmation(BuildContext context, String id, String speciesName) {
+  void _showDeleteConfirmation(BuildContext context, String id, String speciesName, TextTheme textTheme) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Delete Draft"),
-          content: Text("Are you sure you want to delete the draft for '$speciesName'?"),
+          title: Text("Delete Draft", style: textTheme.titleLarge),
+          content: Text("Are you sure you want to delete the draft for '$speciesName'?", style: textTheme.bodyMedium),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel", style: TextStyle(color: Colors.black54)),
+              child: Text("Cancel", style: textTheme.labelLarge?.copyWith(color: Colors.black54)),
             ),
             TextButton(
               onPressed: () {
                 _deleteDraft(id);
                 Navigator.pop(context);
               },
-              child: const Text("Delete", style: TextStyle(color: Colors.red)),
+              child: Text("Delete", style: textTheme.labelLarge?.copyWith(color: Colors.red)),
             ),
           ],
         );
@@ -69,7 +69,6 @@ class _DraftsScreenState extends State<DraftsScreen> {
   void _continueDraft(BuildContext context, Map<String, dynamic> draft) {
     final model = context.read<ObservationModel>();
 
-    // Reloading data into the model from the database fields
     model.observerName = draft['observer_id_code'] ?? 'FO-12345';
     model.observationDate = DateTime.parse(draft['obs_date']);
     model.region = draft['region'] ?? model.region;
@@ -98,18 +97,18 @@ class _DraftsScreenState extends State<DraftsScreen> {
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final user = _supabase.auth.currentUser;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
-      appBar: _buildAppBar(context, isDark),
+      appBar: _buildAppBar(context, isDark, textTheme),
       body: Column(
         children: [
-          _buildSearchSection(isDark),
+          _buildSearchSection(isDark, textTheme),
           Expanded(
             child: user == null 
               ? const Center(child: Text("Please login to see your drafts"))
               : StreamBuilder<List<Map<String, dynamic>>>(
-                  // FIX: We only use ONE .eq() here to avoid the code error.
                   stream: _supabase
                       .from('field_entries')
                       .stream(primaryKey: ['id'])
@@ -122,13 +121,10 @@ class _DraftsScreenState extends State<DraftsScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    // FIX: Filter for 'DRAFT' status locally in the logic
-                    // Ensure 'DRAFT' is uppercase to match your DB's naming convention
                     List<Map<String, dynamic>> drafts = (snapshot.data ?? [])
                         .where((d) => d['status'] == 'DRAFT') 
                         .toList();
 
-                    // Apply search filter locally
                     if (_searchQuery.isNotEmpty) {
                       drafts = drafts.where((d) {
                         final name = (d['common_name'] ?? '').toString().toLowerCase();
@@ -136,12 +132,12 @@ class _DraftsScreenState extends State<DraftsScreen> {
                       }).toList();
                     }
 
-                    if (drafts.isEmpty) return _buildEmptyState(isDark);
+                    if (drafts.isEmpty) return _buildEmptyState(isDark, textTheme);
 
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       itemCount: drafts.length,
-                      itemBuilder: (context, index) => _buildDraftCard(context, drafts[index], isDark),
+                      itemBuilder: (context, index) => _buildDraftCard(context, drafts[index], isDark, textTheme),
                     );
                   },
                 ),
@@ -153,15 +149,21 @@ class _DraftsScreenState extends State<DraftsScreen> {
 
   // --- UI COMPONENTS ---
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDark) => AppBar(
+  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDark, TextTheme textTheme) => AppBar(
     backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
     elevation: 0,
-    leading: IconButton(icon: Icon(Icons.arrow_back_ios, color: darkGreen, size: 20), onPressed: () => Navigator.pop(context)),
-    title: Text("Drafts", style: TextStyle(color: darkGreen, fontWeight: FontWeight.bold, fontSize: 18)),
+    leading: IconButton(
+      icon: Icon(Icons.arrow_back_ios, color: darkGreen, size: 20), 
+      onPressed: () => Navigator.pop(context)
+    ),
+    title: Text(
+      "Drafts", 
+      style: textTheme.titleLarge?.copyWith(color: darkGreen, fontSize: 18)
+    ),
     centerTitle: true,
   );
 
-  Widget _buildSearchSection(bool isDark) => Padding(
+  Widget _buildSearchSection(bool isDark, TextTheme textTheme) => Padding(
     padding: const EdgeInsets.all(20.0),
     child: Row(children: [
       Expanded(
@@ -175,10 +177,12 @@ class _DraftsScreenState extends State<DraftsScreen> {
           child: TextField(
             controller: _searchController,
             onChanged: (v) => setState(() => _searchQuery = v),
-            decoration: const InputDecoration(
+            style: textTheme.bodyLarge?.copyWith(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
               hintText: "Search drafts...", 
+              hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26),
               border: InputBorder.none, 
-              icon: Icon(Icons.search, size: 20, color: Colors.black26)
+              icon: const Icon(Icons.search, size: 20, color: Colors.black26)
             ),
           ),
         ),
@@ -192,7 +196,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
     ]),
   );
 
-  Widget _buildDraftCard(BuildContext context, Map<String, dynamic> draft, bool isDark) {
+  Widget _buildDraftCard(BuildContext context, Map<String, dynamic> draft, bool isDark, TextTheme textTheme) {
     final DateTime createdAt = DateTime.parse(draft['created_at']);
     final String formattedDate = DateFormat('MMMM dd, yyyy • hh:mm a').format(createdAt);
     final String speciesName = draft['common_name'] ?? "Unnamed Observation";
@@ -208,17 +212,29 @@ class _DraftsScreenState extends State<DraftsScreen> {
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Flexible(child: Text(speciesName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+            Flexible(
+              child: Text(
+                speciesName, 
+                overflow: TextOverflow.ellipsis, 
+                style: textTheme.titleMedium
+              )
+            ),
             const SizedBox(width: 8),
-            _buildBadge("DRAFT", draftOrange),
+            _buildBadge("DRAFT", draftOrange, textTheme),
           ]),
           const SizedBox(height: 4),
-          Text(formattedDate, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+          Text(
+            formattedDate, 
+            style: textTheme.bodySmall?.copyWith(color: Colors.black45)
+          ),
           const SizedBox(height: 8),
           Row(children: [
             Icon(Icons.location_on, color: forestGreen, size: 14), 
             const SizedBox(width: 4),
-            Text(draft['protected_area'] ?? "N/A", style: TextStyle(fontSize: 12, color: forestGreen, fontWeight: FontWeight.w500))
+            Text(
+              draft['protected_area'] ?? "N/A", 
+              style: textTheme.bodySmall?.copyWith(color: forestGreen)
+            )
           ]),
         ])),
         IconButton(
@@ -227,25 +243,31 @@ class _DraftsScreenState extends State<DraftsScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 24), 
-          onPressed: () => _showDeleteConfirmation(context, draft['id'].toString(), speciesName)
+          onPressed: () => _showDeleteConfirmation(context, draft['id'].toString(), speciesName, textTheme)
         ),
       ]),
     );
   }
 
-  Widget _buildBadge(String label, Color color) => Container(
+  Widget _buildBadge(String label, Color color, TextTheme textTheme) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), 
     decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), 
-    child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold))
+    child: Text(
+      label, 
+      style: textTheme.labelSmall?.copyWith(color: color)
+    )
   );
 
-  Widget _buildEmptyState(bool isDark) => Center(
+  Widget _buildEmptyState(bool isDark, TextTheme textTheme) => Center(
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center, 
       children: [
         Icon(Icons.auto_stories_outlined, size: 64, color: isDark ? Colors.white10 : Colors.black12), 
         const SizedBox(height: 16),
-        Text("No drafts found", style: TextStyle(color: isDark ? Colors.white38 : Colors.black26, fontWeight: FontWeight.bold)),
+        Text(
+          "No drafts found", 
+          style: textTheme.titleMedium?.copyWith(color: isDark ? Colors.white38 : Colors.black26)
+        ),
       ]
     )
   );

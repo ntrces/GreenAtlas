@@ -31,6 +31,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
@@ -40,9 +41,8 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
         centerTitle: true,
         title: Text(
           "Notifications",
-          style: TextStyle(
+          style: textTheme.titleLarge?.copyWith(
             color: isDark ? Colors.white : const Color(0xFF2D3E2D),
-            fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(
@@ -52,7 +52,10 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
         actions: [
           TextButton(
             onPressed: _markAllAsRead,
-            child: const Text("Mark all read", style: TextStyle(color: Color(0xFF5D7A5D), fontWeight: FontWeight.bold)),
+            child: Text(
+              "Mark all read", 
+              style: textTheme.labelLarge?.copyWith(color: const Color(0xFF5D7A5D)),
+            ),
           ),
           const SizedBox(width: 8),
         ],
@@ -79,7 +82,10 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
                       children: [
                         Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
                         const SizedBox(height: 16),
-                        const Text("No notifications yet", style: TextStyle(color: Colors.grey)),
+                        Text(
+                          "No notifications yet", 
+                          style: textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                        ),
                       ],
                     ),
                   );
@@ -91,7 +97,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
                   separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
                   itemBuilder: (context, index) {
                     final notif = notifications[index];
-                    return _buildNotificationItem(notif, isDark);
+                    return _buildNotificationItem(notif, isDark, textTheme);
                   },
                 );
               },
@@ -99,7 +105,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
     );
   }
 
-  Widget _buildNotificationItem(Map<String, dynamic> notif, bool isDark) {
+  Widget _buildNotificationItem(Map<String, dynamic> notif, bool isDark, TextTheme textTheme) {
     final bool isRead = notif['is_read'] ?? false;
     final String type = notif['type'] ?? 'info';
     final DateTime createdAt = DateTime.parse(notif['created_at']);
@@ -147,9 +153,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
         ),
         title: Text(
           notif['title'] ?? 'System Update',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+          style: (isRead ? textTheme.titleSmall : textTheme.titleMedium)?.copyWith(
             color: isDark ? Colors.white : Colors.black87,
           ),
         ),
@@ -159,12 +163,14 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
             const SizedBox(height: 4),
             Text(
               notif['message'] ?? '',
-              style: TextStyle(fontSize: 13, color: isDark ? Colors.white60 : Colors.black54),
+              style: textTheme.bodySmall?.copyWith(
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               DateFormat('MMM d, h:mm a').format(createdAt),
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: textTheme.labelSmall?.copyWith(color: Colors.grey),
             ),
           ],
         ),
@@ -175,7 +181,6 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
                 .update({'is_read': true})
                 .eq('id', notif['id']);
           }
-          // Add navigation logic here if clicking a notification should open a specific page
         },
       ),
     );

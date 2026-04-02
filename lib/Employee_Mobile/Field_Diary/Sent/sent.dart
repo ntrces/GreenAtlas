@@ -4,15 +4,14 @@ import 'package:provider/provider.dart';
 import '../../../theme_provider.dart';
 
 class SentObservationsScreen extends StatelessWidget {
-  // 1. Define the observation variable
   final Map<String, dynamic> observation;
 
-  // 2. Fixed Constructor - Matches the call in SentListScreen
   const SentObservationsScreen({super.key, required this.observation});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final textTheme = Theme.of(context).textTheme;
     final Color forestGreen = const Color(0xFF5D7A5D);
 
     // Formatted date for the header
@@ -23,10 +22,18 @@ class SentObservationsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text("Observation Details"),
+        title: Text(
+          "Observation Details", 
+          style: textTheme.titleLarge?.copyWith(
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-        foregroundColor: isDark ? Colors.white : Colors.black,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -36,22 +43,27 @@ class SentObservationsScreen extends StatelessWidget {
             // Status Header
             _buildInfoCard(
               isDark,
+              textTheme,
               title: observation['common_name'] ?? "Unnamed Species",
               subtitle: "Submitted on $date",
               trailing: observation['status']?.toString().toUpperCase() ?? "PENDING",
             ),
             const SizedBox(height: 20),
             
-            // Details Section
-            Text("Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: forestGreen)),
+            // Details Section Header
+            Text(
+              "Details", 
+              style: textTheme.titleMedium?.copyWith(color: forestGreen),
+            ),
             const Divider(),
-            _buildDetailRow("Scientific Name", observation['scientific_name'] ?? "N/A"),
-            _buildDetailRow("Habitat", observation['habitat'] ?? "N/A"),
-            _buildDetailRow("Notes", observation['notes'] ?? "No notes provided."),
+            
+            _buildDetailRow("Scientific Name", observation['scientific_name'] ?? "N/A", textTheme),
+            _buildDetailRow("Habitat", observation['habitat'] ?? "N/A", textTheme),
+            _buildDetailRow("Notes", observation['notes'] ?? "No notes provided.", textTheme),
             
             const SizedBox(height: 30),
             
-            // Sample image placeholder or real image logic
+            // Image Display Logic
             if (observation['image_url'] != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(15),
@@ -69,7 +81,7 @@ class SentObservationsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard(bool isDark, {required String title, required String subtitle, required String trailing}) {
+  Widget _buildInfoCard(bool isDark, TextTheme textTheme, {required String title, required String subtitle, required String trailing}) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -79,34 +91,56 @@ class SentObservationsScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              Text(subtitle, style: const TextStyle(color: Colors.grey)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title, 
+                  style: textTheme.titleLarge?.copyWith(fontSize: 20),
+                ),
+                Text(
+                  subtitle, 
+                  style: textTheme.bodySmall?.copyWith(color: Colors.grey),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.blue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(trailing, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(
+              trailing, 
+              style: textTheme.labelSmall?.copyWith(
+                color: Colors.blue, 
+                fontSize: 12,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(String label, String value, TextTheme textTheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey, fontSize: 12)),
-          Text(value, style: const TextStyle(fontSize: 16)),
+          Text(
+            label, 
+            style: textTheme.labelSmall?.copyWith(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value, 
+            style: textTheme.bodyLarge?.copyWith(fontSize: 16),
+          ),
         ],
       ),
     );

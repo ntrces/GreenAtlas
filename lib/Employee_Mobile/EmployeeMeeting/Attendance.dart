@@ -15,7 +15,7 @@ class MeetingAttendanceScreen extends StatefulWidget {
 class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = false;
-  String? _currentStatus; // Tracks if user responded: 'Accepted' or 'Declined'
+  String? _currentStatus; 
 
   @override
   void initState() {
@@ -23,7 +23,6 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
     _checkExistingRSVP();
   }
 
-  // Queries the database to see if the user has already responded
   Future<void> _checkExistingRSVP() async {
     final userId = _supabase.auth.currentUser?.id;
     final meetingId = widget.meeting['id'] ?? widget.meeting['meeting_id'];
@@ -54,7 +53,6 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
   }
 
   Future<void> _updateRSVP(String status) async {
-    // Prevent interaction if a response is already logged
     if (_isLoading || _currentStatus != null) return;
 
     setState(() => _isLoading = true);
@@ -64,7 +62,6 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
 
       final meetingId = widget.meeting['id'] ?? widget.meeting['meeting_id'];
 
-      // Perform upsert to save response
       await _supabase.from('meeting_rsvps').upsert({
         'meeting_id': meetingId, 
         'user_id': userId,
@@ -87,9 +84,9 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final textTheme = Theme.of(context).textTheme;
     final String? fileUrl = widget.meeting['attachment_url'];
     
-    // Status Logic for Button Locking
     final bool isAccepted = _currentStatus == 'Accepted';
     final bool isDeclined = _currentStatus == 'Declined';
     final bool hasResponded = _currentStatus != null;
@@ -98,7 +95,10 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-        title: Text(widget.meeting['title'] ?? "Meeting Details", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(
+          widget.meeting['title'] ?? "Meeting Details", 
+          style: textTheme.titleLarge?.copyWith(fontSize: 16)
+        ),
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
@@ -109,9 +109,9 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _buildMeetingInfoBox(widget.meeting),
+            _buildMeetingInfoBox(widget.meeting, textTheme),
             const SizedBox(height: 16),
-            _buildInfoCard(isDark, "About Meeting", widget.meeting['agenda'] ?? "No agenda provided."),
+            _buildInfoCard(isDark, "About Meeting", widget.meeting['agenda'] ?? "No agenda provided.", textTheme),
             
             if (fileUrl != null) ...[
               const SizedBox(height: 16),
@@ -119,12 +119,21 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
                 onTap: () => _viewFile(fileUrl),
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.blue.withOpacity(0.2))),
-                  child: const Row(children: [
-                    Icon(Icons.description_outlined, color: Colors.blue),
-                    SizedBox(width: 12),
-                    Expanded(child: Text("View Briefing Document", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))),
-                    Icon(Icons.open_in_new, size: 16, color: Colors.blue),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.05), 
+                    borderRadius: BorderRadius.circular(12), 
+                    border: Border.all(color: Colors.blue.withOpacity(0.2))
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.description_outlined, color: Colors.blue),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "View Briefing Document", 
+                        style: textTheme.labelLarge?.copyWith(color: Colors.blue)
+                      )
+                    ),
+                    const Icon(Icons.open_in_new, size: 16, color: Colors.blue),
                   ]),
                 ),
               ),
@@ -134,22 +143,22 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
             if (_isLoading) 
               const CircularProgressIndicator(color: Color(0xFF5D7A5D))
             else ...[
-              // ACCEPT BUTTON: Locks if user already accepted
               _actionBtn(
                 isAccepted ? "RESPONSE SENT: ACCEPTED" : (isDeclined ? "CANNOT ATTEND" : "I WILL ATTEND"), 
                 isAccepted ? Colors.grey : const Color(0xFF5D7A5D), 
                 hasResponded ? () {} : () => _updateRSVP('Accepted'),
-                opacity: isDeclined ? 0.3 : 1.0 // Fade out if other option was chosen
+                textTheme,
+                opacity: isDeclined ? 0.3 : 1.0 
               ),
               const SizedBox(height: 12),
-              // DECLINE BUTTON: Locks if user already declined
               _actionBtn(
                 isDeclined ? "RESPONSE SENT: DECLINED" : "CANNOT ATTEND", 
                 isDeclined ? Colors.red.withOpacity(0.1) : Colors.black12, 
                 hasResponded ? () {} : () => _updateRSVP('Declined'), 
+                textTheme,
                 isOutlined: true,
                 textColor: isDeclined ? Colors.red : null,
-                opacity: isAccepted ? 0.3 : 1.0 // Fade out if other option was chosen
+                opacity: isAccepted ? 0.3 : 1.0 
               ),
             ],
           ],
@@ -159,25 +168,37 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
   }
 
   // --- UI HELPERS ---
-  Widget _buildMeetingInfoBox(Map<String, dynamic> m) => Container(
+  Widget _buildMeetingInfoBox(Map<String, dynamic> m, TextTheme textTheme) => Container(
     width: double.infinity, padding: const EdgeInsets.all(24),
     decoration: BoxDecoration(color: const Color(0xFFE1ECE1), borderRadius: BorderRadius.circular(12)),
     child: Column(children: [
-      _iconRow(Icons.calendar_today, m['meeting_date'] ?? "TBD"),
+      _iconRow(Icons.calendar_today, m['meeting_date'] ?? "TBD", textTheme),
       const SizedBox(height: 12),
-      _iconRow(Icons.location_on_outlined, m['location'] ?? "Unknown"),
+      _iconRow(Icons.location_on_outlined, m['location'] ?? "Unknown", textTheme),
     ]),
   );
 
-  Widget _iconRow(IconData i, String t) => Row(children: [Icon(i, size: 18, color: const Color(0xFF5D7A5D)), const SizedBox(width: 12), Text(t, style: const TextStyle(fontWeight: FontWeight.bold))]);
+  Widget _iconRow(IconData i, String t, TextTheme textTheme) => Row(children: [
+    Icon(i, size: 18, color: const Color(0xFF5D7A5D)), 
+    const SizedBox(width: 12), 
+    Text(t, style: textTheme.titleSmall)
+  ]);
   
-  Widget _buildInfoCard(bool d, String l, String v) => Container(
+  Widget _buildInfoCard(bool d, String l, String v, TextTheme textTheme) => Container(
     width: double.infinity, padding: const EdgeInsets.all(16), 
-    decoration: BoxDecoration(color: d ? const Color(0xFF1F1F1F) : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black.withOpacity(0.05))), 
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(l, style: const TextStyle(fontSize: 11, color: Colors.black38)), const SizedBox(height: 4), Text(v, style: TextStyle(color: d ? Colors.white : Colors.black87))])
+    decoration: BoxDecoration(
+      color: d ? const Color(0xFF1F1F1F) : Colors.white, 
+      borderRadius: BorderRadius.circular(12), 
+      border: Border.all(color: Colors.black.withOpacity(0.05))
+    ), 
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(l, style: textTheme.labelSmall?.copyWith(color: Colors.black38)), 
+      const SizedBox(height: 4), 
+      Text(v, style: textTheme.bodyMedium?.copyWith(color: d ? Colors.white : Colors.black87))
+    ])
   );
   
-  Widget _actionBtn(String l, Color c, VoidCallback t, {bool isOutlined = false, Color? textColor, double opacity = 1.0}) => Opacity(
+  Widget _actionBtn(String l, Color c, VoidCallback t, TextTheme textTheme, {bool isOutlined = false, Color? textColor, double opacity = 1.0}) => Opacity(
     opacity: opacity,
     child: SizedBox(
       width: double.infinity, 
@@ -190,7 +211,12 @@ class _MeetingAttendanceScreenState extends State<MeetingAttendanceScreen> {
           side: isOutlined ? BorderSide(color: textColor ?? Colors.black12) : BorderSide.none, 
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
         ), 
-        child: Text(l, style: TextStyle(color: textColor ?? (isOutlined ? Colors.black54 : Colors.white), fontWeight: FontWeight.bold))
+        child: Text(
+          l, 
+          style: textTheme.labelLarge?.copyWith(
+            color: textColor ?? (isOutlined ? Colors.black54 : Colors.white),
+          )
+        )
       )
     ),
   );

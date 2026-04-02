@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import '../theme_constants.dart';
-import 'intro3.dart'; // Import Intro3
-import '../LoadingScreen/loading_pages.dart'; // Import your Loading Page
+import 'intro3.dart'; 
+import '../Login_Signup_Mobile/LoadingScreen/loading_pages.dart'; 
 
 class Intro2Screen extends StatelessWidget {
   const Intro2Screen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F8F4), // Consistent mint background
+      backgroundColor: const Color(0xFFF1F8F4), 
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -27,16 +29,14 @@ class Intro2Screen extends StatelessWidget {
                           Align(
                             alignment: Alignment.topRight,
                             child: TextButton(
-                              // UPDATED: Skip now goes to LoadingPage first
                               onPressed: () => Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(builder: (context) => const LoadingPage()),
                               ),
-                              child: const Text(
+                              child: Text(
                                 "Skip",
-                                style: TextStyle(
-                                  color: Color(0xFF5A7463),
-                                  fontWeight: FontWeight.w600,
+                                style: textTheme.labelLarge?.copyWith(
+                                  color: const Color(0xFF5A7463),
                                   fontSize: 14,
                                 ),
                               ),
@@ -69,25 +69,24 @@ class Intro2Screen extends StatelessWidget {
                           ),
                           const SizedBox(height: 40),
 
-                          const Text(
-                            "AR Botanical Gallery",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF2D3E33),
-                              letterSpacing: -0.5,
+                          Center(
+                            child: Text(
+                              "AR Botanical Gallery",
+                              style: textTheme.headlineMedium?.copyWith(
+                                color: const Color(0xFF2D3E33),
+                                letterSpacing: -0.5,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
-                          const Text(
-                            "Explore an immersive collection of native plants in augmented reality. Point your camera at the environment to discover interactive 3D plant models with detailed information.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: Color(0xFF5A7F66),
-                              height: 1.5,
+                          Center(
+                            child: Text(
+                              "Explore an immersive collection of native plants in augmented reality. Point your camera at the environment to discover interactive 3D plant models with detailed information.",
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFF5A7F66),
+                                height: 1.5,
+                              ),
                             ),
                           ),
                         ],
@@ -96,7 +95,6 @@ class Intro2Screen extends StatelessWidget {
                       // --- BOTTOM SECTION ---
                       Column(
                         children: [
-                          // Page Indicator (Middle active)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -109,7 +107,6 @@ class Intro2Screen extends StatelessWidget {
                           ),
                           const SizedBox(height: 30),
 
-                          // Back and Next Buttons Row
                           Row(
                             children: [
                               // Back Button
@@ -125,12 +122,10 @@ class Intro2Screen extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       "Back",
-                                      style: TextStyle(
-                                        color: Color(0xFF5A7463),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                      style: textTheme.labelLarge?.copyWith(
+                                        color: const Color(0xFF5A7463),
                                       ),
                                     ),
                                   ),
@@ -155,19 +150,17 @@ class Intro2Screen extends StatelessWidget {
                                       ),
                                       elevation: 0,
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           "Next",
-                                          style: TextStyle(
+                                          style: textTheme.labelLarge?.copyWith(
                                             color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        SizedBox(width: 4),
-                                        Icon(Icons.chevron_right, color: Colors.white, size: 20),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.chevron_right, color: Colors.white, size: 20),
                                       ],
                                     ),
                                   ),
@@ -178,19 +171,18 @@ class Intro2Screen extends StatelessWidget {
                           const SizedBox(height: 30),
                           
                           // Footer
-                          const Text(
+                          Text(
                             "In partnership with",
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
+                            style: textTheme.labelSmall?.copyWith(color: Colors.grey),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.only(top: 4, bottom: 10),
-                            child: Text(
-                              "Department of Environment and Natural Resources",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF4A6354),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 10),
+                            child: Center(
+                              child: Text(
+                                "Department of Environment and Natural Resources",
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: const Color(0xFF4A6354),
+                                ),
                               ),
                             ),
                           ),

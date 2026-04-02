@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import '../theme_constants.dart';
-import 'intro2.dart'; // Import Intro2
-import '../LoadingScreen/loading_pages.dart'; // Import your Loading Page
+import 'intro2.dart'; 
+import '../Login_Signup_Mobile/LoadingScreen/loading_pages.dart'; 
 
 class Intro1Screen extends StatelessWidget {
   const Intro1Screen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8F4),
       body: SafeArea(
@@ -27,16 +29,14 @@ class Intro1Screen extends StatelessWidget {
                           Align(
                             alignment: Alignment.topRight,
                             child: TextButton(
-                              // UPDATED: Skip now goes to LoadingPage first
                               onPressed: () => Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(builder: (context) => const LoadingPage()),
                               ),
-                              child: const Text(
+                              child: Text(
                                 "Skip",
-                                style: TextStyle(
-                                  color: Color(0xFF5A7463),
-                                  fontWeight: FontWeight.w600,
+                                style: textTheme.labelLarge?.copyWith(
+                                  color: const Color(0xFF5A7463),
                                   fontSize: 14,
                                 ),
                               ),
@@ -73,34 +73,34 @@ class Intro1Screen extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
 
-                          const Text(
-                            "Welcome to\nGreenAtlas",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF2D3E33),
-                              height: 1.1,
+                          Center(
+                            child: Text(
+                              "Welcome to\nGreenAtlas",
+                              style: textTheme.headlineMedium?.copyWith(
+                                color: const Color(0xFF2D3E33),
+                                height: 1.1,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
 
-                          const Text(
-                            "Your interactive guide to discovering and learning about the rich plant biodiversity of Cavite Protected Area through augmented reality.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF5A7F66),
-                              height: 1.4,
+                          Center(
+                            child: Text(
+                              "Your interactive guide to discovering and learning about the rich plant biodiversity of Cavite Protected Area through augmented reality.",
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFF5A7F66),
+                                fontSize: 13,
+                                height: 1.4,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 24),
 
                           // Feature List
-                          _buildFeatureItem("Interactive AR Botanical Gallery"),
-                          _buildFeatureItem("Comprehensive Plant Database"),
-                          _buildFeatureItem("Protected Area Flora Guide"),
-                          _buildFeatureItem("Conservation & Educational Resources"),
+                          _buildFeatureItem("Interactive AR Botanical Gallery", textTheme),
+                          _buildFeatureItem("Comprehensive Plant Database", textTheme),
+                          _buildFeatureItem("Protected Area Flora Guide", textTheme),
+                          _buildFeatureItem("Conservation & Educational Resources", textTheme),
                         ],
                       ),
 
@@ -128,32 +128,38 @@ class Intro1Screen extends StatelessWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 elevation: 0,
                               ),
-                              // Next still goes to Intro 2
                               onPressed: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const Intro2Screen()),
                                 );
                               },
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text("Next", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.chevron_right, color: Colors.white, size: 20),
+                                  Text(
+                                    "Next", 
+                                    style: textTheme.labelLarge?.copyWith(color: Colors.white, fontSize: 16),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.chevron_right, color: Colors.white, size: 20),
                                 ],
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          const Text(
+                          Text(
                             "In partnership with",
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
+                            style: textTheme.labelSmall?.copyWith(color: Colors.grey, fontSize: 10),
                           ),
-                          const Text(
-                            "Department of Environment and Natural Resources",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A6354)),
+                          Center(
+                            child: Text(
+                              "Department of Environment and Natural Resources",
+                              style: textTheme.labelSmall?.copyWith(
+                                color: const Color(0xFF4A6354),
+                                fontSize: 11,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -168,7 +174,7 @@ class Intro1Screen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureItem(String text) {
+  Widget _buildFeatureItem(String text, TextTheme textTheme) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
@@ -186,7 +192,7 @@ class Intro1Screen extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF4A4A4A), fontWeight: FontWeight.w600),
+              style: textTheme.titleSmall?.copyWith(fontSize: 13, color: const Color(0xFF4A4A4A)),
             ),
           ),
         ],

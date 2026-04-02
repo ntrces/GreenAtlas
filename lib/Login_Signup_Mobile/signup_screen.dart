@@ -30,7 +30,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  // --- 1. HANDLE SIGN UP ---
   Future<void> _handleSignUp() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -38,7 +37,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    // Validation checks
     if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty) {
       _showError("Please fill in all required fields");
       return;
@@ -50,21 +48,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
-    // ✅ NEW: Comprehensive Email Regex
-    // This ensures there is a name, an @, a domain, and a dot.
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
       _showError("Please enter a valid email address");
       return;
     }
 
-    // Keep your specific business rule if you only want Gmail
     if (!email.toLowerCase().endsWith('@gmail.com')) {
       _showError("Only @gmail.com addresses are allowed");
       return;
     }
 
-    // Password needs: 8+ chars, 1 Uppercase, 1 Number, 1 Special Char
     final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$&*~]).{8,}$');
     if (!passwordRegex.hasMatch(password)) {
       _showError("Password needs: 8+ chars, 1 Uppercase, 1 Number, 1 Special Char");
@@ -81,7 +75,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final supabase = Supabase.instance.client;
 
-      // Check if the email already exists in the profiles table
       final existingEmail = await supabase
           .from('profiles')
           .select('email')
@@ -94,7 +87,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return;
       }
       
-      // Step A: Auth Sign Up
       final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
@@ -106,7 +98,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (res.user != null) {
-        // Step B: Attempt Profile Creation
         try {
           await supabase.from('profiles').upsert({
             'id': res.user!.id,
@@ -120,10 +111,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           debugPrint("Profile DB Error (RLS likely): $dbError");
         }
 
-        // Step C: Force Sign Out (ensure no session until verified)
         await supabase.auth.signOut();
 
-        // Step D: Show the Pop-up
         if (mounted) {
           _showVerificationPopup(email);
         }
@@ -143,12 +132,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  // --- 2. THE VERIFICATION POP-UP ---
   void _showVerificationPopup(String email) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
+        // We use Center and TextTheme to avoid TextAlign and FontWeight
+        final textStyle = Theme.of(context).textTheme;
+
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
           backgroundColor: Colors.white,
@@ -156,9 +147,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
             children: [
               const Icon(Icons.mark_email_unread_rounded, color: primaryForest, size: 60),
               const SizedBox(height: 15),
-              const Text(
+              Text(
                 "Confirm Your Email", 
-                style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold, fontSize: 20)
+                style: textStyle.titleLarge?.copyWith(color: primaryForest),
               ),
               const Divider(color: softGreen, thickness: 1, indent: 20, endIndent: 20),
             ],
@@ -166,22 +157,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                "A verification link has been sent to:",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.black87),
+              const Center(
+                child: Text(
+                  "A verification link has been sent to:",
+                  style: TextStyle(fontSize: 14, color: Colors.black87),
+                ),
               ),
               const SizedBox(height: 8),
-              Text(
-                email,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: primaryForest),
+              Center(
+                child: Text(
+                  email,
+                  style: textStyle.bodyLarge?.copyWith(color: primaryForest),
+                ),
               ),
               const SizedBox(height: 15),
-              const Text(
-                "Please click the link in your inbox to activate your GreenAtlas account. Check your spam folder if you don't see it!",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.black54),
+              const Center(
+                child: Text(
+                  "Please click the link in your inbox to activate your GreenAtlas account. Check your spam folder if you don't see it!",
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
               ),
             ],
           ),
@@ -196,7 +190,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                child: const Text("Got it!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(
+                  "Got it!", 
+                  style: textStyle.labelLarge?.copyWith(color: Colors.white),
+                ),
               ),
             ),
             const SizedBox(height: 15),
@@ -209,12 +206,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6, top: 12),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryForest)),
+      child: Text(
+        text, 
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: primaryForest),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: softGreen,
       body: LayoutBuilder(
@@ -240,7 +242,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text("Create Account", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
+                    Text(
+                      "Create Account", 
+                      style: textStyle.headlineSmall?.copyWith(color: primaryForest),
+                    ),
                     const Text("Join the conservation effort", style: TextStyle(fontSize: 13, color: Colors.black54)),
                     const SizedBox(height: 24),
                     Container(
@@ -276,7 +281,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ],
                           ),
                           _buildLabel("* Email Address"),
-                          // ✅ ADDED: keyboardType for better UX
                           TextField(
                             controller: _emailController, 
                             keyboardType: TextInputType.emailAddress, 
@@ -312,21 +316,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               style: ElevatedButton.styleFrom(backgroundColor: primaryForest, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                               child: _isLoading 
                                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                                : const Text("Create Account", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                                : Text(
+                                    "Create Account", 
+                                    style: textStyle.labelLarge?.copyWith(color: Colors.white),
+                                  ),
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Row(
+                    const Row(
                       children: [
-                        const Expanded(child: Divider(color: Colors.grey)),
-                        const Padding(
+                        Expanded(child: Divider(color: Colors.grey)),
+                        Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8), 
-                          child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold))
+                          child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, color: Colors.grey))
                         ),
-                        const Expanded(child: Divider(color: Colors.grey)),
+                        Expanded(child: Divider(color: Colors.grey)),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -339,7 +346,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           elevation: 0, 
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                         ),
-                        child: const Text("Sign In", style: TextStyle(color: primaryForest, fontWeight: FontWeight.bold, fontSize: 14)),
+                        child: Text(
+                          "Sign In", 
+                          style: textStyle.labelLarge?.copyWith(color: primaryForest),
+                        ),
                       ),
                     ),
                   ],

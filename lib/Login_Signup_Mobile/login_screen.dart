@@ -20,7 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // --- UPDATED SIGN IN LOGIC ---
   Future<void> _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -33,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Authenticate with Supabase
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -42,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = response.user;
 
       if (user != null) {
-        // 2. Fetch the user's role from the 'profiles' table
         final userData = await _supabase
             .from('profiles')
             .select('role')
@@ -53,14 +50,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!mounted) return;
 
-        // 3. Navigation logic based on role
         if (role == 'employee') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const EmployeePortal()),
           );
         } else {
-          // If role is 'user', go to Intro/User Dashboard
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const UserDashboard()),
@@ -85,6 +80,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: softGreen,
       body: LayoutBuilder(
@@ -105,15 +102,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Center(
                         child: Image.asset(
-                          'assets/logo2.png', // Ensure path is correct
+                          'assets/logo2.png',
                           width: 80, height: 80, fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) => const Icon(Icons.eco, color: primaryForest, size: 40),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text("Welcome Back", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
-                    const Text("Sign in to explore the Green Atlas", style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    Text(
+                      "Welcome Back", 
+                      style: textTheme.headlineSmall?.copyWith(color: primaryForest),
+                    ),
+                    Text(
+                      "Sign in to explore the Green Atlas", 
+                      style: textTheme.bodySmall?.copyWith(color: Colors.black54, fontSize: 12),
+                    ),
                     const SizedBox(height: 24),
 
                     // Login Card
@@ -126,16 +129,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Center(child: Text("Sign In", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))),
+                          Center(
+                            child: Text(
+                              "Sign In", 
+                              style: textTheme.titleMedium?.copyWith(color: primaryForest),
+                            ),
+                          ),
                           const SizedBox(height: 16),
-                          _buildLabel("* Email Address"),
+                          _buildLabel("* Email Address", textTheme),
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: ecoInputStyle(label: "Enter email", icon: Icons.email_outlined),
                           ),
                           const SizedBox(height: 12),
-                          _buildLabel("* Password"),
+                          _buildLabel("* Password", textTheme),
                           TextField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
@@ -157,7 +165,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: _isLoading 
                                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text("Sign In", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                                : Text(
+                                    "Sign In", 
+                                    style: textTheme.labelLarge?.copyWith(color: Colors.white),
+                                  ),
                             ),
                           ),
                         ],
@@ -165,14 +176,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 24),
-                    Row(
+                    const Row(
                       children: [
-                        const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
+                        Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8), 
-                          child: Text("DON’T HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade600))
+                          padding: EdgeInsets.symmetric(horizontal: 8), 
+                          child: Text("DON’T HAVE AN ACCOUNT?"), // Styled via default or global theme
                         ),
-                        const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
+                        Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -185,7 +196,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text("Create Account", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryForest)),
+                        child: Text(
+                          "Create Account", 
+                          style: textTheme.labelLarge?.copyWith(color: primaryForest),
+                        ),
                       ),
                     ),
                   ],
@@ -198,8 +212,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildLabel(String text) => Padding(
+  Widget _buildLabel(String text, TextTheme textTheme) => Padding(
     padding: const EdgeInsets.only(bottom: 4), 
-    child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: primaryForest))
+    child: Text(
+      text, 
+      style: textTheme.labelSmall?.copyWith(color: primaryForest, fontSize: 11),
+    ),
   );
 }

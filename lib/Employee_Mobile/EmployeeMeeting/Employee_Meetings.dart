@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../theme_provider.dart';
 import '../../UserProfile/user_profile.dart'; 
 import 'Attendance.dart';
@@ -20,6 +21,8 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final textTheme = Theme.of(context).textTheme;
+
     if (_userId == null) return const Scaffold(body: Center(child: Text("Please sign in.")));
 
     return Scaffold(
@@ -44,9 +47,17 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Meetings & RSVP", 
-              style: TextStyle(color: isDark ? Colors.white : const Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18)),
-            const Text("View invitations and submit confirmations", style: TextStyle(color: Colors.black38, fontSize: 10)),
+            Text(
+              "Meetings & RSVP", 
+              style: textTheme.titleLarge?.copyWith(
+                color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
+                fontSize: 18
+              )
+            ),
+            Text(
+              "View invitations and submit confirmations", 
+              style: textTheme.labelSmall?.copyWith(color: Colors.black38, fontSize: 10)
+            ),
           ],
         ),
         actions: [
@@ -95,7 +106,6 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
               final attendingCount = consolidatedData.where((m) => m['user_status'] == 'Accepted').length;
               final rsvpNeeded = consolidatedData.where((m) => m['user_status'] == null).length;
 
-              // FIXED: Added Logic for new filters
               final filteredMeetings = consolidatedData.where((m) {
                 if (_activeFilterIndex == 1) return m['user_status'] == 'Accepted';
                 if (_activeFilterIndex == 2) return m['user_status'] == 'Declined';
@@ -107,19 +117,24 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildKPIRow(upcomingCount, attendingCount, rsvpNeeded, isDark),
+                    _buildKPIRow(upcomingCount, attendingCount, rsvpNeeded, isDark, textTheme),
                     const SizedBox(height: 24),
-                    _buildFilterRow(isDark), // Now supports 3 options
+                    _buildFilterRow(isDark, textTheme),
                     const SizedBox(height: 24),
                     
-                    Text(_getTitleForFilter(), 
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black38, letterSpacing: 1.2)),
+                    Text(
+                      _getTitleForFilter(), 
+                      style: textTheme.labelSmall?.copyWith(
+                        color: Colors.black38, 
+                        letterSpacing: 1.2
+                      )
+                    ),
                     const SizedBox(height: 12),
 
                     if (filteredMeetings.isEmpty)
                       const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No meetings found.")))
                     else
-                      ...filteredMeetings.map((m) => _buildMeetingCard(m, isDark)).toList(),
+                      ...filteredMeetings.map((m) => _buildMeetingCard(m, isDark, textTheme)).toList(),
                   ],
                 ),
               );
@@ -138,15 +153,15 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     return "UPCOMING MEETINGS";
   }
   
-  Widget _buildKPIRow(int up, int at, int rs, bool d) => Row(children: [
-    Expanded(child: _statCard("$up", "Upcoming", d, Colors.blue)),
+  Widget _buildKPIRow(int up, int at, int rs, bool d, TextTheme textTheme) => Row(children: [
+    Expanded(child: _statCard("$up", "Upcoming", d, Colors.blue, textTheme)),
     const SizedBox(width: 10),
-    Expanded(child: _statCard("$at", "Attending", d, Colors.green)),
+    Expanded(child: _statCard("$at", "Attending", d, Colors.green, textTheme)),
     const SizedBox(width: 10),
-    Expanded(child: _statCard("$rs", "Pending", d, Colors.orange)),
+    Expanded(child: _statCard("$rs", "Pending", d, Colors.orange, textTheme)),
   ]);
 
-  Widget _statCard(String v, String l, bool d, Color c) => Container(
+  Widget _statCard(String v, String l, bool d, Color c, TextTheme textTheme) => Container(
     padding: const EdgeInsets.all(12), 
     decoration: BoxDecoration(
       color: d ? const Color(0xFF1F1F1F) : Colors.white, 
@@ -156,34 +171,36 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       CircleAvatar(radius: 14, backgroundColor: c.withOpacity(0.1), child: Icon(Icons.circle, size: 8, color: c)), 
       const SizedBox(height: 8), 
-      Text(v, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: d ? Colors.white : Colors.black)), 
-      Text(l, style: const TextStyle(fontSize: 10, color: Colors.black38))
+      Text(v, style: textTheme.headlineSmall?.copyWith(color: d ? Colors.white : Colors.black)), 
+      Text(l, style: textTheme.labelSmall?.copyWith(color: Colors.black38))
     ])
   );
 
-  // FIXED: Filter Row now includes Not Attending
-  Widget _buildFilterRow(bool d) => SingleChildScrollView(
+  Widget _buildFilterRow(bool d, TextTheme textTheme) => SingleChildScrollView(
     scrollDirection: Axis.horizontal,
     child: Row(children: [
-      _filtBtn("Upcoming", 0, d), 
+      _filtBtn("Upcoming", 0, d, textTheme), 
       const SizedBox(width: 8), 
-      _filtBtn("Attending", 1, d),
+      _filtBtn("Attending", 1, d, textTheme),
       const SizedBox(width: 8),
-      _filtBtn("Not Attending", 2, d),
+      _filtBtn("Not Attending", 2, d, textTheme),
     ]),
   );
 
-  Widget _filtBtn(String l, int i, bool d) => ChoiceChip(
-    label: Text(l), selected: _activeFilterIndex == i, 
+  Widget _filtBtn(String l, int i, bool d, TextTheme textTheme) => ChoiceChip(
+    label: Text(l), 
+    selected: _activeFilterIndex == i, 
     onSelected: (s) => setState(() => _activeFilterIndex = i), 
     selectedColor: const Color(0xFF5D7A5D), 
-    labelStyle: TextStyle(color: _activeFilterIndex == i ? Colors.white : Colors.black54),
+    labelStyle: textTheme.labelLarge?.copyWith(
+      color: _activeFilterIndex == i ? Colors.white : Colors.black54,
+    ),
     backgroundColor: d ? Colors.white10 : Colors.white,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     showCheckmark: false,
   );
 
-  Widget _buildMeetingCard(Map<String, dynamic> m, bool isDark) {
+  Widget _buildMeetingCard(Map<String, dynamic> m, bool isDark, TextTheme textTheme) {
     final status = m['user_status'];
     final bool isAttending = status == 'Accepted';
     final bool isDeclined = status == 'Declined';
@@ -210,11 +227,22 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
         status: label,
         statusColor: color,
         hasAttachment: m['attachment_url'] != null, 
+        textTheme: textTheme,
       ),
     );
   }
 
-  Widget _buildMeetingTile({required String title, required String date, required String location, required String attendingCount, required bool isDark, required String status, required Color statusColor, required bool hasAttachment}) => Container(
+  Widget _buildMeetingTile({
+    required String title, 
+    required String date, 
+    required String location, 
+    required String attendingCount, 
+    required bool isDark, 
+    required String status, 
+    required Color statusColor, 
+    required bool hasAttachment,
+    required TextTheme textTheme,
+  }) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -224,20 +252,38 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     ),
     child: Column(children: [
       Row(children: [
-        Expanded(child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black))),
+        Expanded(
+          child: Text(
+            title, 
+            style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black)
+          )
+        ),
         if (hasAttachment) const Icon(Icons.attach_file, size: 14, color: Colors.black26),
         const SizedBox(width: 8),
         const Icon(Icons.chevron_right, size: 16, color: Colors.black26),
       ]),
       const SizedBox(height: 4),
-      Row(children: [Text("$date • $location", style: const TextStyle(fontSize: 12, color: Colors.black45))]),
+      Row(children: [
+        Text(
+          "$date • $location", 
+          style: textTheme.bodySmall?.copyWith(color: Colors.black45)
+        )
+      ]),
       const Divider(height: 24),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(attendingCount, style: const TextStyle(fontSize: 11, color: Colors.black38)),
+        Text(
+          attendingCount, 
+          style: textTheme.labelSmall?.copyWith(color: Colors.black38)
+        ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), 
           decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), 
-          child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold))
+          child: Text(
+            status, 
+            style: textTheme.labelSmall?.copyWith(
+              color: statusColor,
+            )
+          )
         ),
       ])
     ]),
