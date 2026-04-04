@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // * Added for KeyboardListener
+import 'package:flutter/services.dart'; 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
 import 'signup_screen.dart'; 
@@ -32,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // * --- FIXED DATABASE CONNECTION LOGIC ---
   Future<void> _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -44,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // * 1. Authenticate with Supabase Auth
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -52,16 +54,27 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = response.user;
 
       if (user != null) {
-        final userData = await _supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
+        String role = 'user'; // * Default role
 
-        final String role = userData['role'] ?? 'user';
+        try {
+          // * 2. Fetch the role from the 'profiles' table
+          final userData = await _supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', user.id)
+              .maybeSingle(); // * Use maybeSingle() to avoid the "0 rows" crash
+
+          if (userData != null && userData['role'] != null) {
+            role = userData['role'];
+          }
+        } catch (dbError) {
+          // * If database fetch fails, we still have the 'user' default role
+          debugPrint("Profile fetch error: $dbError");
+        }
 
         if (!mounted) return;
 
+        // * 3. Route based on role
         if (role == 'employee') {
           Navigator.pushReplacement(
             context,
@@ -77,7 +90,8 @@ class _LoginScreenState extends State<LoginScreen> {
     } on AuthException catch (e) {
       _showSnackBar(e.message, Colors.redAccent);
     } catch (e) {
-      _showSnackBar("An unexpected error occurred: $e", Colors.redAccent);
+      _showSnackBar("Connection Error: Check your internet or database.", Colors.redAccent);
+      debugPrint("Login Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -104,10 +118,9 @@ class _LoginScreenState extends State<LoginScreen> {
       },
       child: Scaffold(
         backgroundColor: softGreen, 
-        // * Added resizeToAvoidBottomInset to true (default) to help handle the keyboard
         resizeToAvoidBottomInset: true,
-        body: Center( // * Keeps content centered when keyboard is hidden
-          child: SingleChildScrollView( // * FIXED: Added ScrollView to prevent overflow
+        body: Center( 
+          child: SingleChildScrollView( 
             physics: const BouncingScrollPhysics(),
             child: Container(
               width: double.infinity,

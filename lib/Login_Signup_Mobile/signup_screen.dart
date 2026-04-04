@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
+import 'login_screen.dart'; // * Added import for navigation
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -20,8 +21,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  
-  // * Manual state for Caps Lock
   bool _isCapsLockOn = false; 
 
   final Color darkGreen = const Color(0xFF303D32);
@@ -37,8 +36,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-
-  // * Removed _updateUI that used lockModes to avoid the error.
 
   Future<void> _handleSignUp() async {
     final firstName = _firstNameController.text.trim();
@@ -59,46 +56,112 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
     try {
       final supabase = Supabase.instance.client;
+      
       final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
         data: {'full_name': "$firstName $lastName"},
       );
+
       if (res.user != null) {
-        await supabase.from('profiles').upsert({'id': res.user!.id, 'email': email, 'role': 'user'});
+        // * This creates the profile row. Note: For the email to "go to database" only 
+        // * after confirmation, a Supabase DB Trigger is the recommended backend approach.
+        await supabase.from('profiles').upsert({
+          'id': res.user!.id, 
+          'email': email, 
+          'role': 'user'
+        });
+        
         await supabase.auth.signOut();
         if (mounted) _showVerificationPopup(email);
       }
     } catch (e) {
-      _showError("Sign up failed");
+      String errorMessage = "Sign up failed";
+      if (e is AuthException) {
+        errorMessage = e.message;
+      } else if (e is PostgrestException) {
+        errorMessage = "Database Error: ${e.message}";
+      } else {
+        errorMessage = e.toString();
+      }
+      _showError(errorMessage);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.redAccent));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent)
+    );
   }
 
+  // * --- THEMED VERIFICATION POPUP ---
   void _showVerificationPopup(String email) {
     showDialog(
       context: context,
+      barrierDismissible: false, // * User must click the button
       builder: (context) => AlertDialog(
-        title: const Text("Check Email", style: TextStyle(fontFamily: 'Poppins-Bold')),
-        content: Text("Link sent to $email"),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        title: Text(
+          "Confirm Email", 
+          style: TextStyle(
+            fontFamily: 'Poppins-Bold', 
+            fontSize: 20, 
+            color: darkGreen,
+            // * Explicit font weight
+          ),
+        ),
+        content: Text(
+          "A confirmation link has been sent to $email. Please check your inbox and confirm your account to continue.",
+          style: TextStyle(
+            fontFamily: 'Inter', 
+            fontSize: 14.5, 
+            color: Colors.black87,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0, bottom: 8.0),
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // * Close dialog
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: sageGreen,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                "OK", 
+                style: TextStyle(
+                  fontFamily: 'Poppins-Bold',
+                  color: Colors.white,
+                   // * Explicit font weight
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // * Wrap the entire Scaffold in a KeyboardListener
     return KeyboardListener(
-      focusNode: FocusNode(), // * Needs a focus node to capture keys
+      focusNode: FocusNode(),
       autofocus: true,
       onKeyEvent: (KeyEvent event) {
-        // * Manually toggle state when the Caps Lock key is pressed
         if (event.logicalKey == LogicalKeyboardKey.capsLock && event is KeyDownEvent) {
           setState(() {
             _isCapsLockOn = !_isCapsLockOn;
@@ -164,7 +227,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       
                       _buildFieldColumn("Password", _passwordController, "••••••••", isPassword: true, obscure: _obscurePassword, toggle: () => setState(() => _obscurePassword = !_obscurePassword)),
                       
-                      // * --- CAPS LOCK NOTIFICATION ---
                       if (_isCapsLockOn)
                         const Padding(
                           padding: EdgeInsets.only(top: 4.0),
@@ -241,20 +303,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Widget _buildLabel(String text, TextEditingController controller) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          text, 
-          style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13.3, color: darkGreen),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: text, 
+              style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13.3, color: darkGreen),
+            ),
+            if (controller.text.isEmpty)
+              const TextSpan(
+                text: " *",
+                style: TextStyle(color: Colors.red, fontSize: 13.3),
+              ),
+          ],
         ),
-        // * Replaced the dynamic logic with a simple check to keep it light
-        if (controller.text.isEmpty)
-          const Text(
-            " *",
-            style: TextStyle(color: Colors.red, fontSize: 13.3),
-          ),
-      ],
+      ),
     );
   }
 
@@ -263,13 +328,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildLabel(label, controller),
-        const SizedBox(height: 4),
         SizedBox(
           height: 45.6,
           child: TextField(
             controller: controller,
             obscureText: obscure ?? false,
-            // * Trigger setState on change to keep the red * updated
             onChanged: (val) => setState(() {}), 
             decoration: InputDecoration(
               hintText: hint,
