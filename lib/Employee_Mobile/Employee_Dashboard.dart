@@ -258,7 +258,9 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
   Widget _buildResponsiveHeader(BuildContext context, bool isDark, TextTheme textTheme) => SliverAppBar(
     pinned: true,
     backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-    elevation: 0, toolbarHeight: 80, leadingWidth: 70,
+    elevation: 0,
+    toolbarHeight: 70,
+    leadingWidth: 70,
     leading: Padding(padding: const EdgeInsets.only(left: 16.0), child: Image.asset('assets/logo2.png', fit: BoxFit.contain)),
     title: Text(
       "Dashboard", 
@@ -268,22 +270,34 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
   );
 
   Widget _buildNotificationIcon(BuildContext context, bool isDark, TextTheme textTheme) => Stack(alignment: Alignment.center, children: [
-      IconButton(icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87, size: 28), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EmployeeNotifications()))),
+     IconButton(
+        icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87, size: 26),
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeNotifications())),
+      ),
       Positioned(
-        right: 8, top: 18, 
+        right: 8, top: 18,
         child: Container(
-          padding: const EdgeInsets.all(4), 
-          decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle), 
-          child: Text(
-            "2", 
-            style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 9),
-          )
-        )
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle),
+          child: Text("2", style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 8)),
+        ),
       )
-  ]);
+    ],
+  );
+      
 
-  Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), child: Container(height: 40, width: 40, decoration: BoxDecoration(color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)), child: const Icon(Icons.person_outline, color: Colors.black54, size: 22)));
-
+Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
+    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
+    child: Container(
+      height: 36, width: 36,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), 
+        borderRadius: BorderRadius.circular(8), 
+        border: Border.all(color: Colors.black12)
+      ),
+      child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+    ),
+  );
   Widget _buildSectionHeader(String title, bool isDark, TextTheme textTheme, {String? trailing, VoidCallback? onTrailingTap, bool hasDropdown = false, bool isExpanded = true, VoidCallback? onDropdownTap}) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

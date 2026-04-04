@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../theme_provider.dart';
 import '../../UserProfile/user_profile.dart';
 import '../EmployeeNotification/employeenotif.dart';
-import '../EmployeeMeeting/required_meetingview.dart';
-
-// Navigation Targets
+import '../EmployeeMeeting/required_meetingview.dart'; // Ensure this matches your actual file name
 import '../Field_Diary/Employee_FieldDiary.dart';
 
 class MeetingsScreen extends StatefulWidget {
@@ -21,7 +18,6 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   final _supabase = Supabase.instance.client;
   int _activeFilterIndex = 0; 
   String _searchQuery = ""; 
-  int _selectedIndex = 2; // Meetings is index 2
 
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
@@ -46,7 +42,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: _supabase.from('meetings').stream(primaryKey: ['id']).order('meeting_date'),
             builder: (context, meetingSnapshot) {
-              if (meetingSnapshot.hasError) return SliverFillRemaining(child: Center(child: Text("Sync Error: ${meetingSnapshot.error}")));
+              if (meetingSnapshot.hasError) return const SliverFillRemaining(child: Center(child: Text("Sync Error")));
               if (!meetingSnapshot.hasData) return const SliverFillRemaining(child: Center(child: CircularProgressIndicator()));
 
               return StreamBuilder<List<Map<String, dynamic>>>(
@@ -55,26 +51,28 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                   final userRSVPs = rsvpSnapshot.data ?? [];
                   final meetings = meetingSnapshot.data!;
 
+                  // Logic: Joining Meeting details with User's RSVP status (attending/declined)
                   final consolidated = meetings.where((m) {
-                    String rolesString = m['target_roles'].toString().toLowerCase().replaceAll(' ', '');
+                    String rolesString = (m['target_roles'] ?? '').toString().toLowerCase().replaceAll(' ', '');
                     bool matchesRole = rolesString.contains('fieldofficer');
-                    bool matchesSearch = _searchQuery.isEmpty || 
-                        (m['title'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase());
+                    bool matchesSearch = _searchQuery == "" || (m['title'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase());
                     return matchesRole && matchesSearch;
                   }).map((m) {
                     final rsvp = userRSVPs.firstWhere((r) => r['meeting_id'] == m['id'], orElse: () => <String, dynamic>{});
                     return { ...m, 'user_status': rsvp['status'] };
                   }).toList();
 
+                  // KPI Logic: Calculating totals based on the attendance declaration
                   final upCount = consolidated.length;
-                  final atCount = consolidated.where((m) => m['user_status'] == 'Accepted').length;
+                  final atCount = consolidated.where((m) => m['user_status'] == 'attending').length;
                   final rsCount = consolidated.where((m) => m['user_status'] == null).length;
 
+                  // Tab Logic: Filtering the list based on the declared status
                   final filtered = consolidated.where((m) {
-                    if (_activeFilterIndex == 1) return m['user_status'] == null;
-                    if (_activeFilterIndex == 2) return m['user_status'] == 'Accepted';
-                    if (_activeFilterIndex == 3) return m['user_status'] == 'Declined';
-                    return true; 
+                    if (_activeFilterIndex == 1) return m['user_status'] == null; // Pending
+                    if (_activeFilterIndex == 2) return m['user_status'] == 'attending'; // Declared Attending
+                    if (_activeFilterIndex == 3) return m['user_status'] == 'declined'; // Declared Not Attending
+                    return true; // All Upcoming
                   }).toList();
 
                   return SliverPadding(
@@ -87,10 +85,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                         const SizedBox(height: 25),
                         _buildSectionHeader(_getFilterTitle(), isDark, textTheme),
                         if (filtered.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 40),
-                            child: Center(child: Text("No meetings found.")),
-                          )
+                          const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: Text("No entries found for this category.")))
                         else
                           ...filtered.map((m) => _buildMeetingCard(m, isDark)).toList(),
                       ]),
@@ -102,11 +97,10 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
           ),
         ],
       ),
-
     );
   }
 
-  // --- HEADER (MATCHES FIELD OBSERVATION) ---
+  // --- UI COMPONENTS ---
 
   Widget _buildHeader(BuildContext context, bool isDark, TextTheme textTheme) => SliverAppBar(
     pinned: true,
@@ -116,15 +110,9 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     leadingWidth: 70,
     leading: Padding(
       padding: const EdgeInsets.only(left: 16.0),
-      child: Image.asset('assets/logo2.png', fit: BoxFit.contain), 
+      child: Image.asset('assets/logo2.png', fit: BoxFit.contain, errorBuilder: (c,e,s) => Icon(Icons.eco, color: forestGreen)), 
     ),
-    title: Text(
-      "Meetings", 
-      style: textTheme.titleLarge?.copyWith(
-        color: isDark ? Colors.white : darkGreen, 
-        fontSize: 20
-      )
-    ),
+    title: Text("Meetings", style: textTheme.titleLarge?.copyWith(color: isDark ? Colors.white : darkGreen, fontSize: 20)),
     actions: [
       _buildNotificationIcon(context, isDark, textTheme),
       _buildProfileIcon(context, isDark),
@@ -144,10 +132,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(color: forestGreen, shape: BoxShape.circle),
-          child: Text(
-            "2", 
-            style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 8)
-          ),
+          child: Text("2", style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 8)),
         ),
       )
     ],
@@ -163,19 +148,6 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
         border: Border.all(color: Colors.black12)
       ),
       child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
-    ),
-  );
-
-  // --- BOTTOM NAVIGATION ---
-
-
-  // --- CARD & KPI HELPERS ---
-
-  Widget _buildSectionHeader(String title, bool isDark, TextTheme textTheme) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Text(
-      title, 
-      style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white38 : Colors.black54, letterSpacing: 1.1),
     ),
   );
 
@@ -220,62 +192,66 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     showCheckmark: false,
   );
 
+  Widget _buildSectionHeader(String title, bool isDark, TextTheme textTheme) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Text(title, style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white38 : Colors.black54, letterSpacing: 1.1)),
+  );
+
   Widget _buildMeetingCard(Map<String, dynamic> m, bool d) {
     final status = m['user_status'];
-    final bool isMandatory = m['is_mandatory'] ?? false;
-    
+    final bool isMandatory = m['is_mandatory'] == true;
+
+    // Badge Logic: Declaring text and colors based on RSVP status
+    String badgeTxt = status == 'attending' ? "Attending" : (status == 'declined' ? "Declined" : "RSVP Required");
+    Color badgeCol = status == 'attending' ? forestGreen : (status == 'declined' ? errorRed : accentOrange);
+
     return InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingViewScreen(meeting: m))),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: const EdgeInsets.only(bottom: 15),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: d ? const Color(0xFF1F1F1F) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Expanded(child: Text(m['title'] ?? "Meeting", style: const TextStyle(fontSize: 15, color: Colors.black87))),
-            const Icon(Icons.chevron_right, size: 20, color: Colors.black26),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            if (isMandatory)
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: errorRed.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                child: Text("Required", style: TextStyle(color: errorRed, fontSize: 10)),
-              ),
-            Text(m['location'] ?? "N/A", style: const TextStyle(fontSize: 11, color: Colors.black38)),
-          ]),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: 0.5, 
-              backgroundColor: Colors.black.withOpacity(0.05),
-              valueColor: AlwaysStoppedAnimation<Color>(forestGreen),
-              minHeight: 6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Expanded(child: Text(m['title'] ?? "Meeting", style: const TextStyle(fontSize: 15, color: Colors.black87))),
+              const Icon(Icons.chevron_right, size: 20, color: Colors.black26),
+            ]),
+            const SizedBox(height: 5),
+            Text("${m['meeting_date']} • ${m['meeting_time'] ?? ''} • ${m['location']}", style: const TextStyle(fontSize: 11, color: Colors.black38)),
+            const Padding(padding: EdgeInsets.symmetric(vertical: 15), child: Divider(height: 1, thickness: 0.5)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(children: [
+                  if (isMandatory)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: errorRed.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                      child: Text("Required", style: TextStyle(color: errorRed, fontSize: 10)),
+                    ),
+                  const Text("12/25 Capacity Limit", style: TextStyle(fontSize: 11, color: Colors.black45)),
+                ]),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: badgeCol.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(badgeTxt, style: TextStyle(color: badgeCol, fontSize: 10)),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text("12/25 attending", style: TextStyle(fontSize: 11, color: Colors.black45)),
-            if (status == null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(color: accentOrange, borderRadius: BorderRadius.circular(8)),
-                child: const Text("RSVP", style: TextStyle(color: Colors.white, fontSize: 12)),
-              )
-            else
-              Text(status, style: TextStyle(color: status == 'Accepted' ? forestGreen : errorRed, fontSize: 12)),
-          ]),
-        ]),
+          ],
+        ),
       ),
     );
   }
+
+  
 
   String _getFilterTitle() => ["UPCOMING MEETINGS", "PENDING RSVP", "MY ATTENDANCE", "DECLINED MEETINGS"][_activeFilterIndex];
 }

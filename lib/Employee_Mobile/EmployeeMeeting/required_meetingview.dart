@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme_provider.dart';
-import '../EmployeeMeeting/MeetingAttendanceScreen.dart'; 
+import 'MeetingAttendanceScreen.dart'; 
 import 'cannotattend.dart'; 
 
 class MeetingViewScreen extends StatelessWidget {
   final Map<String, dynamic> meeting;
+  MeetingViewScreen({super.key, required this.meeting});
 
-  const MeetingViewScreen({super.key, required this.meeting});
+  final _supabase = Supabase.instance.client;
 
   // Design Colors
   final Color darkGreen = const Color(0xFF2D3E2D);
@@ -16,24 +18,65 @@ class MeetingViewScreen extends StatelessWidget {
   final Color lightGreenBG = const Color(0xFFEAF7EA);
   final Color errorRed = const Color(0xFFD32F2F);
 
+  // --- DATABASE LOGIC ---
+
+  Future<void> _confirmAttendance(BuildContext context) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      // Upsert RSVP status to lowercase 'attending' and include updated_at
+      await _supabase.from('meeting_rsvps').upsert({
+        'meeting_id': meeting['id'],
+        'user_id': userId,
+        'status': 'attending', 
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      if (context.mounted) {
+        // Navigate to the success/attending screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => MeetingAttendanceScreen(meeting: meeting)),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: Could not confirm attendance. $e"),
+            backgroundColor: errorRed,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     
-    // Formatting Data
-    final String title = meeting['title'] ?? "Monthly Conservation Review";
+    // Safety checks for data formatting
+    final String title = meeting['title'] ?? "Meeting Review";
     final rawDate = meeting['meeting_date'] ?? DateTime.now().toString();
-    final formattedDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(rawDate));
+    
+    String formattedDate;
+    try {
+      formattedDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(rawDate));
+    } catch (_) {
+      formattedDate = "N/A";
+    }
+
     final String time = meeting['meeting_time'] ?? "N/A";
     final String location = meeting['location'] ?? "N/A";
-    final String meetingId = (meeting['id'] ?? "000").toString().substring(0, 3).toUpperCase();
+    
+    // Safe substring for Meeting ID to prevent "RangeError"
+    final String fullId = (meeting['id'] ?? "000").toString();
+    final String meetingId = fullId.length >= 3 
+        ? fullId.substring(0, 3).toUpperCase() 
+        : fullId.toUpperCase();
     
     final String createdBy = meeting['created_by_name'] ?? "Admin Team";
-    final String createdAt = meeting['created_at'] != null 
-        ? DateFormat('yyyy-MM-dd').format(DateTime.parse(meeting['created_at']))
-        : "2026-02-10";
-
-    // Mandatory Check
     final bool isMandatory = meeting['is_mandatory'] == true;
 
     return Scaffold(
@@ -46,7 +89,6 @@ class MeetingViewScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
             Text("MTG-$meetingId", style: const TextStyle(color: Colors.white70, fontSize: 10)),
@@ -81,29 +123,31 @@ class MeetingViewScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Mandatory Meeting Notice
+                  // Mandatory Notice
                   if (isMandatory)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: errorRed.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: errorRed.withOpacity(0.1)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline, color: errorRed, size: 20),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                "This is a mandatory meeting. Your attendance is expected unless a valid justification is provided.",
-                                style: TextStyle(color: errorRed, fontSize: 13, height: 1.4),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      decoration: BoxDecoration(
+                        color: errorRed.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: errorRed.withOpacity(0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: errorRed, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              "This is a mandatory meeting. Your attendance is expected unless a valid justification is provided.",
+                              style: TextStyle(
+                                color: errorRed, 
+                                fontSize: 13, 
+                                height: 1.4,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
 
@@ -119,13 +163,11 @@ class MeetingViewScreen extends StatelessWidget {
                     ),
                   ]),
 
-                  // Organized By Section
                   const Text("Organized by", style: TextStyle(color: Colors.black38, fontSize: 12)),
                   const SizedBox(height: 4),
                   Text(createdBy, style: const TextStyle(color: Colors.black87, fontSize: 14)),
                   const SizedBox(height: 24),
 
-                  // Agenda Description Section
                   const Text("Agenda Description", style: TextStyle(color: Colors.black38, fontSize: 12)),
                   const SizedBox(height: 8),
                   Text(
@@ -134,69 +176,34 @@ class MeetingViewScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Meeting Agenda Card
+                  // Meeting Agenda PDF Card
                   const Text("Meeting Agenda", style: TextStyle(color: Colors.black38, fontSize: 12)),
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.black.withOpacity(0.05)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.description_outlined, color: forestGreen),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("Meeting_Agenda_Final.pdf", style: TextStyle(fontSize: 14, color: Colors.black87)),
-                                  Text("Uploaded by $createdBy • $createdAt", style: const TextStyle(fontSize: 10, color: Colors.black38)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () {}, 
-                            icon: const Icon(Icons.download, size: 18),
-                            label: const Text("Download Agenda"),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: forestGreen,
-                              side: BorderSide(color: forestGreen.withOpacity(0.5)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildAgendaFile(createdBy),
                 ],
               ),
             ),
           ),
 
-          // Bottom Action Buttons
+          // Bottom Action Buttons (Fixed Footer)
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4))],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05), 
+                  blurRadius: 10, 
+                  offset: const Offset(0, -4)
+                )
+              ],
             ),
             child: Column(
               children: [
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingAttendanceScreen(meeting: meeting))),
+                    onPressed: () => _confirmAttendance(context), 
                     style: ElevatedButton.styleFrom(
                       backgroundColor: forestGreen,
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -227,24 +234,70 @@ class MeetingViewScreen extends StatelessWidget {
 
   // --- UI HELPERS ---
 
-  Widget _buildWhiteCard(List<Widget> children) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    margin: const EdgeInsets.only(bottom: 24),
+  Widget _buildAgendaFile(String creator) => Container(
+    padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: Colors.white, 
       borderRadius: BorderRadius.circular(12), 
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      border: Border.all(color: Colors.black.withOpacity(0.05)),
     ),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Icon(Icons.description_outlined, color: forestGreen),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Meeting_Agenda_Final.pdf", style: TextStyle(fontSize: 14, color: Colors.black87)),
+                  Text("Uploaded by $creator", style: const TextStyle(fontSize: 10, color: Colors.black38)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity, 
+          child: OutlinedButton.icon(
+            onPressed: () {}, 
+            icon: const Icon(Icons.download, size: 18), 
+            label: const Text("Download Agenda"), 
+            style: OutlinedButton.styleFrom(
+              foregroundColor: forestGreen, 
+              side: BorderSide(color: forestGreen.withOpacity(0.5)),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildWhiteCard(List<Widget> children) => Container(
+    width: double.infinity, 
+    padding: const EdgeInsets.all(20), 
+    margin: const EdgeInsets.only(bottom: 24), 
+    decoration: BoxDecoration(
+      color: Colors.white, 
+      borderRadius: BorderRadius.circular(12), 
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.03), 
+          blurRadius: 10, 
+          offset: const Offset(0, 4)
+        )
+      ],
+    ), 
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
   );
 
   Widget _buildIconDetail(IconData icon, String label, String value) => Column(
     children: [
-      Icon(icon, color: forestGreen, size: 20),
-      const SizedBox(height: 8),
-      Text(label, style: const TextStyle(color: Colors.black38, fontSize: 10)),
-      const SizedBox(height: 2),
+      Icon(icon, color: forestGreen, size: 20), 
+      const SizedBox(height: 8), 
+      Text(label, style: const TextStyle(color: Colors.black38, fontSize: 10)), 
       Text(value, style: const TextStyle(color: Colors.black87, fontSize: 12)),
     ],
   );
