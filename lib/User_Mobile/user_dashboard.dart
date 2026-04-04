@@ -52,6 +52,8 @@ class _UserDashboardState extends State<UserDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: const Color(0xFFEAF7EA),
       bottomNavigationBar: BottomNavigationBar(
@@ -69,7 +71,7 @@ class _UserDashboardState extends State<UserDashboard> {
       ),
       body: CustomScrollView(
         slivers: [
-          _buildSliverAppBar(),
+          _buildSliverAppBar(textTheme),
 
           SliverToBoxAdapter(
             child: Column(
@@ -85,9 +87,9 @@ class _UserDashboardState extends State<UserDashboard> {
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
-                          _buildStatCard(arCount.toString(), "AR Models", Icons.visibility_outlined),
+                          _buildStatCard(arCount.toString(), "AR Models", Icons.visibility_outlined, textTheme),
                           const SizedBox(width: 12),
-                          _buildStatCard(allPlants.length.toString(), "Species", Icons.eco_outlined),
+                          _buildStatCard(allPlants.length.toString(), "Species", Icons.eco_outlined, textTheme),
                         ],
                       ),
                     );
@@ -98,29 +100,28 @@ class _UserDashboardState extends State<UserDashboard> {
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: Row(
                     children: [
-                      _buildFilterChip("All", 0, null),
-                      _buildFilterChip("Plants", 1, Icons.eco_outlined),
-                      _buildFilterChip("Activity", 2, Icons.history),
+                      _buildFilterChip("All", 0, null, textTheme),
+                      _buildFilterChip("Plants", 1, Icons.eco_outlined, textTheme),
+                      _buildFilterChip("Activity", 2, Icons.history, textTheme),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
-                // --- UPDATED QUICK ACCESS SECTION ---
                 if (_activeFilterIndex == 0) ...[
-                  _buildSectionLabel("QUICK ACCESS"),
+                  _buildSectionLabel("QUICK ACCESS", textTheme),
                   _buildListTile("AR Gallery", Icons.visibility_outlined, 
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()))),
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen())), textTheme),
                   _buildListTile("AR View", Icons.view_in_ar_outlined, 
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())), tag: "Quick"),
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())), textTheme, tag: "Quick"),
                   _buildListTile("View Profile", Icons.person_outline, 
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()))),
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), textTheme),
                 ],
 
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 1) ...[
                   _buildSectionLabelWithAction("FEATURED PLANTS", "See all", 
-                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()))),
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen())), textTheme),
                   
                   StreamBuilder<List<Map<String, dynamic>>>(
                     stream: _supabase.from('plants').stream(primaryKey: ['id']).limit(3),
@@ -131,7 +132,8 @@ class _UserDashboardState extends State<UserDashboard> {
                       return Column(
                         children: plants.map((plant) => _buildPlantTile(
                           plant, 
-                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant)))
+                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
+                          textTheme
                         )).toList(),
                       );
                     },
@@ -140,7 +142,7 @@ class _UserDashboardState extends State<UserDashboard> {
                 ],
 
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 2) ...[
-                  _buildSectionLabel("RECENT ACTIVITY"),
+                  _buildSectionLabel("RECENT ACTIVITY", textTheme),
                   
                   if (_userId == null)
                     const Padding(padding: EdgeInsets.all(20), child: Text("Log in to see your activity"))
@@ -167,6 +169,7 @@ class _UserDashboardState extends State<UserDashboard> {
                             "Recent", 
                             Icons.error_outline, 
                             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())), 
+                            textTheme,
                             status: report['status']
                           )).toList(),
                         );
@@ -183,7 +186,7 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 
   // --- UI COMPONENTS ---
-  Widget _buildSliverAppBar() => SliverAppBar(
+  Widget _buildSliverAppBar(TextTheme textTheme) => SliverAppBar(
     pinned: true, backgroundColor: Colors.white, surfaceTintColor: Colors.white,
     elevation: 0, toolbarHeight: 80, leadingWidth: 70,
     leading: Padding(
@@ -209,7 +212,7 @@ class _UserDashboardState extends State<UserDashboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Welcome, $firstName", 
-              style: const TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 22)),
+              style: textTheme.titleLarge?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 22)),
             const Text("Explore the Cavite Protected Area", 
               style: TextStyle(color: Colors.black54, fontSize: 12)),
           ],
@@ -224,7 +227,7 @@ class _UserDashboardState extends State<UserDashboard> {
     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
   );
 
-  Widget _buildPlantTile(Map<String, dynamic> plant, VoidCallback onTap) {
+  Widget _buildPlantTile(Map<String, dynamic> plant, VoidCallback onTap, TextTheme textTheme) {
     final imgUrl = plant['image_url'];
     return Material(
       color: Colors.white,
@@ -244,10 +247,14 @@ class _UserDashboardState extends State<UserDashboard> {
             ),
             title: Row(
               children: [
-                Text(plant['common_name'] ?? "Unknown", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF2D3E2D))),
+                Text(plant['common_name'] ?? "Unknown", style: textTheme.titleSmall?.copyWith(fontSize: 15, color: const Color(0xFF2D3E2D))),
                 if (plant['ar_model_url'] != null) ...[
                   const SizedBox(width: 8),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(6)), child: const Text("AR", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), 
+                    decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(6)), 
+                    child: Text("AR", style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 10))
+                  )
                 ]
               ],
             ),
@@ -260,11 +267,126 @@ class _UserDashboardState extends State<UserDashboard> {
     );
   }
 
-  Widget _buildStatCard(String val, String label, IconData icon) => Expanded(child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Row(children: [CircleAvatar(backgroundColor: const Color(0xFFF0F4F0), child: Icon(icon, color: const Color(0xFF5D7A5D), size: 20)), const SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(val, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54))])])));
-  Widget _buildFilterChip(String label, int index, IconData? icon) { bool isSelected = _activeFilterIndex == index; return Padding(padding: const EdgeInsets.only(right: 8.0), child: FilterChip(showCheckmark: false, avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null, label: Text(label), selected: isSelected, onSelected: (bool selected) { setState(() => _activeFilterIndex = index); _saveFilterPreference(index); }, selectedColor: const Color(0xFF4A634A), labelStyle: TextStyle(color: isSelected ? Colors.white : const Color(0xFF4A634A), fontWeight: FontWeight.bold, fontSize: 13), backgroundColor: const Color(0xFFD6E8D6), side: BorderSide.none, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))); }
-  Widget _buildSectionLabel(String title) => Container(width: double.infinity, padding: const EdgeInsets.all(16), color: const Color(0xFFE8F3E8), child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.8)));
-  Widget _buildSectionLabelWithAction(String title, String action, VoidCallback onAction) => Container(padding: const EdgeInsets.symmetric(horizontal: 16), color: const Color(0xFFE8F3E8), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A634A), letterSpacing: 0.8)), TextButton(onPressed: onAction, child: Text(action, style: const TextStyle(fontSize: 12, color: Colors.grey)))]));
-  Widget _buildListTile(String title, IconData icon, VoidCallback onTap, {String? tag}) => Material(color: Colors.white, child: Column(children: [ListTile(onTap: onTap, leading: Icon(icon, color: const Color(0xFF2D3E2D), size: 22), title: Row(children: [Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)), if (tag != null) ...[const SizedBox(width: 8), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFE8F3E8), borderRadius: BorderRadius.circular(12)), child: Text(tag, style: const TextStyle(fontSize: 11, color: Color(0xFF5D7A5D), fontWeight: FontWeight.bold)))]]), trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)), const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))]));
-  Widget _buildActivityTile(String title, String time, IconData icon, VoidCallback onTap, {String? status}) => Material(color: Colors.white, child: Column(children: [ListTile(onTap: onTap, leading: Icon(icon, color: Colors.black38, size: 22), title: Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))), if (status != null) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(12)), child: Text(status, style: TextStyle(color: status == 'Resolved' ? Colors.green : Colors.black54, fontSize: 10, fontWeight: FontWeight.bold)))]), subtitle: Text(time, style: const TextStyle(fontSize: 12, color: Colors.grey)), trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)), const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))]));
-  Widget _buildProfileIcon() => Padding(padding: const EdgeInsets.only(right: 16.0, left: 8), child: InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), child: Container(height: 40, width: 40, decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)), child: const Icon(Icons.person_outline, color: Colors.black54))));
+  Widget _buildStatCard(String val, String label, IconData icon, TextTheme textTheme) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.all(16), 
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), 
+      child: Row(
+        children: [
+          CircleAvatar(backgroundColor: const Color(0xFFF0F4F0), child: Icon(icon, color: const Color(0xFF5D7A5D), size: 20)), 
+          const SizedBox(width: 12), 
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start, 
+            children: [
+              Text(val, style: textTheme.titleLarge?.copyWith(fontSize: 18)), 
+              Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54))
+            ]
+          )
+        ]
+      )
+    )
+  );
+
+  Widget _buildFilterChip(String label, int index, IconData? icon, TextTheme textTheme) { 
+    bool isSelected = _activeFilterIndex == index; 
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0), 
+      child: FilterChip(
+        showCheckmark: false, 
+        avatar: icon != null ? Icon(icon, size: 16, color: isSelected ? Colors.white : const Color(0xFF4A634A)) : null, 
+        label: Text(label), 
+        selected: isSelected, 
+        onSelected: (bool selected) { setState(() => _activeFilterIndex = index); _saveFilterPreference(index); }, 
+        selectedColor: const Color(0xFF4A634A), 
+        labelStyle: textTheme.labelLarge?.copyWith(color: isSelected ? Colors.white : const Color(0xFF4A634A), fontSize: 13), 
+        backgroundColor: const Color(0xFFD6E8D6), 
+        side: BorderSide.none, 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+      )
+    ); 
+  }
+
+  Widget _buildSectionLabel(String title, TextTheme textTheme) => Container(
+    width: double.infinity, 
+    padding: const EdgeInsets.all(16), 
+    color: const Color(0xFFE8F3E8), 
+    child: Text(title, style: textTheme.labelSmall?.copyWith(fontSize: 11, color: const Color(0xFF4A634A), letterSpacing: 0.8))
+  );
+
+  Widget _buildSectionLabelWithAction(String title, String action, VoidCallback onAction, TextTheme textTheme) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16), 
+    color: const Color(0xFFE8F3E8), 
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+      children: [
+        Text(title, style: textTheme.labelSmall?.copyWith(fontSize: 11, color: const Color(0xFF4A634A), letterSpacing: 0.8)), 
+        TextButton(onPressed: onAction, child: Text(action, style: const TextStyle(fontSize: 12, color: Colors.grey)))
+      ]
+    )
+  );
+
+  Widget _buildListTile(String title, IconData icon, VoidCallback onTap, TextTheme textTheme, {String? tag}) => Material(
+    color: Colors.white, 
+    child: Column(
+      children: [
+        ListTile(
+          onTap: onTap, 
+          leading: Icon(icon, color: const Color(0xFF2D3E2D), size: 22), 
+          title: Row(
+            children: [
+              Text(title, style: textTheme.titleSmall?.copyWith(fontSize: 15)), 
+              if (tag != null) ...[
+                const SizedBox(width: 8), 
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), 
+                  decoration: BoxDecoration(color: const Color(0xFFE8F3E8), borderRadius: BorderRadius.circular(12)), 
+                  child: Text(tag, style: textTheme.labelSmall?.copyWith(fontSize: 11, color: const Color(0xFF5D7A5D)))
+                )
+              ]
+            ]
+          ), 
+          trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)
+        ), 
+        const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))
+      ]
+    )
+  );
+
+  Widget _buildActivityTile(String title, String time, IconData icon, VoidCallback onTap, TextTheme textTheme, {String? status}) => Material(
+    color: Colors.white, 
+    child: Column(
+      children: [
+        ListTile(
+          onTap: onTap, 
+          leading: Icon(icon, color: Colors.black38, size: 22), 
+          title: Row(
+            children: [
+              Expanded(child: Text(title, style: textTheme.titleSmall?.copyWith(fontSize: 14))), 
+              if (status != null) 
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), 
+                  decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(12)), 
+                  child: Text(status, style: textTheme.labelSmall?.copyWith(color: status == 'Resolved' ? Colors.green : Colors.black54, fontSize: 10))
+                )
+            ]
+          ), 
+          subtitle: Text(time, style: const TextStyle(fontSize: 12, color: Colors.grey)), 
+          trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26)
+        ), 
+        const Divider(height: 1, indent: 70, color: Color(0xFFF0F0F0))
+      ]
+    )
+  );
+
+  Widget _buildProfileIcon() => Padding(
+    padding: const EdgeInsets.only(right: 16.0, left: 8), 
+    child: InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), 
+      child: Container(
+        height: 40, width: 40, 
+        decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)), 
+        child: const Icon(Icons.person_outline, color: Colors.black54)
+      )
+    )
+  );
 }

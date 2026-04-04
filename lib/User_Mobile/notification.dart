@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart'; // Add to pubspec.yaml for date formatting
+import 'package:intl/intl.dart'; 
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -23,15 +23,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
     });
   }
 
-  // Helper to determine icon based on notification type
   IconData _getIcon(String type) {
     switch (type) {
       case 'plant_added':
-        return Icons.local_library_rounded; // Plant/Atlas icon
+        return Icons.local_library_rounded; 
       case 'security':
-        return Icons.shield_outlined; // Password change icon
+        return Icons.shield_outlined; 
       case 'profile_update':
-        return Icons.person_outline_rounded; // Profile edit icon
+        return Icons.person_outline_rounded; 
       default:
         return Icons.notifications_none_rounded;
     }
@@ -48,13 +47,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     if (_userId == null) {
-      return const Scaffold(body: Center(child: Text("Please log in.")));
+      return const Scaffold(
+        body: Center(
+          child: Text("Please log in.")
+        )
+      );
     }
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      // Listen to notifications that are either GLOBAL (user_id is null) 
-      // or SPECIFIC to this user.
       stream: _supabase
           .from('notifications')
           .stream(primaryKey: ['id'])
@@ -62,7 +65,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
       builder: (context, snapshot) {
         if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
         
-        // Filter: Show global notifications OR notifications for this specific user
         final allNotifs = snapshot.data?.where((n) => 
           n['user_id'] == null || n['user_id'] == _userId
         ).toList() ?? [];
@@ -80,8 +82,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ),
             title: Row(
               children: [
-                const Text("Activity", 
-                  style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(
+                  "Activity", 
+                  style: textTheme.titleLarge?.copyWith(
+                    color: const Color(0xFF2D3E2D), 
+                    fontSize: 18,
+                  ),
+                ),
                 if (unreadCount > 0) ...[
                   const SizedBox(width: 8),
                   _buildBadge(unreadCount),
@@ -91,12 +98,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
             actions: [
               TextButton(
                 onPressed: allNotifs.isEmpty ? null : () => _markAllAsRead(allNotifs),
-                child: const Text("Mark all as read", style: TextStyle(color: Color(0xFF5D7A5D), fontSize: 12)),
+                child: Text(
+                  "Mark all as read", 
+                  style: textTheme.labelLarge?.copyWith(
+                    color: const Color(0xFF5D7A5D), 
+                    fontSize: 12,
+                  ),
+                ),
               )
             ],
           ),
           body: allNotifs.isEmpty 
-            ? const Center(child: Text("No new activity.", style: TextStyle(color: Colors.black38)))
+            ? const Center(
+                child: Text(
+                  "No new activity.", 
+                  style: TextStyle(color: Colors.black38),
+                )
+              )
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: allNotifs.length,
@@ -106,9 +124,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   final String type = notif['type'] ?? 'general';
                   final bool isUnread = !_readIds.contains(id);
                   
-                  // Format time
                   final DateTime createdAt = DateTime.parse(notif['created_at']);
-                  final String timeLabel = DateFormat.jm().format(createdAt); // e.g. 10:30 AM
+                  final String timeLabel = DateFormat.jm().format(createdAt); 
 
                   return InkWell(
                     onTap: () => setState(() => _readIds.add(id)),
@@ -128,14 +145,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  // --- UI COMPONENTS ---
-
-  Widget _buildBadge(int count) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-    decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(10)),
-    child: Text(count.toString(), 
-      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-  );
+  Widget _buildBadge(int count) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(10)),
+      child: Text(
+        count.toString(), 
+        style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 11),
+      ),
+    );
+  }
 
   Widget _buildNotifTile({
     required IconData icon,
@@ -145,6 +165,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
     required String time,
     required bool isUnread,
   }) {
+    final textTheme = Theme.of(context).textTheme;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -175,21 +197,28 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(title, 
-                      style: TextStyle(
-                        fontWeight: isUnread ? FontWeight.bold : FontWeight.w500, 
+                    Text(
+                      title, 
+                      style: (isUnread ? textTheme.titleSmall : textTheme.bodyMedium)?.copyWith(
                         fontSize: 14, 
-                        color: const Color(0xFF2D3E2D)
-                      )),
-                    Text(time, style: const TextStyle(fontSize: 10, color: Colors.black38)),
+                        color: const Color(0xFF2D3E2D),
+                      ),
+                    ),
+                    Text(
+                      time, 
+                      style: textTheme.labelSmall?.copyWith(fontSize: 10, color: Colors.black38),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(body, style: TextStyle(
-                  fontSize: 12, 
-                  color: isUnread ? Colors.black87 : Colors.black45, 
-                  height: 1.4
-                )),
+                Text(
+                  body, 
+                  style: textTheme.bodySmall?.copyWith(
+                    fontSize: 12, 
+                    color: isUnread ? Colors.black87 : Colors.black45, 
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),

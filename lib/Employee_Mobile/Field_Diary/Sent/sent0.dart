@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../theme_provider.dart';
-import 'sent.dart'; // This is the Detail Screen file
+import 'sent.dart'; 
 
 class SentListScreen extends StatefulWidget {
   const SentListScreen({super.key});
@@ -24,8 +24,8 @@ class _SentListScreenState extends State<SentListScreen> {
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final userId = _supabase.auth.currentUser?.id;
+    final textTheme = Theme.of(context).textTheme;
 
-    // Theme colors
     final backgroundColor = isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA);
     final textColor = isDark ? Colors.white : darkGreen;
 
@@ -34,17 +34,19 @@ class _SentListScreenState extends State<SentListScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
         elevation: 0,
-        title: Text("Sent Observations", 
-          style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        title: Text(
+          "Sent Observations", 
+          style: textTheme.titleLarge?.copyWith(color: textColor),
+        ),
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: textColor),
+          icon: Icon(Icons.arrow_back_ios, color: textColor, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Column(
         children: [
-          _buildSearchSection(isDark),
+          _buildSearchSection(isDark, textTheme),
           Expanded(
             child: userId == null
                 ? const Center(child: Text("Please log in"))
@@ -61,12 +63,10 @@ class _SentListScreenState extends State<SentListScreen> {
                         return Center(child: Text("Error: ${snapshot.error}"));
                       }
 
-                      // 1. Filter out Drafts
                       var sentItems = (snapshot.data ?? [])
                           .where((e) => e['status']?.toString().toUpperCase() != 'DRAFT')
                           .toList();
 
-                      // 2. Client-side Search Filtering
                       if (_searchQuery.isNotEmpty) {
                         sentItems = sentItems.where((e) {
                           final name = (e['common_name'] ?? '').toString().toLowerCase();
@@ -74,13 +74,13 @@ class _SentListScreenState extends State<SentListScreen> {
                         }).toList();
                       }
 
-                      if (sentItems.isEmpty) return _buildEmptyState(isDark);
+                      if (sentItems.isEmpty) return _buildEmptyState(isDark, textTheme);
 
                       return ListView.builder(
                         padding: const EdgeInsets.all(20),
                         itemCount: sentItems.length,
                         itemBuilder: (context, index) {
-                          return _buildSentTile(context, sentItems[index], isDark);
+                          return _buildSentTile(context, sentItems[index], isDark, textTheme);
                         },
                       );
                     },
@@ -91,7 +91,7 @@ class _SentListScreenState extends State<SentListScreen> {
     );
   }
 
-  Widget _buildSearchSection(bool isDark) => Padding(
+  Widget _buildSearchSection(bool isDark, TextTheme textTheme) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
     child: Row(children: [
       Expanded(
@@ -104,11 +104,12 @@ class _SentListScreenState extends State<SentListScreen> {
           child: TextField(
             controller: _searchController,
             onChanged: (v) => setState(() => _searchQuery = v),
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-            decoration: const InputDecoration(
+            style: textTheme.bodyLarge?.copyWith(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
               hintText: "Search observations...", 
+              hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26),
               border: InputBorder.none, 
-              icon: Icon(Icons.search, size: 20, color: Colors.black26)
+              icon: const Icon(Icons.search, size: 20, color: Colors.black26)
             ),
           ),
         ),
@@ -116,7 +117,7 @@ class _SentListScreenState extends State<SentListScreen> {
     ]),
   );
 
-  Widget _buildSentTile(BuildContext context, Map<String, dynamic> entry, bool isDark) {
+  Widget _buildSentTile(BuildContext context, Map<String, dynamic> entry, bool isDark, TextTheme textTheme) {
     final species = entry['common_name'] ?? "Unnamed Entry";
     final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(entry['obs_date'] ?? DateTime.now().toString()));
     final status = entry['status']?.toString().toUpperCase() ?? 'PENDING';
@@ -125,7 +126,6 @@ class _SentListScreenState extends State<SentListScreen> {
 
     return GestureDetector(
       onTap: () {
-        // NAVIGATE TO DETAIL
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -146,13 +146,19 @@ class _SentListScreenState extends State<SentListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(species, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
+                  Text(
+                    species, 
+                    style: textTheme.titleMedium?.copyWith(color: isDark ? Colors.white : Colors.black),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(date, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        date, 
+                        style: textTheme.bodySmall?.copyWith(color: Colors.grey),
+                      ),
                       const SizedBox(width: 10),
-                      _buildBadge(status, badgeColor),
+                      _buildBadge(status, badgeColor, textTheme),
                     ],
                   ),
                 ],
@@ -165,13 +171,19 @@ class _SentListScreenState extends State<SentListScreen> {
     );
   }
 
-  Widget _buildBadge(String label, Color color) => Container(
+  Widget _buildBadge(String label, Color color, TextTheme textTheme) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-    child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+    child: Text(
+      label, 
+      style: textTheme.labelSmall?.copyWith(color: color),
+    ),
   );
 
-  Widget _buildEmptyState(bool isDark) => Center(
-    child: Text("No submissions found", style: TextStyle(color: isDark ? Colors.white38 : Colors.black38)),
+  Widget _buildEmptyState(bool isDark, TextTheme textTheme) => Center(
+    child: Text(
+      "No submissions found", 
+      style: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white38 : Colors.black38),
+    ),
   );
 }

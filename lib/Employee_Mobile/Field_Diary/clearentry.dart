@@ -16,6 +16,7 @@ class ClearEntryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color darkGreen = const Color(0xFF2D3E2D);
     final Color forestGreen = const Color(0xFF5D7A5D);
+    final textTheme = Theme.of(context).textTheme;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -38,15 +39,23 @@ class ClearEntryDialog extends StatelessWidget {
             // Title
             Text(
               "Clear all entries?",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGreen),
+              style: textTheme.titleLarge?.copyWith(
+                fontSize: 18, 
+                color: darkGreen,
+              ),
             ),
             const SizedBox(height: 12),
             
-            // Description
-            const Text(
-              "This will reset the entire form and remove all data you've entered across all steps. This action cannot be undone.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: 14, height: 1.5),
+            // Description - Wrapped in Center instead of using TextAlign
+            Center(
+              child: Text(
+                "This will reset the entire form and remove all data you've entered across all steps. This action cannot be undone.",
+                style: textTheme.bodyMedium?.copyWith(
+                  color: Colors.black54, 
+                  fontSize: 14, 
+                  height: 1.5,
+                ),
+              ),
             ),
             const SizedBox(height: 32),
             
@@ -56,7 +65,10 @@ class ClearEntryDialog extends StatelessWidget {
                 Expanded(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: Text("Cancel", style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      "Cancel", 
+                      style: textTheme.labelLarge?.copyWith(color: Colors.black45),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -71,7 +83,10 @@ class ClearEntryDialog extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text("Clear All", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      "Clear All", 
+                      style: textTheme.labelLarge?.copyWith(color: Colors.white),
+                    ),
                   ),
                 ),
               ],

@@ -31,3 +31,14 @@ flutter:
     - assets/logo1.png
     - assets/logo2.png
     - assets/red_rose.glb
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+
+    - family: Poppins-Bold
+      fonts:
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+
+  

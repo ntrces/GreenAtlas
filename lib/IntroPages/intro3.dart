@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../theme_constants.dart';
-import '../LoadingScreen/loading_pages.dart'; // Import your Loading Page
+import '../Login_Signup_Mobile/LoadingScreen/loading_pages.dart';
 
 class Intro3Screen extends StatelessWidget {
   const Intro3Screen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F8F4), // Soft mint background
       body: SafeArea(
@@ -23,7 +25,6 @@ class Intro3Screen extends StatelessWidget {
                       // --- TOP SECTION ---
                       Column(
                         children: [
-                          // Skip button removed as requested
                           const SizedBox(height: 60), 
                           
                           // Book Icon Container
@@ -51,25 +52,24 @@ class Intro3Screen extends StatelessWidget {
                           ),
                           const SizedBox(height: 40),
 
-                          const Text(
-                            "Explore Plant Knowledge",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF2D3E33),
-                              letterSpacing: -0.5,
+                          Center(
+                            child: Text(
+                              "Explore Plant Knowledge",
+                              style: textTheme.headlineMedium?.copyWith(
+                                color: const Color(0xFF2D3E33),
+                                letterSpacing: -0.5,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
-                          const Text(
-                            "Access comprehensive information about each species including habitat, uses, conservation threats, and cultural significance curated by DENR botanists.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: Color(0xFF5A7F66),
-                              height: 1.5,
+                          Center(
+                            child: Text(
+                              "Access comprehensive information about each species including habitat, uses, conservation threats, and cultural significance curated by DENR botanists.",
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFF5A7F66),
+                                height: 1.5,
+                              ),
                             ),
                           ),
                         ],
@@ -78,7 +78,7 @@ class Intro3Screen extends StatelessWidget {
                       // --- BOTTOM SECTION ---
                       Column(
                         children: [
-                          // Page Indicator (Third dot active)
+                          // Page Indicator
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -107,12 +107,10 @@ class Intro3Screen extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       "Back",
-                                      style: TextStyle(
-                                        color: Color(0xFF5A7463),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                      style: textTheme.labelLarge?.copyWith(
+                                        color: const Color(0xFF5A7463),
                                       ),
                                     ),
                                   ),
@@ -124,7 +122,6 @@ class Intro3Screen extends StatelessWidget {
                                 child: SizedBox(
                                   height: 52,
                                   child: ElevatedButton(
-                                    // UPDATED: Now goes to LoadingPage -> Dashboard
                                     onPressed: () {
                                       Navigator.pushReplacement(
                                         context,
@@ -138,19 +135,17 @@ class Intro3Screen extends StatelessWidget {
                                       ),
                                       elevation: 0,
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           "Get Started",
-                                          style: TextStyle(
+                                          style: textTheme.labelLarge?.copyWith(
                                             color: Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        SizedBox(width: 4),
-                                        Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
                                       ],
                                     ),
                                   ),
@@ -161,19 +156,18 @@ class Intro3Screen extends StatelessWidget {
                           const SizedBox(height: 30),
                           
                           // Footer
-                          const Text(
+                          Text(
                             "In partnership with",
-                            style: TextStyle(fontSize: 10, color: Colors.grey),
+                            style: textTheme.labelSmall?.copyWith(color: Colors.grey),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.only(top: 4, bottom: 10),
-                            child: Text(
-                              "Department of Environment and Natural Resources",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF4A6354),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 10),
+                            child: Center(
+                              child: Text(
+                                "Department of Environment and Natural Resources",
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: const Color(0xFF4A6354),
+                                ),
                               ),
                             ),
                           ),
@@ -190,7 +184,6 @@ class Intro3Screen extends StatelessWidget {
     );
   }
 
-  // Helper for the pill-shaped page indicator
   Widget _buildDot({required bool isActive}) {
     return Container(
       width: isActive ? 24 : 8,

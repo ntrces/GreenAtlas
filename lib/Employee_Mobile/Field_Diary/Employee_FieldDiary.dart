@@ -26,6 +26,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final textTheme = Theme.of(context).textTheme;
 
     if (_userId == null) {
       return const Scaffold(body: Center(child: Text("Please sign in.")));
@@ -35,20 +36,20 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
       body: CustomScrollView(
         slivers: [
-          _buildHeader(context, isDark),
+          _buildHeader(context, isDark, textTheme),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                _buildInfoCard(isDark),
+                _buildInfoCard(isDark, textTheme),
                 const SizedBox(height: 20),
-                _buildDescriptionText(isDark),
+                _buildDescriptionText(isDark, textTheme),
                 const SizedBox(height: 24),
-                _buildActionButtons(context, isDark), 
+                _buildActionButtons(context, isDark, textTheme), 
                 const SizedBox(height: 32),
-                _buildSectionHeader("Recent Entries (Max 5)", isDark),
+                _buildSectionHeader("Recent Entries (Max 5)", isDark, textTheme),
                 const SizedBox(height: 12),
-                _buildRecentEntriesList(isDark),
+                _buildRecentEntriesList(isDark, textTheme),
                 const SizedBox(height: 40),
               ]),
             ),
@@ -60,7 +61,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
 
   // --- HEADER & APP BAR ---
 
-  Widget _buildHeader(BuildContext context, bool isDark) => SliverAppBar(
+  Widget _buildHeader(BuildContext context, bool isDark, TextTheme textTheme) => SliverAppBar(
     pinned: true,
     backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
     elevation: 0,
@@ -70,21 +71,21 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
       padding: const EdgeInsets.only(left: 16.0),
       child: Image.asset('assets/logo2.png', fit: BoxFit.contain), 
     ),
-    title: Text("Field Observation", 
-      style: TextStyle(
+    title: Text(
+      "Field Observation", 
+      style: textTheme.titleLarge?.copyWith(
         color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
-        fontWeight: FontWeight.bold, 
         fontSize: 20
       )
     ),
     actions: [
-      _buildNotificationIcon(context, isDark),
+      _buildNotificationIcon(context, isDark, textTheme),
       _buildProfileIcon(context, isDark),
       const SizedBox(width: 16),
     ],
   );
 
-  Widget _buildNotificationIcon(BuildContext context, bool isDark) => Stack(
+  Widget _buildNotificationIcon(BuildContext context, bool isDark, TextTheme textTheme) => Stack(
     alignment: Alignment.center,
     children: [
       IconButton(
@@ -96,7 +97,10 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle),
-          child: const Text("2", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+          child: Text(
+            "2", 
+            style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 8)
+          ),
         ),
       )
     ],
@@ -117,7 +121,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
 
   // --- INFO & DESCRIPTION ---
 
-  Widget _buildInfoCard(bool isDark) => Container(
+  Widget _buildInfoCard(bool isDark, TextTheme textTheme) => Container(
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
@@ -137,11 +141,13 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Digital logbook for recording activities...",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, height: 1.4)),
+              Text(
+                "Digital logbook for recording observations in GreenAtlas",
+                style: textTheme.titleSmall?.copyWith(fontSize: 15, height: 1.4)
+              ),
               const SizedBox(height: 12),
-              _metaText("Version: v.1.1.25"),
-              _metaText("Owner: BMB_CM"),
+              _metaText("Version: v.1.1.25", textTheme),
+              _metaText("Owner: BMB_CM", textTheme),
             ],
           ),
         ),
@@ -149,25 +155,33 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     ),
   );
 
-  Widget _metaText(String text) => Padding(
+  Widget _metaText(String text, TextTheme textTheme) => Padding(
     padding: const EdgeInsets.only(bottom: 2),
-    child: Text(text, style: const TextStyle(fontSize: 11, color: Colors.black38)),
+    child: Text(
+      text, 
+      style: textTheme.labelSmall?.copyWith(fontSize: 11, color: Colors.black38)
+    ),
   );
 
-  Widget _buildDescriptionText(bool isDark) => Text(
-    "document daily patrols and species observations to enhance ecological monitoring efforts.",
-    style: TextStyle(fontSize: 13, height: 1.5, color: isDark ? Colors.white70 : const Color(0xFF5D7A5D).withOpacity(0.8)),
+  Widget _buildDescriptionText(bool isDark, TextTheme textTheme) => Text(
+    "Document daily patrols and species observations to enhance ecological monitoring efforts in the Cavite Protected Area.",
+    style: textTheme.bodySmall?.copyWith(
+      fontSize: 13, 
+      height: 1.5, 
+      color: isDark ? Colors.white70 : const Color(0xFF5D7A5D).withOpacity(0.8)
+    ),
   );
 
   // --- ACTIONS ---
 
-  Widget _buildActionButtons(BuildContext context, bool isDark) => Column(
+  Widget _buildActionButtons(BuildContext context, bool isDark, TextTheme textTheme) => Column(
     children: [
       _actionRow(
         icon: Icons.add_box_rounded, 
         label: "Collect", 
         color: const Color(0xFF4285F4), 
         isDark: isDark, 
+        textTheme: textTheme,
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep1Screen())),
       ),
       _actionRow(
@@ -175,6 +189,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         label: "Drafts", 
         color: const Color(0xFFFF9800), 
         isDark: isDark, 
+        textTheme: textTheme,
         badge: "1",
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DraftsListScreen())),
       ),
@@ -183,27 +198,44 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         label: "Sent", 
         color: const Color(0xFF78909C), 
         isDark: isDark, 
+        textTheme: textTheme,
         badge: "3",
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SentListScreen())),
       ),
     ],
   );
 
-  Widget _actionRow({required IconData icon, required String label, required Color color, required bool isDark, String? badge, VoidCallback? onTap}) => Container(
+  Widget _actionRow({
+    required IconData icon, 
+    required String label, 
+    required Color color, 
+    required bool isDark, 
+    required TextTheme textTheme,
+    String? badge, 
+    VoidCallback? onTap
+  }) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
       color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
       borderRadius: BorderRadius.circular(12),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
     ),
     child: ListTile(
       onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       leading: CircleAvatar(backgroundColor: color, radius: 18, child: Icon(icon, color: Colors.white, size: 18)),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      title: Text(
+        label, 
+        style: textTheme.titleSmall?.copyWith(fontSize: 15)
+      ),
       trailing: badge != null 
         ? Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(badge, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text(
+              badge, 
+              style: textTheme.labelSmall?.copyWith(color: color, fontSize: 11)
+            ),
           )
         : const Icon(Icons.chevron_right, color: Colors.black26),
     ),
@@ -211,9 +243,8 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
 
   // --- RECENT ENTRIES (MAX 5) ---
 
-  Widget _buildRecentEntriesList(bool isDark) {
+  Widget _buildRecentEntriesList(bool isDark, TextTheme textTheme) {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      // .limit(5) ensures we only fetch 5 rows from Supabase
       stream: _supabase
           .from('field_entries')
           .stream(primaryKey: ['id'])
@@ -227,31 +258,34 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         final entries = snapshot.data ?? [];
         
         if (entries.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(20), 
-              child: Text("No observations yet.", style: TextStyle(fontSize: 12, color: Colors.grey))
+              padding: const EdgeInsets.all(20), 
+              child: Text(
+                "No observations yet.", 
+                style: textTheme.bodySmall?.copyWith(fontSize: 12, color: Colors.grey)
+              )
             )
           );
         }
 
-        // Sorting client-side to ensure the absolute latest is on top
         entries.sort((a, b) => b['created_at'].compareTo(a['created_at']));
         
         return Column(
           children: entries.take(5).map((e) => _buildEntryCard(
             e['id'].toString(), 
             DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(e['created_at'])),
-            e['location'] ?? "Unknown Area",
+            e['protected_area'] ?? "Unknown Area", 
             e['status'] ?? "Sent",
-            isDark
+            isDark,
+            textTheme,
           )).toList(),
         );
       },
     );
   }
 
-  Widget _buildEntryCard(String id, String date, String area, String status, bool isDark) => Container(
+  Widget _buildEntryCard(String id, String date, String area, String status, bool isDark, TextTheme textTheme) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -265,41 +299,47 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("BMS-${id.padLeft(3, '0')}", 
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? Colors.white : Colors.black)),
-            _buildStatusBadge(status),
+            Text(
+              "BMS-${id.padLeft(3, '0')}", 
+              style: textTheme.titleSmall?.copyWith(fontSize: 15, color: isDark ? Colors.white : Colors.black)
+            ),
+            _buildStatusBadge(status, textTheme),
           ],
         ),
         const SizedBox(height: 4),
-        Text(date, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+        Text(
+          date, 
+          style: textTheme.labelSmall?.copyWith(fontSize: 12, color: Colors.black45)
+        ),
         const SizedBox(height: 8),
-        Text("$area • 1 observation(s)", 
-          style: const TextStyle(fontSize: 12, color: Color(0xFF5D7A5D), fontWeight: FontWeight.w500)),
+        Text(
+          "$area • 1 observation(s)", 
+          style: textTheme.labelSmall?.copyWith(fontSize: 12, color: const Color(0xFF5D7A5D))
+        ),
       ],
     ),
   );
 
-  Widget _buildStatusBadge(String status) => Container(
+  Widget _buildStatusBadge(String status, TextTheme textTheme) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     decoration: BoxDecoration(
       color: status.toUpperCase() == "SENT" ? const Color(0xFF5D7A5D).withOpacity(0.1) : Colors.black12,
       borderRadius: BorderRadius.circular(6)
     ),
-    child: Text(status, 
-      style: TextStyle(
+    child: Text(
+      status, 
+      style: textTheme.labelSmall?.copyWith(
         color: status.toUpperCase() == "SENT" ? const Color(0xFF5D7A5D) : Colors.black54, 
-        fontSize: 10, 
-        fontWeight: FontWeight.bold
+        fontSize: 10
       )
     ),
   );
 
-  Widget _buildSectionHeader(String title, bool isDark) => Padding(
+  Widget _buildSectionHeader(String title, bool isDark, TextTheme textTheme) => Padding(
     padding: const EdgeInsets.only(left: 4),
     child: Text(
       title, 
-      style: TextStyle( 
-        fontWeight: FontWeight.bold, 
+      style: textTheme.titleSmall?.copyWith( 
         fontSize: 14, 
         color: isDark ? Colors.white : Colors.black87,
       ),

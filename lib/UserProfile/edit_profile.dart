@@ -18,9 +18,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _municipalityController = TextEditingController();
-  final TextEditingController _cityController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _municipalityController = TextEditingController();
+  final _cityController = TextEditingController();
 
   Uint8List? _imageBytes;
   String? _existingAvatarUrl;
@@ -67,12 +67,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       final user = _supabase.auth.currentUser;
+      if (user == null) return;
+      
       String? finalAvatarUrl = _existingAvatarUrl;
 
-      // 1. Upload Image if changed
       if (_imageBytes != null) {
         final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final path = '${user!.id}/$fileName';
+        final path = '${user.id}/$fileName';
 
         await _supabase.storage.from('Profiles').uploadBinary(
           path,
@@ -83,7 +84,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         finalAvatarUrl = _supabase.storage.from('Profiles').getPublicUrl(path);
       }
 
-      // 2. Update Database
       await _supabase.from('profiles').update({
         'full_name': "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}",
         'first_name': _firstNameController.text.trim(),
@@ -92,13 +92,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'municipality': _municipalityController.text.trim(),
         'city': _cityController.text.trim(),
         'avatar_url': finalAvatarUrl,
-      }).eq('id', user!.id);
+      }).eq('id', user.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Profile successfully updated!"), backgroundColor: Color(0xFF5D7A5D))
         );
-        Navigator.pop(context, true); // Returns 'true' to trigger refresh on Profile Screen
+        Navigator.pop(context, true); 
       }
     } catch (e) {
       if (mounted) {
@@ -113,6 +113,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: const Color(0xFFEAF7EA),
       appBar: AppBar(
@@ -122,7 +124,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text("Edit Profile", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(
+          "Edit Profile", 
+          style: textTheme.titleLarge?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 18),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -140,7 +145,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               children: [
                 _buildAvatarPicker(),
                 const SizedBox(height: 30),
-                const Text("ACCOUNT DETAILS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5D7A5D), letterSpacing: 1.0)),
+                Text(
+                  "ACCOUNT DETAILS", 
+                  style: textTheme.labelSmall?.copyWith(color: const Color(0xFF5D7A5D), letterSpacing: 1.0),
+                ),
                 const SizedBox(height: 20),
                 
                 Row(
@@ -155,7 +163,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _buildInputField("PHONE NUMBER", _phoneController, icon: Icons.phone_android_outlined),
                 
                 const Divider(height: 40),
-                const Text("LOCATION DETAILS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF5D7A5D), letterSpacing: 1.0)),
+                Text(
+                  "LOCATION DETAILS", 
+                  style: textTheme.labelSmall?.copyWith(color: const Color(0xFF5D7A5D), letterSpacing: 1.0),
+                ),
                 const SizedBox(height: 20),
                 
                 _buildInputField("MUNICIPALITY", _municipalityController, icon: Icons.location_city_outlined),
@@ -200,27 +211,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   );
 
   Widget _buildInputField(String label, TextEditingController controller, {bool isEnabled = true, IconData? icon}) {
+    final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black45)),
+          Text(
+            label, 
+            style: textTheme.labelSmall?.copyWith(color: Colors.black45),
+          ),
           const SizedBox(height: 8),
           TextFormField(
             controller: controller,
             enabled: isEnabled,
             keyboardType: label.contains("PHONE") ? TextInputType.phone : TextInputType.text,
-            style: const TextStyle(fontSize: 14),
+            style: textTheme.bodyMedium?.copyWith(fontSize: 14),
             decoration: InputDecoration(
               prefixIcon: icon != null ? Icon(icon, size: 18, color: const Color(0xFF5D7A5D)) : null,
               filled: true,
               fillColor: isEnabled ? Colors.white : const Color(0xFFF5F5F5),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF5D7A5D))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: const Color(0xFF5D7A5D))),
               disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
-              errorStyle: const TextStyle(fontSize: 10),
+              errorStyle: textTheme.labelSmall?.copyWith(fontSize: 10, color: Colors.redAccent),
             ),
             validator: (value) {
               final val = value ?? "";
@@ -239,28 +254,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildActionButtons() => Column(
-    children: [
-      SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: ElevatedButton(
-          onPressed: _isLoading ? null : _handleSave,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF5D7A5D),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 0,
+  Widget _buildActionButtons() {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _handleSave,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5D7A5D),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: _isLoading 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                : Text(
+                    "SAVE CHANGES", 
+                    style: textTheme.labelLarge?.copyWith(color: Colors.white, letterSpacing: 1),
+                  ),
           ),
-          child: _isLoading 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-              : const Text("SAVE CHANGES", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
         ),
-      ),
-      const SizedBox(height: 12),
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text("Discard changes", style: TextStyle(color: Colors.black45, fontSize: 13)),
-      ),
-    ],
-  );
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            "Discard changes", 
+            style: textTheme.bodySmall?.copyWith(color: Colors.black45, fontSize: 13),
+          ),
+        ),
+      ],
+    );
+  }
 }

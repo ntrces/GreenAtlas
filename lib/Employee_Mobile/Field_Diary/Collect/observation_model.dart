@@ -1,43 +1,42 @@
 import 'package:flutter/material.dart';
 
 class ObservationModel extends ChangeNotifier {
-  // --- Step 1 Fields ---
-  String? userId; 
-  String observerName = 'FO-12345'; 
-  
-  List<Map<String, String>> members = [
-    {'firstname': '', 'lastname': '', 'role': ''}
-  ];
+  String? userId;
+  String observerName = 'FO-12345';
 
-  // --- Step 2 Fields ---
+  // DB Column: team_members (jsonb)
+  List<Map<String, String>> members = [{'firstname': '', 'lastname': '', 'role': ''}];
+
+  // Location & Environment
   DateTime observationDate = DateTime.now();
   String region = "Region IV-A (CALABARZON)";
   String province = "Cavite";
   String protectedArea = "Cavite Protected Landscape";
-  String weatherCondition = ''; 
+  List<String> weatherConditions = [];
+  int temperature = 28; 
 
-  // --- Step 3 Fields ---
-  String habitat = '';            
-  String? habitatOthers;
+  // Wildlife Details
+  String habitat = ''; 
+  String? habitatOthers; // Required for Step 3
+  
   String observationCategory = ''; 
-  String? obsCategoryOthers;
+  String? obsCategoryOthers; // Required for Step 3
 
   String taxon = '';
-  String speciesName = ''; 
-  bool isUnfamiliar = false; 
-  int quantity = 0; // Set to 0 so "Enter count" hint shows
+  String speciesName = '';
+  String localName = ''; 
+  bool isUnfamiliar = false;
+  int quantity = 0;               
+
+  bool seen = false;
+  bool heard = false;
+  bool presence = false;
+
+  List<String> imagePaths = []; 
+  String observationNotes = '';
   
-  bool seen = false; 
-  bool heard = false; 
-  bool presence = false; 
-
-  // --- NEW FIELD: Photo Upload ---
-  String? imagePath; // Stores the local path of the picked photo
-
-  String status = 'Sent'; 
-  String observationNotes = ''; 
-
-  // --- Methods ---
+  // FIXED: Default to PENDING (Uppercase) to satisfy DB Constraint
+  String status = 'PENDING';
 
   void updateLocationData({String? region, String? province, String? protectedArea}) {
     this.region = region ?? this.region;
@@ -46,40 +45,26 @@ class ObservationModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateData() {
-    notifyListeners();
-  }
+  void updateData() => notifyListeners();
 
-  // UPDATED: Reset all fields to BLANK/DEFAULT
   void reset() {
-    // Step 1 Reset
-    members = [
-      {'firstname': '', 'lastname': '', 'role': ''}
-    ];
-
-    // Step 2 Reset
+    members = [{'firstname': '', 'lastname': '', 'role': ''}];
     observationDate = DateTime.now();
-    weatherCondition = ''; 
-    
-    // Step 3 Reset
-    habitat = '';            // Blank for "Select habitat" hint
+    weatherConditions = [];
+    temperature = 28;
+    habitat = '';
     habitatOthers = null;
-    observationCategory = ''; // Blank for "Select category" hint
+    observationCategory = '';
     obsCategoryOthers = null;
     taxon = '';
     speciesName = '';
+    localName = '';
     isUnfamiliar = false;
-    quantity = 0;            // 0 for "Enter count" hint
-    seen = false;
-    heard = false;
-    presence = false;
-    
-    // Photo Reset
-    imagePath = null;        // Physically clears the photo box UI
-    
-    status = 'Sent';
+    quantity = 0;
+    seen = false; heard = false; presence = false;
+    imagePaths = [];
     observationNotes = '';
-
-    notifyListeners(); // Updates all 3 steps simultaneously
+    status = 'PENDING'; 
+    notifyListeners();
   }
 }

@@ -3,8 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../theme_provider.dart';
-import '../Collect/observation_model.dart';
-import '../Collect/collect01.dart'; // This is your 'draft.dart' equivalent for editing
+import './draft.dart'; // Import the detail screen
 
 class DraftsListScreen extends StatefulWidget {
   const DraftsListScreen({super.key});
@@ -18,32 +17,6 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
 
-  // LOGIC: Load draft data into Model and Navigate
-  void _openDraft(BuildContext context, Map<String, dynamic> draft) {
-    final model = context.read<ObservationModel>();
-
-    // Map DB columns to Model
-    model.observerName = draft['observer_id_code'] ?? 'FO-12345';
-    model.observationDate = DateTime.parse(draft['obs_date'] ?? DateTime.now().toString());
-    model.region = draft['region'] ?? model.region;
-    model.province = draft['province'] ?? model.province;
-    model.protectedArea = draft['protected_area'] ?? model.protectedArea;
-    model.weatherCondition = draft['weather'] ?? 'Sunny';
-    model.habitat = draft['habitat'] ?? 'Mangrove forest';
-    model.taxon = draft['taxon'] ?? '';
-    model.speciesName = draft['common_name'] ?? ''; 
-    model.quantity = draft['count'] ?? 1;
-    model.observationNotes = draft['notes'] ?? '';
-
-    model.updateData();
-
-    // Navigate to your form screen (collect01.dart)
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const CollectStep1Screen()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -54,17 +27,16 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
         elevation: 0,
-        title: Text("My Drafts", style: TextStyle(color: darkGreen, fontWeight: FontWeight.bold)),
+        title: Text("My Drafts", style: TextStyle(color: darkGreen, fontSize: 18)),
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: darkGreen),
+          icon: Icon(Icons.arrow_back_ios, color: darkGreen, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: userId == null
           ? const Center(child: Text("Please log in"))
           : StreamBuilder<List<Map<String, dynamic>>>(
-              // Fetch by user first to avoid the chaining error
               stream: _supabase
                   .from('field_entries')
                   .stream(primaryKey: ['id'])
@@ -74,13 +46,12 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Filter for 'DRAFT' status locally
                 final drafts = (snapshot.data ?? [])
                     .where((d) => d['status'] == 'DRAFT')
                     .toList();
 
                 if (drafts.isEmpty) {
-                  return _buildEmptyState(isDark);
+                  return const Center(child: Text("No drafts yet", style: TextStyle(color: Colors.black38)));
                 }
 
                 return ListView.builder(
@@ -98,15 +69,21 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
 
   Widget _buildDraftTile(BuildContext context, Map<String, dynamic> draft, bool isDark) {
     final species = draft['common_name'] ?? "Unnamed Entry";
-    final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(draft['obs_date']));
+    final dateString = draft['observation_date'] ?? DateTime.now().toString();
+    final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(dateString));
 
     return GestureDetector(
-      onTap: () => _openDraft(context, draft), // CLICK ACTION
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => DraftDetailScreen(draft: draft)),
+        );
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white10 : Colors.white,
+          color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
         ),
@@ -121,7 +98,7 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(species, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(species, style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16)),
                   Text("Last edited: $date", style: const TextStyle(fontSize: 12, color: Colors.black45)),
                 ],
               ),
@@ -129,19 +106,6 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
             const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.note_alt_outlined, size: 60, color: Colors.black12),
-          const SizedBox(height: 16),
-          Text("No drafts yet", style: TextStyle(color: isDark ? Colors.white38 : Colors.black38)),
-        ],
       ),
     );
   }

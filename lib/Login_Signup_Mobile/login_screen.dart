@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
 import 'signup_screen.dart'; 
-import '../IntroPages/intro1.dart'; 
 import '../User_Mobile/user_dashboard.dart'; 
 import '../Employee_Mobile/Employee_Dashboard.dart'; 
 
@@ -19,8 +19,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  
+  bool _isCapsLockOn = false; 
 
-  // --- UPDATED SIGN IN LOGIC ---
+  final Color darkGreen = const Color(0xFF303D32);
+  final Color sageGreen = const Color(0xFF517156);
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  // * --- FIXED DATABASE CONNECTION LOGIC ---
   Future<void> _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -33,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Authenticate with Supabase
+      // * 1. Authenticate with Supabase Auth
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -42,25 +54,33 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = response.user;
 
       if (user != null) {
-        // 2. Fetch the user's role from the 'profiles' table
-        final userData = await _supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
+        String role = 'user'; // * Default role
 
-        final String role = userData['role'] ?? 'user';
+        try {
+          // * 2. Fetch the role from the 'profiles' table
+          final userData = await _supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', user.id)
+              .maybeSingle(); // * Use maybeSingle() to avoid the "0 rows" crash
+
+          if (userData != null && userData['role'] != null) {
+            role = userData['role'];
+          }
+        } catch (dbError) {
+          // * If database fetch fails, we still have the 'user' default role
+          debugPrint("Profile fetch error: $dbError");
+        }
 
         if (!mounted) return;
 
-        // 3. Navigation logic based on role
+        // * 3. Route based on role
         if (role == 'employee') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const EmployeePortal()),
           );
         } else {
-          // If role is 'user', go to Intro/User Dashboard
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const UserDashboard()),
@@ -70,7 +90,8 @@ class _LoginScreenState extends State<LoginScreen> {
     } on AuthException catch (e) {
       _showSnackBar(e.message, Colors.redAccent);
     } catch (e) {
-      _showSnackBar("An unexpected error occurred: $e", Colors.redAccent);
+      _showSnackBar("Connection Error: Check your internet or database.", Colors.redAccent);
+      debugPrint("Login Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -85,121 +106,238 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: softGreen,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80, height: 80,
-                      decoration: const BoxDecoration(
-                        color: Colors.white, shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10))],
-                      ),
-                      child: Center(
-                        child: Image.asset(
-                          'assets/logo2.png', // Ensure path is correct
-                          width: 80, height: 80, fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.eco, color: primaryForest, size: 40),
-                        ),
+    return KeyboardListener(
+      focusNode: FocusNode(),
+      autofocus: true,
+      onKeyEvent: (KeyEvent event) {
+        if (event.logicalKey == LogicalKeyboardKey.capsLock && event is KeyDownEvent) {
+          setState(() {
+            _isCapsLockOn = !_isCapsLockOn;
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: softGreen, 
+        resizeToAvoidBottomInset: true,
+        body: Center( 
+          child: SingleChildScrollView( 
+            physics: const BouncingScrollPhysics(),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center, 
+                children: [
+                  Container(
+                    width: 70, height: 70,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                    ),
+                    child: Center(
+                      child: Image.asset(
+                        'assets/logo2.png',
+                        width: 50, height: 50,
+                        errorBuilder: (context, error, stackTrace) => Icon(Icons.eco, color: darkGreen, size: 35),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    const Text("Welcome Back", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryForest)),
-                    const Text("Sign in to explore the Green Atlas", style: TextStyle(fontSize: 12, color: Colors.black54)),
-                    const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 16),
 
-                    // Login Card
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white, borderRadius: BorderRadius.circular(25),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 20, offset: const Offset(0, 10))],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Center(child: Text("Sign In", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryForest))),
-                          const SizedBox(height: 16),
-                          _buildLabel("* Email Address"),
-                          TextField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: ecoInputStyle(label: "Enter email", icon: Icons.email_outlined),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildLabel("* Password"),
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            decoration: ecoInputStyle(label: "Enter password", icon: Icons.lock_outline).copyWith(
-                              suffixIcon: IconButton(
-                                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity, height: 50,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleSignIn,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryForest,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              child: _isLoading 
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text("Sign In", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Text(
+                    "Welcome Back",
+                    style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 28, color: darkGreen),
+                  ),
+                  Text(
+                    "Sign in to explore the GreenAtlas features",
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: sageGreen),
+                  ),
+                  const SizedBox(height: 20),
 
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8), 
-                          child: Text("DON’T HAVE AN ACCOUNT?", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade600))
-                        ),
-                        const Expanded(child: Divider(color: Colors.grey, thickness: 0.5)),
+                  Container(
+                    width: 360,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        )
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity, height: 50,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpScreen())),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryForest.withOpacity(0.1),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Text(
+                            "Sign In",
+                            style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 16, color: darkGreen,),
+                          ),
                         ),
-                        child: const Text("Create Account", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryForest)),
-                      ),
+                        const SizedBox(height: 4),
+                        Center(
+                          child: Text(
+                            "Enter your credentials to access your account",
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: sageGreen),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        _buildLabel("Email Address *"),
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          onChanged: (val) => setState(() {}),
+                          decoration: _buildInputDecoration(
+                            hintText: "your.email@example.com",
+                            icon: Icons.email_outlined,
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        _buildLabel("Password *"),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          onChanged: (val) => setState(() {}),
+                          decoration: _buildInputDecoration(
+                            hintText: "Enter your password",
+                            icon: Icons.lock_outline,
+                          ).copyWith(
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                size: 18, color: sageGreen,
+                              ),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            ),
+                          ),
+                        ),
+
+                        if (_isCapsLockOn)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 14),
+                                SizedBox(width: 4),
+                                Text(
+                                  "Caps Lock is ON",
+                                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _handleSignIn,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: sageGreen,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: _isLoading 
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text("Sign In", style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white, fontSize: 15, )),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        Row(
+                          children: [
+                            const Expanded(child: Divider(color: Colors.black12)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Text(
+                                "DON'T HAVE AN ACCOUNT?",
+                                style: TextStyle(fontFamily: 'Inter', fontSize: 10, color: sageGreen),
+                              ),
+                            ),
+                            const Expanded(child: Divider(color: Colors.black12)),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpScreen())),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF2FAF2), 
+                              elevation: 0,
+                              side: const BorderSide(color: Color(0xFFE0EEE0)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: Text(
+                              "Create Account",
+                              style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 14, color: darkGreen),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildLabel(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 4), 
-    child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: primaryForest))
-  );
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: text.replaceAll('*', '').trim(),
+              style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13, color: darkGreen),
+            ),
+            if (text.contains('*'))
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13, color: Colors.red),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _buildInputDecoration({required String hintText, required IconData icon}) {
+    return InputDecoration(
+      hintText: hintText, 
+      hintStyle: const TextStyle(fontFamily: 'Inter', fontSize: 13, color: Colors.black26),
+      prefixIcon: Icon(icon, size: 18, color: sageGreen),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.black12),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: sageGreen),
+      ),
+    );
+  }
 }

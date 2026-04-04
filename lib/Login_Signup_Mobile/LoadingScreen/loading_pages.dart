@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../LandingPage_Mobile/landing_screen.dart';
+import '../../LandingPage_Mobile/landing_screen.dart';
+import '../../User_Mobile/user_dashboard.dart';
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+class LoadingPage extends StatefulWidget {
+  const LoadingPage({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<LoadingPage> createState() => _LoadingPageState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _LoadingPageState extends State<LoadingPage> {
   @override
   void initState() {
     super.initState();
@@ -21,13 +22,16 @@ class _SplashScreenState extends State<SplashScreen> {
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LandingScreen()),
+        MaterialPageRoute(builder: (context) => const UserDashboard()),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Define textTheme to access global styles
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -63,36 +67,30 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20.0), // Adjust padding for your logo
+                  padding: const EdgeInsets.all(20.0),
                   child: Image.asset(
-  'assets/logo2.png', // Must match the pubspec.yaml entry exactly
-  width: 160,  // Updated per your notes
-  height: 160, // Updated per your notes
-  fit: BoxFit.contain,
-  errorBuilder: (context, error, stackTrace) {
-    return const Icon(Icons.broken_image, color: Colors.red, size: 40);
-  },
-),
+                    'assets/logo2.png', // Consistent with your other screens
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.broken_image, color: Colors.red);
+                    },
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 32),
-            const Text(
+            Text(
               "GreenAtlas",
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3E2D),
+              style: textTheme.headlineSmall?.copyWith(
+                color: const Color(0xFF2D3E2D),
                 letterSpacing: 0.5,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "Initializing GreenAtlas platform...",
-              style: TextStyle(
-                fontSize: 14,
+            Text(
+              "Accessing your GreenAtlas account...",
+              style: textTheme.bodyMedium?.copyWith(
                 color: Colors.black45,
-                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 60),

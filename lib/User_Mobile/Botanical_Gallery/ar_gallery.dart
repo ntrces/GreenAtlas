@@ -22,7 +22,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   bool _isGridView = false; 
   String _searchQuery = ""; 
 
-  // Filter & Sort States
   Set<String> _activeTypes = {"All Plants"};
   Set<String> _activeStatuses = {"All Statuses"};
   String _activeSort = "Ascending (A-Z)";
@@ -43,7 +42,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     super.dispose();
   }
 
-  // --- DYNAMIC COUNT LOGIC ---
   Map<String, int> _calculateCounts() {
     return {
       'Total': _allPlantsRaw.length,
@@ -105,11 +103,10 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     );
   }
 
-  // --- UPDATED: FILTER LABEL ON THE LEFT, CHIPS ON THE RIGHT ---
   Widget _buildActiveFilters() {
+    final textTheme = Theme.of(context).textTheme;
     List<Widget> chips = [];
     
-    // Type chips
     for (var type in _activeTypes) {
       if (type != "All Plants") {
         chips.add(_buildFilterChip(type, () {
@@ -121,7 +118,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       }
     }
 
-    // Status chips
     for (var status in _activeStatuses) {
       if (status != "All Statuses") {
         chips.add(_buildFilterChip(status, () {
@@ -140,12 +136,11 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
+          Text(
             "Filter : ",
-            style: TextStyle(
+            style: textTheme.labelLarge?.copyWith(
               fontSize: 14, 
-              fontWeight: FontWeight.bold, 
-              color: Color(0xFF2D3E2D),
+              color: const Color(0xFF2D3E2D),
             ),
           ),
           Expanded(
@@ -160,6 +155,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   }
 
   Widget _buildFilterChip(String label, VoidCallback onDeleted) {
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -171,8 +167,10 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, 
-            style: const TextStyle(color: Color(0xFF2D3E2D), fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(
+            label, 
+            style: textTheme.labelMedium?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 13),
+          ),
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onDeleted,
@@ -243,20 +241,26 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     },
   );
 
-  Widget _buildSliverAppBar() => SliverAppBar(
-    pinned: true, backgroundColor: Colors.white, elevation: 0,
-    toolbarHeight: 70, leadingWidth: 70,
-    leading: Padding(
-      padding: const EdgeInsets.only(left: 16),
-      child: Center(child: Image.asset('assets/logo2.png', width: 45, height: 45)),
-    ),
-    title: const Text("Botanical Gallery", style: TextStyle(color: Color(0xFF2D3E2D), fontWeight: FontWeight.bold, fontSize: 20)),
-    actions: [
-      IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D)), 
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
-      _buildProfileIcon(),
-    ],
-  );
+  Widget _buildSliverAppBar() {
+    final textTheme = Theme.of(context).textTheme;
+    return SliverAppBar(
+      pinned: true, backgroundColor: Colors.white, elevation: 0,
+      toolbarHeight: 70, leadingWidth: 70,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Center(child: Image.asset('assets/logo2.png', width: 45, height: 45)),
+      ),
+      title: Text(
+        "Botanical Gallery", 
+        style: textTheme.titleLarge?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 20),
+      ),
+      actions: [
+        IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D)), 
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
+        _buildProfileIcon(),
+      ],
+    );
+  }
 
   Widget _buildList(List<Map<String, dynamic>> plants) => SliverList(
     delegate: SliverChildBuilderDelegate((context, i) => _buildListItem(plants[i]), childCount: plants.length),
@@ -275,45 +279,58 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     ),
   );
 
-  Widget _buildListItem(Map<String, dynamic> plant) => Container(
-    color: Colors.white,
-    child: Column(
-      children: [
-        ListTile(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
-          leading: _buildImageThumb(plant['image_url'], 55),
-          title: Text(plant['common_name'] ?? "Unknown", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          subtitle: Text("${plant['location_zone']} • ${plant['conservation_status']}", 
-            style: const TextStyle(fontSize: 12, color: Colors.black45)),
-          trailing: const Icon(Icons.chevron_right, color: Colors.black12),
-        ),
-        const Divider(height: 1, indent: 85, color: Color(0xFFF0F0F0)),
-      ],
-    ),
-  );
-
-  Widget _buildGridItem(Map<String, dynamic> plant) => InkWell(
-    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
-    child: Container(
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(15), 
-        border: Border.all(color: Colors.black.withOpacity(0.05))
-      ),
+  Widget _buildListItem(Map<String, dynamic> plant) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      color: Colors.white,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), child: _buildImageThumb(plant['image_url'], double.infinity))),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Text(plant['common_name'] ?? "Unknown", 
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), 
-              maxLines: 1, overflow: TextOverflow.ellipsis),
+          ListTile(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
+            leading: _buildImageThumb(plant['image_url'], 55),
+            title: Text(
+              plant['common_name'] ?? "Unknown", 
+              style: textTheme.titleSmall?.copyWith(fontSize: 15),
+            ),
+            subtitle: Text(
+              "${plant['location_zone']} • ${plant['conservation_status']}", 
+              style: textTheme.labelSmall?.copyWith(color: Colors.black45),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.black12),
           ),
+          const Divider(height: 1, indent: 85, color: Color(0xFFF0F0F0)),
         ],
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _buildGridItem(Map<String, dynamic> plant) {
+    final textTheme = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white, 
+          borderRadius: BorderRadius.circular(15), 
+          border: Border.all(color: Colors.black.withOpacity(0.05))
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), child: _buildImageThumb(plant['image_url'], double.infinity))),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(
+                plant['common_name'] ?? "Unknown", 
+                style: textTheme.titleSmall?.copyWith(fontSize: 13), 
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildImageThumb(String? url, double size) => Container(
     width: size, height: size, color: Colors.grey[100],

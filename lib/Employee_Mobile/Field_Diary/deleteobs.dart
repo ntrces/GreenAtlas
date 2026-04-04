@@ -5,6 +5,8 @@ class DeleteEntryDialog {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        final textTheme = Theme.of(context).textTheme;
+
         return Dialog(
           backgroundColor: const Color(0xFFEAF7EA), // Pale green background
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -17,12 +19,11 @@ class DeleteEntryDialog {
                 Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Text(
+                    Text(
                       "Delete Entry",
-                      style: TextStyle(
+                      style: textTheme.titleLarge?.copyWith(
                         fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D3E2D), // Dark Green
+                        color: const Color(0xFF2D3E2D), // Dark Green
                       ),
                     ),
                     Align(
@@ -36,14 +37,15 @@ class DeleteEntryDialog {
                 ),
                 const SizedBox(height: 20),
                 
-                // Content Text
-                const Text(
-                  "Are you sure you want to delete this field entry?",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Color(0xFF5D7A5D), // Forest Green
-                    height: 1.5,
+                // Content Text - Wrapped in Center instead of using TextAlign
+                Center(
+                  child: Text(
+                    "Are you sure you want to delete this field entry?",
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontSize: 16,
+                      color: const Color(0xFF5D7A5D), // Forest Green
+                      height: 1.5,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -64,12 +66,11 @@ class DeleteEntryDialog {
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text(
+                        child: Text(
                           "Delete",
-                          style: TextStyle(
+                          style: textTheme.labelLarge?.copyWith(
                             color: Colors.white, 
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16
+                            fontSize: 16,
                           ),
                         ),
                       ),
@@ -86,12 +87,11 @@ class DeleteEntryDialog {
                           side: const BorderSide(color: Colors.black12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text(
+                        child: Text(
                           "Cancel",
-                          style: TextStyle(
+                          style: textTheme.labelLarge?.copyWith(
                             color: Colors.black54, 
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16
+                            fontSize: 16,
                           ),
                         ),
                       ),

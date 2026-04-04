@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'theme_provider.dart';
 import './Employee_Mobile/Field_Diary/Collect/observation_model.dart'; // Ensure path is correct
-import './LoadingScreen/splash_sceen.dart'; 
+import 'Login_Signup_Mobile/LoadingScreen/splash_sceen.dart'; 
 import 'LandingPage_Mobile/landing_screen.dart';
 import 'User_Mobile/user_dashboard.dart'; 
 import 'Employee_Mobile/Employee_dashboard.dart'; 
