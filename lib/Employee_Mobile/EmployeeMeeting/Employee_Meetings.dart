@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+
 import '../../theme_provider.dart';
-import '../../UserProfile/user_profile.dart'; 
-import 'Attendance.dart';
+import '../../UserProfile/user_profile.dart';
+import '../EmployeeNotification/employeenotif.dart';
+import '../EmployeeMeeting/required_meetingview.dart';
+
+// Navigation Targets
+import '../Field_Diary/Employee_FieldDiary.dart';
 
 class MeetingsScreen extends StatefulWidget {
   const MeetingsScreen({super.key});
@@ -14,7 +19,15 @@ class MeetingsScreen extends StatefulWidget {
 
 class _MeetingsScreenState extends State<MeetingsScreen> {
   final _supabase = Supabase.instance.client;
-  int _activeFilterIndex = 0; // 0: All, 1: Attending, 2: Not Attending
+  int _activeFilterIndex = 0; 
+  String _searchQuery = ""; 
+  int _selectedIndex = 2; // Meetings is index 2
+
+  final Color darkGreen = const Color(0xFF2D3E2D);
+  final Color forestGreen = const Color(0xFF5D7A5D);
+  final Color lightGreenBG = const Color(0xFFEAF7EA);
+  final Color errorRed = const Color(0xFFD32F2F);
+  final Color accentOrange = const Color(0xFFF2994A);
 
   String? get _userId => _supabase.auth.currentUser?.id;
 
@@ -26,266 +39,243 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     if (_userId == null) return const Scaffold(body: Center(child: Text("Please sign in.")));
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-        elevation: 0,
-        toolbarHeight: 70,
-        leadingWidth: 70,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.white,
-            child: Transform.scale(
-              scale: 1.3,
-              child: Image.asset('assets/logo2.png', fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Color(0xFF2D3E2D))),
-            ),
-          ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Meetings & RSVP", 
-              style: textTheme.titleLarge?.copyWith(
-                color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
-                fontSize: 18
-              )
-            ),
-            Text(
-              "View invitations and submit confirmations", 
-              style: textTheme.labelSmall?.copyWith(color: Colors.black38, fontSize: 10)
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: InkWell(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfileScreen())),
-              child: Container(
-                height: 40, width: 40,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : const Color(0xFFF0F4F0),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.black12),
-                ),
-                child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
-              ),
-            ),
+      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
+      body: CustomScrollView(
+        slivers: [
+          _buildHeader(context, isDark, textTheme),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _supabase.from('meetings').stream(primaryKey: ['id']).order('meeting_date'),
+            builder: (context, meetingSnapshot) {
+              if (meetingSnapshot.hasError) return SliverFillRemaining(child: Center(child: Text("Sync Error: ${meetingSnapshot.error}")));
+              if (!meetingSnapshot.hasData) return const SliverFillRemaining(child: Center(child: CircularProgressIndicator()));
+
+              return StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _supabase.from('meeting_rsvps').stream(primaryKey: ['id']).eq('user_id', _userId!),
+                builder: (context, rsvpSnapshot) {
+                  final userRSVPs = rsvpSnapshot.data ?? [];
+                  final meetings = meetingSnapshot.data!;
+
+                  final consolidated = meetings.where((m) {
+                    String rolesString = m['target_roles'].toString().toLowerCase().replaceAll(' ', '');
+                    bool matchesRole = rolesString.contains('fieldofficer');
+                    bool matchesSearch = _searchQuery.isEmpty || 
+                        (m['title'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase());
+                    return matchesRole && matchesSearch;
+                  }).map((m) {
+                    final rsvp = userRSVPs.firstWhere((r) => r['meeting_id'] == m['id'], orElse: () => <String, dynamic>{});
+                    return { ...m, 'user_status': rsvp['status'] };
+                  }).toList();
+
+                  final upCount = consolidated.length;
+                  final atCount = consolidated.where((m) => m['user_status'] == 'Accepted').length;
+                  final rsCount = consolidated.where((m) => m['user_status'] == null).length;
+
+                  final filtered = consolidated.where((m) {
+                    if (_activeFilterIndex == 1) return m['user_status'] == null;
+                    if (_activeFilterIndex == 2) return m['user_status'] == 'Accepted';
+                    if (_activeFilterIndex == 3) return m['user_status'] == 'Declined';
+                    return true; 
+                  }).toList();
+
+                  return SliverPadding(
+                    padding: const EdgeInsets.all(20),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        _buildKPIRow(upCount, atCount, rsCount, isDark),
+                        const SizedBox(height: 25),
+                        _buildFilterRow(isDark),
+                        const SizedBox(height: 25),
+                        _buildSectionHeader(_getFilterTitle(), isDark, textTheme),
+                        if (filtered.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: Center(child: Text("No meetings found.")),
+                          )
+                        else
+                          ...filtered.map((m) => _buildMeetingCard(m, isDark)).toList(),
+                      ]),
+                    ),
+                  );
+                },
+              );
+            },
           ),
         ],
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _supabase.from('meetings').stream(primaryKey: ['id']).order('meeting_date', ascending: true),
-        builder: (context, meetingSnapshot) {
-          if (meetingSnapshot.hasError) return Center(child: Text("Sync Error: ${meetingSnapshot.error}"));
-          if (!meetingSnapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
-          
-          final meetings = meetingSnapshot.data!.where((m) {
-            final List roles = m['target_roles'] ?? [];
-            return roles.contains('Field Officer');
-          }).toList();
 
-          return StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _supabase.from('meeting_rsvps').stream(primaryKey: ['id']).eq('user_id', _userId!),
-            builder: (context, rsvpSnapshot) {
-              final userRSVPs = rsvpSnapshot.data ?? [];
-              
-              final List<Map<String, dynamic>> consolidatedData = meetings.map((m) {
-                final rsvp = userRSVPs.firstWhere((r) => r['meeting_id'] == m['id'], orElse: () => {});
-                return {
-                  ...m,
-                  'user_status': rsvp['status'], 
-                };
-              }).toList();
-
-              final upcomingCount = consolidatedData.length;
-              final attendingCount = consolidatedData.where((m) => m['user_status'] == 'Accepted').length;
-              final rsvpNeeded = consolidatedData.where((m) => m['user_status'] == null).length;
-
-              final filteredMeetings = consolidatedData.where((m) {
-                if (_activeFilterIndex == 1) return m['user_status'] == 'Accepted';
-                if (_activeFilterIndex == 2) return m['user_status'] == 'Declined';
-                return true;
-              }).toList();
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildKPIRow(upcomingCount, attendingCount, rsvpNeeded, isDark, textTheme),
-                    const SizedBox(height: 24),
-                    _buildFilterRow(isDark, textTheme),
-                    const SizedBox(height: 24),
-                    
-                    Text(
-                      _getTitleForFilter(), 
-                      style: textTheme.labelSmall?.copyWith(
-                        color: Colors.black38, 
-                        letterSpacing: 1.2
-                      )
-                    ),
-                    const SizedBox(height: 12),
-
-                    if (filteredMeetings.isEmpty)
-                      const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No meetings found.")))
-                    else
-                      ...filteredMeetings.map((m) => _buildMeetingCard(m, isDark, textTheme)).toList(),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
     );
   }
 
-  // --- UI COMPONENTS ---
+  // --- HEADER (MATCHES FIELD OBSERVATION) ---
 
-  String _getTitleForFilter() {
-    if (_activeFilterIndex == 1) return "MY ATTENDANCE";
-    if (_activeFilterIndex == 2) return "DECLINED MEETINGS";
-    return "UPCOMING MEETINGS";
-  }
-  
-  Widget _buildKPIRow(int up, int at, int rs, bool d, TextTheme textTheme) => Row(children: [
-    Expanded(child: _statCard("$up", "Upcoming", d, Colors.blue, textTheme)),
-    const SizedBox(width: 10),
-    Expanded(child: _statCard("$at", "Attending", d, Colors.green, textTheme)),
-    const SizedBox(width: 10),
-    Expanded(child: _statCard("$rs", "Pending", d, Colors.orange, textTheme)),
-  ]);
-
-  Widget _statCard(String v, String l, bool d, Color c, TextTheme textTheme) => Container(
-    padding: const EdgeInsets.all(12), 
-    decoration: BoxDecoration(
-      color: d ? const Color(0xFF1F1F1F) : Colors.white, 
-      borderRadius: BorderRadius.circular(12), 
-      border: Border.all(color: Colors.black.withOpacity(0.05))
-    ), 
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      CircleAvatar(radius: 14, backgroundColor: c.withOpacity(0.1), child: Icon(Icons.circle, size: 8, color: c)), 
-      const SizedBox(height: 8), 
-      Text(v, style: textTheme.headlineSmall?.copyWith(color: d ? Colors.white : Colors.black)), 
-      Text(l, style: textTheme.labelSmall?.copyWith(color: Colors.black38))
-    ])
+  Widget _buildHeader(BuildContext context, bool isDark, TextTheme textTheme) => SliverAppBar(
+    pinned: true,
+    backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+    elevation: 0,
+    toolbarHeight: 70,
+    leadingWidth: 70,
+    leading: Padding(
+      padding: const EdgeInsets.only(left: 16.0),
+      child: Image.asset('assets/logo2.png', fit: BoxFit.contain), 
+    ),
+    title: Text(
+      "Meetings", 
+      style: textTheme.titleLarge?.copyWith(
+        color: isDark ? Colors.white : darkGreen, 
+        fontSize: 20
+      )
+    ),
+    actions: [
+      _buildNotificationIcon(context, isDark, textTheme),
+      _buildProfileIcon(context, isDark),
+      const SizedBox(width: 16),
+    ],
   );
 
-  Widget _buildFilterRow(bool d, TextTheme textTheme) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(children: [
-      _filtBtn("Upcoming", 0, d, textTheme), 
-      const SizedBox(width: 8), 
-      _filtBtn("Attending", 1, d, textTheme),
-      const SizedBox(width: 8),
-      _filtBtn("Not Attending", 2, d, textTheme),
+  Widget _buildNotificationIcon(BuildContext context, bool isDark, TextTheme textTheme) => Stack(
+    alignment: Alignment.center,
+    children: [
+      IconButton(
+        icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87, size: 26),
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeNotifications())),
+      ),
+      Positioned(
+        right: 8, top: 18,
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: forestGreen, shape: BoxShape.circle),
+          child: Text(
+            "2", 
+            style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 8)
+          ),
+        ),
+      )
+    ],
+  );
+
+  Widget _buildProfileIcon(BuildContext context, bool isDark) => InkWell(
+    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
+    child: Container(
+      height: 36, width: 36,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), 
+        borderRadius: BorderRadius.circular(8), 
+        border: Border.all(color: Colors.black12)
+      ),
+      child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+    ),
+  );
+
+  // --- BOTTOM NAVIGATION ---
+
+
+  // --- CARD & KPI HELPERS ---
+
+  Widget _buildSectionHeader(String title, bool isDark, TextTheme textTheme) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Text(
+      title, 
+      style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white38 : Colors.black54, letterSpacing: 1.1),
+    ),
+  );
+
+  Widget _buildKPIRow(int up, int at, int rs, bool d) => Row(children: [
+    Expanded(child: _statCard("$up", "Upcoming", d, Colors.blue)),
+    const SizedBox(width: 10),
+    Expanded(child: _statCard("$at", "Attending", d, forestGreen)),
+    const SizedBox(width: 10),
+    Expanded(child: _statCard("$rs", "Need RSVP", d, accentOrange)),
+  ]);
+
+  Widget _statCard(String val, String lbl, bool d, Color c) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: d ? const Color(0xFF1F1F1F) : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(val, style: TextStyle(fontSize: 22, color: c)),
+      Text(lbl, style: const TextStyle(fontSize: 10, color: Colors.black38)),
     ]),
   );
 
-  Widget _filtBtn(String l, int i, bool d, TextTheme textTheme) => ChoiceChip(
-    label: Text(l), 
-    selected: _activeFilterIndex == i, 
-    onSelected: (s) => setState(() => _activeFilterIndex = i), 
-    selectedColor: const Color(0xFF5D7A5D), 
-    labelStyle: textTheme.labelLarge?.copyWith(
-      color: _activeFilterIndex == i ? Colors.white : Colors.black54,
-    ),
+  Widget _buildFilterRow(bool d) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(children: [
+      _filtBtn("Upcoming", 0, d), const SizedBox(width: 8),
+      _filtBtn("Pending", 1, d), const SizedBox(width: 8),
+      _filtBtn("Attending", 2, d), const SizedBox(width: 8),
+      _filtBtn("Not Attending", 3, d),
+    ]),
+  );
+
+  Widget _filtBtn(String l, int i, bool d) => ChoiceChip(
+    label: Text(l), selected: _activeFilterIndex == i,
+    onSelected: (s) => setState(() => _activeFilterIndex = i),
+    selectedColor: forestGreen,
+    labelStyle: TextStyle(fontSize: 12, color: _activeFilterIndex == i ? Colors.white : Colors.black54),
     backgroundColor: d ? Colors.white10 : Colors.white,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     showCheckmark: false,
   );
 
-  Widget _buildMeetingCard(Map<String, dynamic> m, bool isDark, TextTheme textTheme) {
+  Widget _buildMeetingCard(Map<String, dynamic> m, bool d) {
     final status = m['user_status'];
-    final bool isAttending = status == 'Accepted';
-    final bool isDeclined = status == 'Declined';
+    final bool isMandatory = m['is_mandatory'] ?? false;
     
-    String label = "RSVP";
-    Color color = Colors.orange;
-
-    if (isAttending) {
-      label = "Attending";
-      color = Colors.green;
-    } else if (isDeclined) {
-      label = "Declined";
-      color = Colors.red;
-    }
-
     return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingAttendanceScreen(meeting: m))),
-      child: _buildMeetingTile(
-        title: m['title'] ?? "Meeting",
-        date: m['meeting_date'] ?? "",
-        location: m['location'] ?? "",
-        attendingCount: "${m['max_attendees'] ?? 0} capacity", 
-        isDark: isDark,
-        status: label,
-        statusColor: color,
-        hasAttachment: m['attachment_url'] != null, 
-        textTheme: textTheme,
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MeetingViewScreen(meeting: m))),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: d ? const Color(0xFF1F1F1F) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Text(m['title'] ?? "Meeting", style: const TextStyle(fontSize: 15, color: Colors.black87))),
+            const Icon(Icons.chevron_right, size: 20, color: Colors.black26),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            if (isMandatory)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: errorRed.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                child: Text("Required", style: TextStyle(color: errorRed, fontSize: 10)),
+              ),
+            Text(m['location'] ?? "N/A", style: const TextStyle(fontSize: 11, color: Colors.black38)),
+          ]),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: 0.5, 
+              backgroundColor: Colors.black.withOpacity(0.05),
+              valueColor: AlwaysStoppedAnimation<Color>(forestGreen),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text("12/25 attending", style: TextStyle(fontSize: 11, color: Colors.black45)),
+            if (status == null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: accentOrange, borderRadius: BorderRadius.circular(8)),
+                child: const Text("RSVP", style: TextStyle(color: Colors.white, fontSize: 12)),
+              )
+            else
+              Text(status, style: TextStyle(color: status == 'Accepted' ? forestGreen : errorRed, fontSize: 12)),
+          ]),
+        ]),
       ),
     );
   }
 
-  Widget _buildMeetingTile({
-    required String title, 
-    required String date, 
-    required String location, 
-    required String attendingCount, 
-    required bool isDark, 
-    required String status, 
-    required Color statusColor, 
-    required bool hasAttachment,
-    required TextTheme textTheme,
-  }) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white, 
-      borderRadius: BorderRadius.circular(12), 
-      border: Border.all(color: Colors.black.withOpacity(0.05))
-    ),
-    child: Column(children: [
-      Row(children: [
-        Expanded(
-          child: Text(
-            title, 
-            style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black)
-          )
-        ),
-        if (hasAttachment) const Icon(Icons.attach_file, size: 14, color: Colors.black26),
-        const SizedBox(width: 8),
-        const Icon(Icons.chevron_right, size: 16, color: Colors.black26),
-      ]),
-      const SizedBox(height: 4),
-      Row(children: [
-        Text(
-          "$date • $location", 
-          style: textTheme.bodySmall?.copyWith(color: Colors.black45)
-        )
-      ]),
-      const Divider(height: 24),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(
-          attendingCount, 
-          style: textTheme.labelSmall?.copyWith(color: Colors.black38)
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), 
-          decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), 
-          child: Text(
-            status, 
-            style: textTheme.labelSmall?.copyWith(
-              color: statusColor,
-            )
-          )
-        ),
-      ])
-    ]),
-  );
+  String _getFilterTitle() => ["UPCOMING MEETINGS", "PENDING RSVP", "MY ATTENDANCE", "DECLINED MEETINGS"][_activeFilterIndex];
 }
