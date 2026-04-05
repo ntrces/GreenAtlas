@@ -16,15 +16,18 @@ class Intro2Screen extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center, // * Centers everything
                     children: [
                       // --- TOP SECTION ---
                       Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Align(
                             alignment: Alignment.topRight,
@@ -42,50 +45,97 @@ class Intro2Screen extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 180), // * Matches Intro 1
                           
-                          // Camera Icon Container
-                          Container(
-                            width: 130,
-                            height: 130,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 8),
-                                )
-                              ],
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.camera_alt_outlined,
-                                color: Color(0xFF5A7463),
-                                size: 60,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-
+                          // Camera Icon Container (Styled like Logo in Intro 1)
                           Center(
-                            child: Text(
-                              "AR Botanical Gallery",
-                              style: textTheme.headlineMedium?.copyWith(
-                                color: const Color(0xFF2D3E33),
-                                letterSpacing: -0.5,
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: Color(0xFF5A7463),
+                                  size: 50,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
+                          // Header Text
+                          Column(
+                            children: [
+                              Text(
+                                "AR Botanical",
+                                style: textTheme.headlineMedium?.copyWith(
+                                  color: const Color(0xFF2D3E33),
+                                  fontFamily: 'Poppins-Bold',
+                                  height: 1.1,
+                                ),
+                              ),
+                              Text(
+                                "Gallery",
+                                style: textTheme.headlineMedium?.copyWith(
+                                  color: const Color(0xFF2D3E33),
+                                  fontFamily: 'Poppins-Bold',
+                                  height: 1.1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Description matching Intro 1's 313 width
                           Center(
-                            child: Text(
-                              "Explore an immersive collection of native plants in augmented reality. Point your camera at the environment to discover interactive 3D plant models with detailed information.",
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFF5A7F66),
-                                height: 1.5,
+                            child: SizedBox(
+                              width: 313,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    "Explore an immersive collection of native",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 14,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    "plants in augmented reality. Point your",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 14,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    "camera at the environment to discover",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 14,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    "interactive 3D plant models.",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 14,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -95,6 +145,7 @@ class Intro2Screen extends StatelessWidget {
                       // --- BOTTOM SECTION ---
                       Column(
                         children: [
+                          const SizedBox(height: 5), // * Sitting higher
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -105,7 +156,7 @@ class Intro2Screen extends StatelessWidget {
                               _buildDot(isActive: false),
                             ],
                           ),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 15),
 
                           Row(
                             children: [
@@ -126,6 +177,7 @@ class Intro2Screen extends StatelessWidget {
                                       "Back",
                                       style: textTheme.labelLarge?.copyWith(
                                         color: const Color(0xFF5A7463),
+                                        fontFamily: 'Poppins-Bold',
                                       ),
                                     ),
                                   ),
@@ -144,7 +196,7 @@ class Intro2Screen extends StatelessWidget {
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF5A7463),
+                                      backgroundColor: const Color(0xFF517156),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -157,6 +209,7 @@ class Intro2Screen extends StatelessWidget {
                                           "Next",
                                           style: textTheme.labelLarge?.copyWith(
                                             color: Colors.white,
+                                            fontFamily: 'Poppins-Bold',
                                           ),
                                         ),
                                         const SizedBox(width: 4),
@@ -168,24 +221,28 @@ class Intro2Screen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 25),
                           
-                          // Footer
+                          // Footer with larger text sizes
                           Text(
                             "In partnership with",
-                            style: textTheme.labelSmall?.copyWith(color: Colors.grey),
+                            style: textTheme.labelSmall?.copyWith(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 10),
-                            child: Center(
-                              child: Text(
-                                "Department of Environment and Natural Resources",
-                                style: textTheme.labelSmall?.copyWith(
-                                  color: const Color(0xFF4A6354),
-                                ),
+                          const SizedBox(height: 4),
+                          Center(
+                            child: Text(
+                              "Department of Environment and Natural Resources",
+                              style: textTheme.labelSmall?.copyWith(
+                                color: const Color(0xFF4A6354),
+                                fontSize: 13,
+                                fontFamily: 'poppins-bold'
                               ),
                             ),
                           ),
+                          const SizedBox(height: 10),
                         ],
                       ),
                     ],

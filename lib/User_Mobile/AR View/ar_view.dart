@@ -23,30 +23,51 @@ class _Ar_ViewState extends State<Ar_View> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
+      // --- HEADER MATCHED TO DASHBOARD ---
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        toolbarHeight: 70,
-        centerTitle: false, 
+        toolbarHeight: 80,
         leadingWidth: 70,
         leading: Padding(
           padding: const EdgeInsets.only(left: 16.0),
-          child: Center(
-            child: Image.asset('assets/logo2.png', width: 45, height: 45, fit: BoxFit.contain),
+          child: CircleAvatar(
+            radius: 30,
+            backgroundColor: Colors.white,
+            child: Transform.scale(
+              scale: 1.3,
+              child: Image.asset('assets/logo2.png', fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Color(0xFF2D3E2D))),
+            ),
           ),
         ),
-        title: Text(
-          "AR View", 
-          style: textTheme.titleLarge?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 20),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "AR View", 
+              style: TextStyle(
+                fontFamily: 'Poppins-Bold',
+                fontSize: 18,
+                color: Color(0xFF303D32),
+                height: 1.2,
+              ),
+            ),
+            Text(
+              "Explore the Cavite Protected Area", 
+              style: TextStyle(color: Colors.black54, fontSize: 12),
+            ),
+          ],
         ),
         actions: [
-          _buildNotificationIcon(), 
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Color(0xFF303D32), size: 28), 
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
+          ),
           _buildProfileIcon(),
-          const SizedBox(width: 8), 
+          const SizedBox(width: 8),
         ],
       ),
       body: Stack(
@@ -66,17 +87,17 @@ class _Ar_ViewState extends State<Ar_View> {
             right: 0,
             child: Column(
               children: [
-                Text(
+                const Text(
                   "AR Camera Active", 
-                  style: textTheme.titleLarge?.copyWith(color: Colors.white, fontSize: 18),
+                  style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white, fontSize: 18),
                 ),
                 const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 50),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 50),
                   child: Center(
                     child: Text(
                       "Tap the cube icon to place the Red Rose in your space",
-                      style: textTheme.bodySmall?.copyWith(color: Colors.white70, fontSize: 13),
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   ),
                 ),
@@ -85,66 +106,58 @@ class _Ar_ViewState extends State<Ar_View> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: const Color(0xFF2D3E2D),
-        unselectedItemColor: Colors.black38,
-        backgroundColor: Colors.white,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "Plants"),
-          BottomNavigationBarItem(icon: Icon(Icons.view_in_ar_outlined), label: "AR View"),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotificationIcon() {
-    final textTheme = Theme.of(context).textTheme;
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D), size: 26),
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()));
-          },
-        ),
-        Positioned(
-          right: 10,
-          top: 14,
-          child: IgnorePointer( 
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle),
-              child: Text(
-                '2', 
-                style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 8),
-              ),
-            ),
+      // --- BOTTOM NAV MATCHED TO DASHBOARD ---
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: Color(0x1A000000), width: 0.5), 
           ),
         ),
-      ],
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          selectedItemColor: const Color(0xFF517156),
+          unselectedItemColor: Colors.black38,
+          backgroundColor: Colors.white,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          selectedLabelStyle: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 12),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined), 
+              activeIcon: Icon(Icons.home_rounded),
+              label: "Home",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.auto_stories_outlined), 
+              activeIcon: Icon(Icons.auto_stories),
+              label: "Plants",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.view_in_ar_outlined), 
+              activeIcon: Icon(Icons.view_in_ar_rounded),
+              label: "AR View",
+            ), 
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildProfileIcon() => GestureDetector(
-    onTap: () {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
-    },
-    child: Padding(
-      padding: const EdgeInsets.only(right: 8, left: 8),
+  Widget _buildProfileIcon() => Padding(
+    padding: const EdgeInsets.only(right: 16.0, left: 8), 
+    child: InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), 
       child: Container(
-        height: 36,
-        width: 36,
+        height: 40, width: 40, 
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF7EA),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.black12)),
-        child: const Icon(Icons.person_outline, color: Color(0xFF2D3E2D), size: 20),
-      ),
-    ),
+          color: const Color(0xFFF0F4F0), 
+          borderRadius: BorderRadius.circular(10), 
+          border: Border.all(color: Colors.black12)
+        ), 
+        child: const Icon(Icons.person_outline, color: Color(0xFF303D32))
+      )
+    )
   );
 }

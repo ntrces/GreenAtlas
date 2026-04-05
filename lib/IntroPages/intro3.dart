@@ -21,54 +21,90 @@ class Intro3Screen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center, // Centers children of the main column
                     children: [
                       // --- TOP SECTION ---
                       Column(
+                        crossAxisAlignment: CrossAxisAlignment.center, 
                         children: [
-                          const SizedBox(height: 60), 
+                          const SizedBox(height: 180), 
                           
                           // Book Icon Container
-                          Container(
-                            width: 130,
-                            height: 130,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 8),
-                                )
-                              ],
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.menu_book_rounded, 
-                                color: Color(0xFF5A7463),
-                                size: 60,
+                          Center(
+                            child: Container(
+                              width: 130,
+                              height: 130,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 8),
+                                  )
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.menu_book_rounded, 
+                                  color: Color(0xFF5A7463),
+                                  size: 60,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 40),
 
+                          // Header Text Centered via Center Widget
                           Center(
                             child: Text(
                               "Explore Plant Knowledge",
                               style: textTheme.headlineMedium?.copyWith(
                                 color: const Color(0xFF2D3E33),
+                                fontFamily: 'Poppins-Bold',
                                 letterSpacing: -0.5,
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
+                          // Description Centered via Center Widget
                           Center(
-                            child: Text(
-                              "Access comprehensive information about each species including habitat, uses, conservation threats, and cultural significance curated by DENR botanists.",
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFF5A7F66),
-                                height: 1.5,
+                            child: SizedBox(
+                              width: 313, // Fixed width from Intro 1 design
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "Access comprehensive information about",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    "each species including habitat, uses,",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    "conservation threats, and significance",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    "curated by DENR botanists.",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -77,6 +113,7 @@ class Intro3Screen extends StatelessWidget {
 
                       // --- BOTTOM SECTION ---
                       Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Page Indicator
                           Row(
@@ -107,10 +144,13 @@ class Intro3Screen extends StatelessWidget {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    child: Text(
-                                      "Back",
-                                      style: textTheme.labelLarge?.copyWith(
-                                        color: const Color(0xFF5A7463),
+                                    child: Center(
+                                      child: Text(
+                                        "Back",
+                                        style: textTheme.labelLarge?.copyWith(
+                                          color: const Color(0xFF5A7463),
+                                          fontFamily: 'Poppins-Bold',
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -129,24 +169,27 @@ class Intro3Screen extends StatelessWidget {
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF5A7463),
+                                      backgroundColor: const Color(0xFF517156),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       elevation: 0,
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "Get Started",
-                                          style: textTheme.labelLarge?.copyWith(
-                                            color: Colors.white,
+                                    child: Center(
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            "Get Started",
+                                            style: textTheme.labelLarge?.copyWith(
+                                              color: Colors.white,
+                                              fontFamily: 'Poppins-Bold',
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-                                      ],
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -156,9 +199,14 @@ class Intro3Screen extends StatelessWidget {
                           const SizedBox(height: 30),
                           
                           // Footer
-                          Text(
-                            "In partnership with",
-                            style: textTheme.labelSmall?.copyWith(color: Colors.grey),
+                          Center(
+                            child: Text(
+                              "In partnership with",
+                              style: textTheme.labelSmall?.copyWith(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                           Padding(
                             padding: const EdgeInsets.only(top: 4, bottom: 10),
@@ -167,6 +215,8 @@ class Intro3Screen extends StatelessWidget {
                                 "Department of Environment and Natural Resources",
                                 style: textTheme.labelSmall?.copyWith(
                                   color: const Color(0xFF4A6354),
+                                  fontSize: 13,
+                                  fontFamily: 'Poppins-Bold',
                                 ),
                               ),
                             ),

@@ -5,6 +5,7 @@ import '../theme_constants.dart';
 import 'signup_screen.dart'; 
 import '../User_Mobile/user_dashboard.dart'; 
 import '../Employee_Mobile/Employee_Dashboard.dart'; 
+import '../IntroPages/intro1.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,7 +33,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // * --- FIXED DATABASE CONNECTION LOGIC ---
   Future<void> _handleSignIn() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -45,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // * 1. Authenticate with Supabase Auth
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -54,33 +53,51 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = response.user;
 
       if (user != null) {
-        String role = 'user'; // * Default role
+        String role = 'user'; 
+        bool isFirstTime = false;
 
         try {
-          // * 2. Fetch the role from the 'profiles' table
+          // * 1. Fetch current user profile data
           final userData = await _supabase
               .from('profiles')
-              .select('role')
+              .select('role, is_first_time') 
               .eq('id', user.id)
-              .maybeSingle(); // * Use maybeSingle() to avoid the "0 rows" crash
+              .maybeSingle();
 
-          if (userData != null && userData['role'] != null) {
-            role = userData['role'];
+          if (userData != null) {
+            role = userData['role'] ?? 'user';
+            isFirstTime = userData['is_first_time'] ?? false;
+          }
+
+          // * --- UPDATED "ONLY ONCE" LOGIC ---
+          // * If it's a 'user' and it's their first time, update DB immediately
+          if (role == 'user' && isFirstTime == true) {
+            await _supabase
+                .from('profiles')
+                .update({'is_first_time': false})
+                .eq('id', user.id);
           }
         } catch (dbError) {
-          // * If database fetch fails, we still have the 'user' default role
-          debugPrint("Profile fetch error: $dbError");
+          debugPrint("Profile fetch/update error: $dbError");
         }
 
         if (!mounted) return;
 
-        // * 3. Route based on role
+        // * 2. Routing Logic
         if (role == 'employee') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const EmployeePortal()),
           );
-        } else {
+        } 
+        else if (role == 'user' && isFirstTime == true) {
+          // * This will only trigger once because we set isFirstTime to false above
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const Intro1Screen()),
+          );
+        } 
+        else {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const UserDashboard()),
@@ -90,8 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on AuthException catch (e) {
       _showSnackBar(e.message, Colors.redAccent);
     } catch (e) {
-      _showSnackBar("Connection Error: Check your internet or database.", Colors.redAccent);
-      debugPrint("Login Error: $e");
+      _showSnackBar("Connection Error: Check your database.", Colors.redAccent);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
