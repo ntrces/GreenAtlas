@@ -105,9 +105,9 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                   // --- PLANT TYPE ---
                   _buildSectionHeader("Plant Type", textTheme, onClear: () => setState(() => selectedTypes = {"All Plants"})),
                   _buildOption("All Plants", _getCount('Total'), textTheme, isSelected: selectedTypes.contains("All Plants"), onTap: () => _toggle(selectedTypes, "All Plants", "All Plants")),
-                  _buildOption("Flowering Plants", _getCount('Flowering Plants'), textTheme, isSelected: selectedTypes.contains("Flowering Plants"), onTap: () => _toggle(selectedTypes, "Flowering Plants", "All Plants")),
-                  _buildOption("Ferns", _getCount('Ferns'), textTheme, isSelected: selectedTypes.contains("Ferns"), onTap: () => _toggle(selectedTypes, "Ferns", "All Plants")),
-                  _buildOption("Trees", _getCount('Trees'), textTheme, isSelected: selectedTypes.contains("Trees"), onTap: () => _toggle(selectedTypes, "Trees", "All Plants")),
+                  _buildOption("Flowering Plants", _getCount('Flowering Plants'), textTheme, isSelected: selectedTypes.contains("Flowering Plants"), onTap: () => _toggle(selectedTypes, "Flowering Plants", "All Plants"), icon: const Icon(Icons.filter_vintage_outlined, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Ferns", _getCount('Ferns'), textTheme, isSelected: selectedTypes.contains("Ferns"), onTap: () => _toggle(selectedTypes, "Ferns", "All Plants"), icon: const Icon(Icons.eco_outlined, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Trees", _getCount('Trees'), textTheme, isSelected: selectedTypes.contains("Trees"), onTap: () => _toggle(selectedTypes, "Trees", "All Plants"), icon: const Icon(Icons.park_outlined, color: Color(0xFF4A634A), size: 20)),
 
                   const SizedBox(height: 24),
 
@@ -115,23 +115,23 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                   Text("Conservation Status", style: textTheme.titleMedium),
                   const SizedBox(height: 12),
                   _buildOption("All Statuses", _getCount('Total'), textTheme, isSelected: selectedStatuses.contains("All Statuses"), onTap: () => _toggle(selectedStatuses, "All Statuses", "All Statuses")),
-                  _buildOption("Critically Endangered", _getCount('Critically Endangered'), textTheme, isSelected: selectedStatuses.contains("Critically Endangered"), onTap: () => _toggle(selectedStatuses, "Critically Endangered", "All Statuses")),
-                  _buildOption("Endangered", _getCount('Endangered'), textTheme, isSelected: selectedStatuses.contains("Endangered"), onTap: () => _toggle(selectedStatuses, "Endangered", "All Statuses")),
-                  _buildOption("Vulnerable", _getCount('Vulnerable'), textTheme, isSelected: selectedStatuses.contains("Vulnerable"), onTap: () => _toggle(selectedStatuses, "Vulnerable", "All Statuses")),
-                  _buildOption("Threatened", _getCount('Threatened'), textTheme, isSelected: selectedStatuses.contains("Threatened"), onTap: () => _toggle(selectedStatuses, "Threatened", "All Statuses")),
-                  _buildOption("Other Threatened Status", _getCount('Other Threatened Status'), textTheme, isSelected: selectedStatuses.contains("Other Threatened Status"), onTap: () => _toggle(selectedStatuses, "Other Threatened Status", "All Statuses")),
-                  _buildOption("Near Threatened", _getCount('Near Threatened'), textTheme, isSelected: selectedStatuses.contains("Near Threatened"), onTap: () => _toggle(selectedStatuses, "Near Threatened", "All Statuses")),
-                  _buildOption("Not Threatened", _getCount('Not Threatened'), textTheme, isSelected: selectedStatuses.contains("Not Threatened"), onTap: () => _toggle(selectedStatuses, "Not Threatened", "All Statuses")),
-                  _buildOption("Least Concern (LC)", _getCount('Least Concern (LC)'), textTheme, isSelected: selectedStatuses.contains("Least Concern (LC)"), onTap: () => _toggle(selectedStatuses, "Least Concern (LC)", "All Statuses")),
-                  _buildOption("Data Deficient", _getCount('Data Deficient'), textTheme, isSelected: selectedStatuses.contains("Data Deficient"), onTap: () => _toggle(selectedStatuses, "Data Deficient", "All Statuses")),
+                  _buildOption("Critically Endangered", _getCount('Critically Endangered'), textTheme, isSelected: selectedStatuses.contains("Critically Endangered"), onTap: () => _toggle(selectedStatuses, "Critically Endangered", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20)),
+                  _buildOption("Endangered", _getCount('Endangered'), textTheme, isSelected: selectedStatuses.contains("Endangered"), onTap: () => _toggle(selectedStatuses, "Endangered", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20)),
+                  _buildOption("Vulnerable", _getCount('Vulnerable'), textTheme, isSelected: selectedStatuses.contains("Vulnerable"), onTap: () => _toggle(selectedStatuses, "Vulnerable", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20)),
+                  _buildOption("Threatened", _getCount('Threatened'), textTheme, isSelected: selectedStatuses.contains("Threatened"), onTap: () => _toggle(selectedStatuses, "Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.orange, size: 14)),
+                  _buildOption("Other Threatened Status", _getCount('Other Threatened Status'), textTheme, isSelected: selectedStatuses.contains("Other Threatened Status"), onTap: () => _toggle(selectedStatuses, "Other Threatened Status", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.amber, size: 14)),
+                  _buildOption("Near Threatened", _getCount('Near Threatened'), textTheme, isSelected: selectedStatuses.contains("Near Threatened"), onTap: () => _toggle(selectedStatuses, "Near Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.lightGreen, size: 14)),
+                  _buildOption("Not Threatened", _getCount('Not Threatened'), textTheme, isSelected: selectedStatuses.contains("Not Threatened"), onTap: () => _toggle(selectedStatuses, "Not Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.teal, size: 14)),
+                  _buildOption("Least Concern (LC)", _getCount('Least Concern (LC)'), textTheme, isSelected: selectedStatuses.contains("Least Concern (LC)"), onTap: () => _toggle(selectedStatuses, "Least Concern (LC)", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.green, size: 14)),
+                  _buildOption("Data Deficient", _getCount('Data Deficient'), textTheme, isSelected: selectedStatuses.contains("Data Deficient"), onTap: () => _toggle(selectedStatuses, "Data Deficient", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.blueGrey, size: 14)),
 
                   const SizedBox(height: 24),
 
                   // --- SORT BY ---
                   Text("Sort By", style: textTheme.titleMedium),
                   const SizedBox(height: 12),
-                  _buildOption("Ascending (A-Z)", "", textTheme, isSelected: selectedSort == "Ascending (A-Z)", onTap: () => setState(() => selectedSort = "Ascending (A-Z)")),
-                  _buildOption("Descending (Z-A)", "", textTheme, isSelected: selectedSort == "Descending (Z-A)", onTap: () => setState(() => selectedSort = "Descending (Z-A)")),
+                  _buildOption("Ascending (A-Z)", "", textTheme, isSelected: selectedSort == "Ascending (A-Z)", onTap: () => setState(() => selectedSort = "Ascending (A-Z)"), icon: const Icon(Icons.sort_by_alpha, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Descending (Z-A)", "", textTheme, isSelected: selectedSort == "Descending (Z-A)", onTap: () => setState(() => selectedSort = "Descending (Z-A)"), icon: const Icon(Icons.sort_by_alpha, color: Color(0xFF4A634A), size: 20)),
                 ],
               ),
             ),
@@ -177,7 +177,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     ],
   );
 
-  Widget _buildOption(String label, String count, TextTheme textTheme, {required bool isSelected, required VoidCallback onTap}) => GestureDetector(
+  Widget _buildOption(String label, String count, TextTheme textTheme, {required bool isSelected, required VoidCallback onTap, Widget? icon}) => GestureDetector(
     onTap: onTap,
     child: Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -189,6 +189,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
       ),
       child: Row(
         children: [
+          if (icon != null) ...[
+            icon,
+            const SizedBox(width: 12),
+          ],
           Text(
             label, 
             style: textTheme.bodyMedium?.copyWith(color: const Color(0xFF2D3E2D)),

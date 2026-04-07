@@ -42,6 +42,50 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     super.dispose();
   }
 
+  // Helper to get the color based on conservation status
+  Color _getConservationColor(String? status) {
+    if (status == null) return Colors.grey;
+    switch (status) {
+      case 'Critically Endangered': return Colors.red;
+      case 'Endangered': return Colors.orange;
+      case 'Vulnerable': return Colors.amber;
+      case 'Threatened': return Colors.orange;
+      case 'Other Threatened Status': return Colors.amber;
+      case 'Near Threatened': return Colors.lightGreen;
+      case 'Not Threatened': return Colors.teal;
+      case 'Least Concern (LC)': return Colors.green;
+      case 'Data Deficient': return Colors.blueGrey;
+      default: return Colors.grey;
+    }
+  }
+
+  // Helper to get the icon based on conservation status for LIST VIEW
+  Widget _getConservationIcon(String? status) {
+    if (status == null) return const SizedBox.shrink();
+    switch (status) {
+      case 'Critically Endangered':
+        return const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 14);
+      case 'Endangered':
+        return const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 14);
+      case 'Vulnerable':
+        return const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 14);
+      case 'Threatened':
+        return const Icon(Icons.circle, color: Colors.orange, size: 10);
+      case 'Other Threatened Status':
+        return const Icon(Icons.circle, color: Colors.amber, size: 10);
+      case 'Near Threatened':
+        return const Icon(Icons.circle, color: Colors.lightGreen, size: 10);
+      case 'Not Threatened':
+        return const Icon(Icons.circle, color: Colors.teal, size: 10);
+      case 'Least Concern (LC)':
+        return const Icon(Icons.circle, color: Colors.green, size: 10);
+      case 'Data Deficient':
+        return const Icon(Icons.circle, color: Colors.blueGrey, size: 10);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
   Map<String, int> _calculateCounts() {
     return {
       'Total': _allPlantsRaw.length,
@@ -91,97 +135,79 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEAF7EA),
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          _buildSearchAndFilterRow(),
-          _buildPlantDataStream(),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+      appBar: _buildFixedAppBar(),
+      body: Column(
+        children: [
+          _buildFixedSearchAndFilterSection(),
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                _buildPlantDataStream(),
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _buildActiveFilters() {
-    final textTheme = Theme.of(context).textTheme;
-    List<Widget> chips = [];
-    
-    for (var type in _activeTypes) {
-      if (type != "All Plants") {
-        chips.add(_buildFilterChip(type, () {
-          setState(() {
-            _activeTypes.remove(type);
-            if (_activeTypes.isEmpty) _activeTypes.add("All Plants");
-          });
-        }));
-      }
-    }
-
-    for (var status in _activeStatuses) {
-      if (status != "All Statuses") {
-        chips.add(_buildFilterChip(status, () {
-          setState(() {
-            _activeStatuses.remove(status);
-            if (_activeStatuses.isEmpty) _activeStatuses.add("All Statuses");
-          });
-        }));
-      }
-    }
-
-    if (chips.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            "Filter : ",
-            style: textTheme.labelLarge?.copyWith(
-              fontSize: 14, 
-              color: const Color(0xFF2D3E2D),
+  PreferredSizeWidget _buildFixedAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      toolbarHeight: 80,
+      automaticallyImplyLeading: false,
+      titleSpacing: 0,
+      title: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.white,
+              child: Transform.scale(
+                scale: 1.3,
+                child: Image.asset('assets/logo2.png', fit: BoxFit.contain),
+              ),
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: chips),
+            const SizedBox(width: 12),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Botanical Gallery", 
+                  style: TextStyle(
+                    fontFamily: 'Poppins-Bold',
+                    fontSize: 18,
+                    color: Color(0xFF303D32),
+                    height: 1.2,
+                  ),
+                ),
+                Text(
+                  "Explore the Cavite Protected Area", 
+                  style: TextStyle(color: Colors.black54, fontSize: 12),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_none, color: Color(0xFF303D32), size: 28), 
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
+        ),
+        _buildProfileIcon(),
+        const SizedBox(width: 16),
+      ],
     );
   }
 
-  Widget _buildFilterChip(String label, VoidCallback onDeleted) {
-    final textTheme = Theme.of(context).textTheme;
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2D3E2D).withOpacity(0.1)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label, 
-            style: textTheme.labelMedium?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 13),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: onDeleted,
-            child: const Icon(Icons.close, size: 16, color: Colors.black38),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchAndFilterRow() => SliverToBoxAdapter(
+  Widget _buildFixedSearchAndFilterSection() => Container(
+    color: const Color(0xFFEAF7EA),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -195,6 +221,15 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                   decoration: InputDecoration(
                     hintText: "Search plants...",
                     prefixIcon: const Icon(Icons.search, color: Colors.black38),
+                    suffixIcon: _searchQuery.isNotEmpty 
+                        ? IconButton(
+                            icon: const Icon(Icons.close, color: Colors.black38, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = "");
+                            },
+                          )
+                        : null,
                     filled: true, fillColor: Colors.white,
                     contentPadding: EdgeInsets.zero,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -211,10 +246,81 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             ],
           ),
         ),
-        _buildActiveFilters(), 
+        _buildActiveFilters(),
+        const SizedBox(height: 16), 
       ],
     ),
   );
+
+  Widget _buildActiveFilters() {
+    List<Widget> chips = [];
+    for (var type in _activeTypes) {
+      if (type != "All Plants") {
+        chips.add(_buildFilterChip(type, () {
+          setState(() {
+            _activeTypes.remove(type);
+            if (_activeTypes.isEmpty) _activeTypes.add("All Plants");
+          });
+        }));
+      }
+    }
+    for (var status in _activeStatuses) {
+      if (status != "All Statuses") {
+        chips.add(_buildFilterChip(status, () {
+          setState(() {
+            _activeStatuses.remove(status);
+            if (_activeStatuses.isEmpty) _activeStatuses.add("All Statuses");
+          });
+        }));
+      }
+    }
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            "Filter : ",
+            style: TextStyle(fontSize: 14, color: Color(0xFF2D3E2D)),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: chips),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, VoidCallback onDeleted) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2D3E2D).withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label, 
+            style: const TextStyle(color: Color(0xFF2D3E2D), fontSize: 13),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onDeleted,
+            child: const Icon(Icons.close, size: 16, color: Colors.black38),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildPlantDataStream() => StreamBuilder<List<Map<String, dynamic>>>(
     stream: _supabase.from('plants').stream(primaryKey: ['id']),
@@ -222,7 +328,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(50), child: CircularProgressIndicator(color: Color(0xFF2D3E2D)))));
       
       _allPlantsRaw = snapshot.data!;
-
       var plants = _allPlantsRaw.where((p) {
         final matchesSearch = p['common_name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
         final matchesType = _activeTypes.contains("All Plants") || _activeTypes.contains(p['plant_type']);
@@ -241,27 +346,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     },
   );
 
-  Widget _buildSliverAppBar() {
-    final textTheme = Theme.of(context).textTheme;
-    return SliverAppBar(
-      pinned: true, backgroundColor: Colors.white, elevation: 0,
-      toolbarHeight: 70, leadingWidth: 70,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 16),
-        child: Center(child: Image.asset('assets/logo2.png', width: 45, height: 45)),
-      ),
-      title: Text(
-        "Botanical Gallery", 
-        style: textTheme.titleLarge?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 20),
-      ),
-      actions: [
-        IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF2D3E2D)), 
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
-        _buildProfileIcon(),
-      ],
-    );
-  }
-
   Widget _buildList(List<Map<String, dynamic>> plants) => SliverList(
     delegate: SliverChildBuilderDelegate((context, i) => _buildListItem(plants[i]), childCount: plants.length),
   );
@@ -273,14 +357,13 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
         crossAxisCount: 2, 
         mainAxisSpacing: 16, 
         crossAxisSpacing: 16, 
-        childAspectRatio: 0.85
+        childAspectRatio: 0.82
       ),
       delegate: SliverChildBuilderDelegate((context, i) => _buildGridItem(plants[i]), childCount: plants.length),
     ),
   );
 
   Widget _buildListItem(Map<String, dynamic> plant) {
-    final textTheme = Theme.of(context).textTheme;
     return Container(
       color: Colors.white,
       child: Column(
@@ -290,11 +373,24 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             leading: _buildImageThumb(plant['image_url'], 55),
             title: Text(
               plant['common_name'] ?? "Unknown", 
-              style: textTheme.titleSmall?.copyWith(fontSize: 15),
+              style: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 15, color: Color(0xFF303D32)),
             ),
-            subtitle: Text(
-              "${plant['location_zone']} • ${plant['conservation_status']}", 
-              style: textTheme.labelSmall?.copyWith(color: Colors.black45),
+            subtitle: Row(
+              children: [
+                Text(
+                  "${plant['location_zone']} • ", 
+                  style: const TextStyle(color: Colors.black45, fontSize: 11),
+                ),
+                _getConservationIcon(plant['conservation_status']),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    plant['conservation_status'] ?? "", 
+                    style: const TextStyle(color: Colors.black45, fontSize: 11),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.black12),
           ),
@@ -304,8 +400,9 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     );
   }
 
+  // UPDATED GRID VIEW DESIGN
   Widget _buildGridItem(Map<String, dynamic> plant) {
-    final textTheme = Theme.of(context).textTheme;
+    final status = plant['conservation_status'] ?? "Unknown";
     return InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
       child: Container(
@@ -317,13 +414,51 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), child: _buildImageThumb(plant['image_url'], double.infinity))),
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), 
+                    child: _buildImageThumb(plant['image_url'], double.infinity)
+                  ),
+                  Positioned(
+                    bottom: 8, 
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF7EA), // Light background badge
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          color: _getConservationColor(status),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.all(10),
-              child: Text(
-                plant['common_name'] ?? "Unknown", 
-                style: textTheme.titleSmall?.copyWith(fontSize: 13), 
-                maxLines: 1, overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plant['common_name'] ?? "Unknown", 
+                    style: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13, color: Color(0xFF303D32)), 
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    plant['scientific_name'] ?? "",
+                    style: const TextStyle(color: Colors.black45, fontSize: 11),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ],
@@ -345,25 +480,48 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   );
 
   Widget _buildProfileIcon() => Padding(
-    padding: const EdgeInsets.only(right: 16, left: 8),
+    padding: const EdgeInsets.only(right: 16.0, left: 8), 
     child: InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), 
       child: Container(
-        height: 36, width: 36, 
-        decoration: BoxDecoration(color: const Color(0xFFEAF7EA), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)), 
-        child: const Icon(Icons.person_outline, size: 20)
+        height: 40, width: 40, 
+        decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.black12)), 
+        child: const Icon(Icons.person_outline, color: Color(0xFF303D32))
       )
-    ),
+    )
   );
 
-  Widget _buildBottomNav() => BottomNavigationBar(
-    currentIndex: _selectedIndex, onTap: _onItemTapped,
-    selectedItemColor: const Color(0xFF2D3E2D), unselectedItemColor: Colors.black38,
-    type: BottomNavigationBarType.fixed,
-    items: const [
-      BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: "Home"),
-      BottomNavigationBarItem(icon: Icon(Icons.visibility_outlined), label: "Gallery"),
-      BottomNavigationBarItem(icon: Icon(Icons.view_in_ar_outlined), label: "AR View"),
-    ],
+  Widget _buildBottomNav() => Container(
+    decoration: const BoxDecoration(
+      border: Border(top: BorderSide(color: Color(0x1A000000), width: 0.5)),
+    ),
+    child: BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: _onItemTapped,
+      selectedItemColor: const Color(0xFF517156),
+      unselectedItemColor: Colors.black38,
+      backgroundColor: Colors.white,
+      type: BottomNavigationBarType.fixed,
+      elevation: 0,
+      selectedLabelStyle: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 12),
+      unselectedLabelStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 12),
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined), 
+          activeIcon: Icon(Icons.home_rounded),
+          label: "Home",
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.auto_stories_outlined), 
+          activeIcon: Icon(Icons.auto_stories),
+          label: "Plants",
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.view_in_ar_outlined), 
+          activeIcon: Icon(Icons.view_in_ar_rounded),
+          label: "AR View",
+        ), 
+      ],
+    ),
   );
 }

@@ -16,15 +16,18 @@ class Intro1Screen extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center, 
                     children: [
                       // --- TOP SECTION ---
                       Column(
+                        crossAxisAlignment: CrossAxisAlignment.center, 
                         children: [
                           Align(
                             alignment: Alignment.topRight,
@@ -44,70 +47,111 @@ class Intro1Screen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           
-                          // Proportional Logo
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                )
-                              ],
-                            ),
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Image.asset(
-                                  'logo2.png',
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) => 
-                                      const Icon(Icons.eco, color: Color(0xFF5A7463), size: 50),
+                          Center(
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Image.asset(
+                                    'assets/logo2.png',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) => 
+                                        const Icon(Icons.eco, color: Color(0xFF5A7463), size: 50),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
-                          Center(
-                            child: Text(
-                              "Welcome to\nGreenAtlas",
-                              style: textTheme.headlineMedium?.copyWith(
-                                color: const Color(0xFF2D3E33),
-                                height: 1.1,
+                          Column(
+                            children: [
+                              Text(
+                                "Welcome to GreenAtlas",
+                                style: textTheme.headlineMedium?.copyWith(
+                                  color: const Color(0xFF2D3E33),
+                                  height: 1.1,
+                                  fontFamily: 'poppins-bold'
+                                ),
                               ),
-                            ),
+                              
+                            ],
                           ),
                           const SizedBox(height: 12),
 
                           Center(
-                            child: Text(
-                              "Your interactive guide to discovering and learning about the rich plant biodiversity of Cavite Protected Area through augmented reality.",
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFF5A7F66),
-                                fontSize: 13,
-                                height: 1.4,
+                            child: SizedBox(
+                              width: 313,
+                              height: 117,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "Your interactive guide to discovering and",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 13,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  Text(
+                                    "learning about the rich plant biodiversity of",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 13,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Cavite Protected Area through",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 13,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  Text(
+                                    "augmented reality.",
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFF5A7F66),
+                                      fontSize: 13,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                           const SizedBox(height: 24),
 
-                          // Feature List
-                          _buildFeatureItem("Interactive AR Botanical Gallery", textTheme),
-                          _buildFeatureItem("Comprehensive Plant Database", textTheme),
-                          _buildFeatureItem("Protected Area Flora Guide", textTheme),
-                          _buildFeatureItem("Conservation & Educational Resources", textTheme),
+                          Column(
+                            children: [
+                              _buildFeatureItem("Interactive AR Botanical Gallery", textTheme),
+                              _buildFeatureItem("Comprehensive Plant Database", textTheme),
+                              _buildFeatureItem("Protected Area Flora Guide", textTheme),
+                              _buildFeatureItem("Conservation & Educational Resources", textTheme),
+                            ],
+                          ),
                         ],
                       ),
 
                       // --- BOTTOM SECTION ---
                       Column(
                         children: [
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 5), // * Reduced height to move button higher
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -118,13 +162,13 @@ class Intro1Screen extends StatelessWidget {
                               _buildDot(isActive: false),
                             ],
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 15), // * Reduced height to move button higher
                           SizedBox(
                             width: double.infinity,
                             height: 52,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF5A7463),
+                                backgroundColor: const Color(0xFF517156),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 elevation: 0,
                               ),
@@ -139,7 +183,7 @@ class Intro1Screen extends StatelessWidget {
                                 children: [
                                   Text(
                                     "Next", 
-                                    style: textTheme.labelLarge?.copyWith(color: Colors.white, fontSize: 16),
+                                    style: textTheme.labelLarge?.copyWith(color: Colors.white, fontSize: 16, fontFamily: 'poppins-bold'),
                                   ),
                                   const SizedBox(width: 8),
                                   const Icon(Icons.chevron_right, color: Colors.white, size: 20),
@@ -147,20 +191,24 @@ class Intro1Screen extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 25), // * Space before partnership
                           Text(
                             "In partnership with",
-                            style: textTheme.labelSmall?.copyWith(color: Colors.grey, fontSize: 10),
-                          ),
-                          Center(
-                            child: Text(
-                              "Department of Environment and Natural Resources",
-                              style: textTheme.labelSmall?.copyWith(
-                                color: const Color(0xFF4A6354),
-                                fontSize: 11,
-                              ),
+                            style: textTheme.labelSmall?.copyWith(
+                              color: Colors.grey, 
+                              fontSize: 12, // * Size increased
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Department of Environment and Natural Resources",
+                            style: textTheme.labelSmall?.copyWith(
+                              color: const Color(0xFF4A6354),
+                              fontSize: 13,
+                              fontFamily: 'poppins-bold' // * Size increased
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                         ],
                       ),
                     ],
@@ -175,27 +223,48 @@ class Intro1Screen extends StatelessWidget {
   }
 
   Widget _buildFeatureItem(String text, TextTheme textTheme) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))
-        ],
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.check_circle, color: Color(0xFF94B49F), size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: textTheme.titleSmall?.copyWith(fontSize: 13, color: const Color(0xFF4A4A4A)),
+    return Center(
+      child: Container(
+        width: 320.94,
+        height: 47.95,
+        margin: const EdgeInsets.only(bottom: 11.98),
+        padding: const EdgeInsets.only(left: 11.98),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 2,
+              offset: Offset(0, 1),
+              spreadRadius: -1,
             ),
-          ),
-        ],
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 3,
+              offset: Offset(0, 1),
+              spreadRadius: 0,
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, color: Color(0xFF8CAC91), size: 20),
+            const SizedBox(width: 11.98),
+            Expanded(
+              child: Text(
+                text,
+                style: textTheme.titleSmall?.copyWith(
+                  fontSize: 13, 
+                  color: const Color(0xFF4A4A4A),
+                  fontFamily: 'Poppins-Bold', // * Font family updated
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
