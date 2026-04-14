@@ -24,6 +24,16 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
 
+  // Define the roles for the dropdown
+  final List<String> _userRoles = [
+    'Field Observer',
+    'Team Leader',
+    'Data Recorder',
+    'Botanist',
+    'Zoologist',
+    'Volunteer'
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -184,7 +194,8 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
           const SizedBox(height: 12),
           _buildMemberInput("Lastname", "Enter lastname", model.members[index]['lastname']!, (v) => model.members[index]['lastname'] = v, textTheme),
           const SizedBox(height: 12),
-          _buildMemberInput("User Role", "e.g. Field Observer", model.members[index]['role']!, (v) => model.members[index]['role'] = v, textTheme),
+          // Changed from _buildMemberInput to _buildMemberDropdown for User Role
+          _buildMemberDropdown("User Role", model.members[index]['role']!, (v) => setState(() => model.members[index]['role'] = v!), textTheme),
         ],
       ),
     );
@@ -201,6 +212,34 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
         style: textTheme.bodyMedium?.copyWith(color: Colors.black87),
         decoration: InputDecoration(
           hintText: placeholder,
+          hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26, fontSize: 13),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.black12)),
+        ),
+      ),
+    ],
+  );
+
+  // New Helper for the Role Dropdown
+  Widget _buildMemberDropdown(String label, String currentValue, Function(String?) onChanged, TextTheme textTheme) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: textTheme.labelSmall?.copyWith(color: Colors.black54)),
+      const SizedBox(height: 4),
+      DropdownButtonFormField<String>(
+        value: currentValue.isEmpty ? null : currentValue,
+        onChanged: onChanged,
+        style: textTheme.bodyMedium?.copyWith(color: Colors.black87),
+        items: _userRoles.map((role) {
+          return DropdownMenuItem(
+            value: role,
+            child: Text(role),
+          );
+        }).toList(),
+        decoration: InputDecoration(
+          hintText: "Select role",
           hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26, fontSize: 13),
           filled: true,
           fillColor: Colors.white,

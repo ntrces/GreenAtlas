@@ -17,10 +17,10 @@ class ObservationModel extends ChangeNotifier {
 
   // Wildlife Details
   String habitat = ''; 
-  String? habitatOthers; // Required for Step 3
+  String? habitatOthers; 
   
   String observationCategory = ''; 
-  String? obsCategoryOthers; // Required for Step 3
+  String? obsCategoryOthers; 
 
   String taxon = '';
   String speciesName = '';
@@ -32,10 +32,12 @@ class ObservationModel extends ChangeNotifier {
   bool heard = false;
   bool presence = false;
 
-  List<String> imagePaths = []; 
+  // Image Handling
+  List<String> imagePaths = [];  // Local file paths (Step 3 UI)
+  List<String> imageUrls = [];   // Remote Supabase Storage URLs (Database)
+  
   String observationNotes = '';
   
-  // FIXED: Default to PENDING (Uppercase) to satisfy DB Constraint
   String status = 'PENDING';
 
   void updateLocationData({String? region, String? province, String? protectedArea}) {
@@ -61,8 +63,11 @@ class ObservationModel extends ChangeNotifier {
     localName = '';
     isUnfamiliar = false;
     quantity = 0;
-    seen = false; heard = false; presence = false;
+    seen = false; 
+    heard = false; 
+    presence = false;
     imagePaths = [];
+    imageUrls = []; // Reset URLs as well
     observationNotes = '';
     status = 'PENDING'; 
     notifyListeners();
