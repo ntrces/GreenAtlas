@@ -1,4 +1,5 @@
-import 'dart:io'; 
+import 'package:flutter/foundation.dart'; // Added for kIsWeb
+import 'dart:io' show File; // Conditional use
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
@@ -30,12 +31,12 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
+  final Color lightGreenBG = const Color(0xFFEAF7EA);
 
   late TextEditingController _habitatOthersController;
   late TextEditingController _obsOthersController;
   late TextEditingController _taxonController;
   late TextEditingController _commonNameController;
-  late TextEditingController _localNameController; 
   late TextEditingController _countController;
 
   @override
@@ -50,7 +51,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     _obsOthersController = TextEditingController(text: model.obsCategoryOthers ?? '');
     _taxonController = TextEditingController(text: model.taxon);
     _commonNameController = TextEditingController(text: model.speciesName);
-    _localNameController = TextEditingController(text: model.localName);
     _countController = TextEditingController(text: model.quantity == 0 ? "" : model.quantity.toString());
   }
 
@@ -60,7 +60,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     _obsOthersController.dispose();
     _taxonController.dispose();
     _commonNameController.dispose();
-    _localNameController.dispose();
     _countController.dispose();
     super.dispose();
   }
@@ -85,7 +84,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         });
       }
     } catch (e) {
-      debugPrint("Error: $e");
+      debugPrint("Error picking images: $e");
     }
   }
 
@@ -107,7 +106,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             _obsOthersController.clear();
             _taxonController.clear();
             _commonNameController.clear();
-            _localNameController.clear();
             _countController.clear(); 
             _formKey = UniqueKey();
           });
@@ -126,7 +124,28 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
     try {
       final user = _supabase.auth.currentUser;
-      
+      final userId = user?.id;
+
+      // 1. PLATFORM-SAFE UPLOAD
+      List<String> uploadedUrls = [];
+      for (String path in model.imagePaths) {
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
+        final storagePath = '$userId/$fileName';
+        
+        final XFile xFile = XFile(path);
+        final Uint8List bytes = await xFile.readAsBytes();
+
+        await _supabase.storage.from('observation-photos').uploadBinary(
+          storagePath, 
+          bytes,
+          fileOptions: const FileOptions(contentType: 'image/jpeg'),
+        );
+        
+        final String publicUrl = _supabase.storage.from('observation-photos').getPublicUrl(storagePath);
+        uploadedUrls.add(publicUrl);
+      }
+
+      // 2. SAVE DATA
       final speciesData = await _supabase.from('observed_species').upsert({
         'common_name': _commonNameController.text,
         'taxon_group': _taxonController.text,
@@ -141,8 +160,9 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       if (model.presence) methods.add("Presence Signs");
 
       final Map<String, dynamic> dbData = {
-        'user_id': user?.id,
+        'user_id': userId,
         'species_id': speciesId,
+        'image_urls': uploadedUrls,
         'team_members': model.members, 
         'region': model.region,
         'province': model.province,
@@ -156,7 +176,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         'other_habitat': model.habitat == 'Other' ? _habitatOthersController.text : null,
         'taxon_group': _taxonController.text,
         'common_name': _commonNameController.text,
-        'local_name': _localNameController.text,
         'is_unlisted': model.isUnfamiliar,
         'count': int.tryParse(_countController.text) ?? 0,
         'discovery_method': methods.join(', '),
@@ -175,7 +194,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         );
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Database Error: $e")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -188,7 +207,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
+      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
       body: Column(
         children: [
           _buildTopNavBar(context, isDark),
@@ -198,15 +217,9 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               key: _formKey, 
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               children: [
-                Text(
-                  "Step 3 of 3", 
-                  style: textTheme.labelSmall?.copyWith(color: Colors.black45)
-                ),
+                Text("Step 3 of 3", style: textTheme.labelSmall?.copyWith(color: Colors.black45)),
                 const SizedBox(height: 4),
-                Text(
-                  "Observation Details", 
-                  style: textTheme.headlineSmall?.copyWith(color: darkGreen)
-                ),
+                Text("Observation Details", style: textTheme.headlineSmall?.copyWith(color: darkGreen)),
                 const SizedBox(height: 24),
 
                 _buildCardTitle("HABITAT & CATEGORY", isDark, textTheme),
@@ -231,33 +244,22 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                   _buildLabel("Taxon *", textTheme),
                   _buildTextField("e.g. Aves, Mammalia", _taxonController, textTheme),
                   const SizedBox(height: 16),
-                  
                   _buildLabel("Common Name", textTheme),
                   _buildTextField("Enter common name", _commonNameController, textTheme),
-                  const SizedBox(height: 16),
-
-                  _buildLabel("Local Name", textTheme),
-                  _buildTextField("Enter local name", _localNameController, textTheme),
                   const Divider(height: 32, thickness: 0.5),
-                  
                   _buildLabel("Unlisted or unfamiliar species? *", textTheme),
-                  Row(
-                    children: [
-                      Expanded(child: RadioListTile<bool>(title: Text("Yes", style: textTheme.bodyMedium), value: true, groupValue: model.isUnfamiliar, activeColor: forestGreen, onChanged: (v) => setState(() => model.isUnfamiliar = v!))),
-                      Expanded(child: RadioListTile<bool>(title: Text("No", style: textTheme.bodyMedium), value: false, groupValue: model.isUnfamiliar, activeColor: forestGreen, onChanged: (v) => setState(() => model.isUnfamiliar = v!))),
-                    ],
-                  ),
+                  Row(children: [
+                    Expanded(child: RadioListTile<bool>(title: Text("Yes", style: textTheme.bodyMedium), value: true, groupValue: model.isUnfamiliar, activeColor: forestGreen, contentPadding: EdgeInsets.zero, onChanged: (v) => setState(() => model.isUnfamiliar = v!))),
+                    Expanded(child: RadioListTile<bool>(title: Text("No", style: textTheme.bodyMedium), value: false, groupValue: model.isUnfamiliar, activeColor: forestGreen, contentPadding: EdgeInsets.zero, onChanged: (v) => setState(() => model.isUnfamiliar = v!))),
+                  ]),
                   const Divider(height: 32, thickness: 0.5),
-
                   _buildLabel("Count", textTheme),
                   _buildTextField("Enter quantity", _countController, textTheme, isNum: true),
                   const Divider(height: 32, thickness: 0.5),
-
                   _buildLabel("Observation Type", textTheme),
                   _buildCheckbox("Seen", model.seen, (v) => setState(() => model.seen = v!), textTheme),
                   _buildCheckbox("Heard", model.heard, (v) => setState(() => model.heard = v!), textTheme),
                   _buildCheckbox("Presence Signs", model.presence, (v) => setState(() => model.presence = v!), textTheme),
-                  
                   const Divider(height: 32, thickness: 0.5),
                   _buildLabel("Upload Photos *", textTheme),
                   const SizedBox(height: 12),
@@ -275,6 +277,38 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   // --- UI HELPERS ---
 
+  Widget _buildTopNavBar(BuildContext context, bool isDark) => Container(
+    padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 10, left: 16, right: 16), 
+    color: isDark ? const Color(0xFF1F1F1F) : Colors.white, 
+    child: Row(
+      children: [
+        Image.asset('assets/logo2.png', height: 32), 
+        const Spacer(), 
+        IconButton(
+          icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white : Colors.black), 
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeNotifications()))
+        ), 
+        _buildProfileIcon(context, isDark)
+      ]
+    )
+  );
+
+  Widget _buildSecondaryHeader(BuildContext context, ObservationModel model, TextTheme textTheme) => Container(
+    color: darkGreen, 
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+      children: [
+        IconButton(
+          icon: const Icon(Icons.close, color: Colors.white, size: 20), 
+          onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const EmployeePortal(initialIndex: 1)), (route) => false)
+        ), 
+        Text("BMS Field Diary", style: textTheme.titleSmall?.copyWith(color: Colors.white)), 
+        TextButton(onPressed: () => _handleClearAll(model), child: Text("Clear all", style: textTheme.bodySmall?.copyWith(color: Colors.white70)))
+      ]
+    )
+  );
+
   Widget _buildMultiPhotoBox(bool d, ObservationModel model, TextTheme textTheme) {
     return Column(
       children: [
@@ -284,18 +318,37 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: model.imagePaths.length,
-              itemBuilder: (context, index) => Stack(
-                children: [
-                  Container(width: 100, margin: const EdgeInsets.only(right: 10), decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), image: DecorationImage(image: FileImage(File(model.imagePaths[index])), fit: BoxFit.cover))),
-                  Positioned(top: 4, right: 14, child: GestureDetector(onTap: () => _removeImage(index, model), child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle), child: const Icon(Icons.close, size: 14, color: Colors.white)))),
-                ],
-              ),
+              itemBuilder: (context, index) {
+                final String path = model.imagePaths[index];
+                return Stack(
+                  children: [
+                    Container(
+                      width: 100, 
+                      margin: const EdgeInsets.only(right: 10), 
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12), 
+                        image: DecorationImage(
+                          image: kIsWeb 
+                            ? NetworkImage(path) as ImageProvider 
+                            : FileImage(File(path)), 
+                          fit: BoxFit.cover
+                        )
+                      )
+                    ),
+                    Positioned(top: 4, right: 14, child: GestureDetector(onTap: () => _removeImage(index, model), child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle), child: const Icon(Icons.close, size: 14, color: Colors.white)))),
+                  ],
+                );
+              },
             ),
           ),
         InkWell(
           onTap: () => _pickImages(model),
           borderRadius: BorderRadius.circular(12),
-          child: Container(height: 80, width: double.infinity, decoration: BoxDecoration(color: d ? Colors.white10 : Colors.black.withOpacity(0.04), borderRadius: BorderRadius.circular(12), border: Border.all(color: d ? Colors.white24 : Colors.black12)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo_outlined, size: 24, color: forestGreen), const SizedBox(height: 4), Text("Add Photos", style: textTheme.labelLarge?.copyWith(color: forestGreen))])),
+          child: Container(
+            height: 80, width: double.infinity, 
+            decoration: BoxDecoration(color: d ? Colors.white10 : Colors.black.withOpacity(0.04), borderRadius: BorderRadius.circular(12), border: Border.all(color: d ? Colors.white24 : Colors.black12)), 
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_a_photo_outlined, size: 24, color: forestGreen), const SizedBox(height: 4), Text("Add Photos", style: textTheme.labelLarge?.copyWith(color: forestGreen))])
+          ),
         ),
       ],
     );
@@ -304,7 +357,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   Widget _buildBottomStepper(BuildContext context, ObservationModel model, TextTheme textTheme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-      decoration: BoxDecoration(color: const Color(0xFFEAF7EA), border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))),
+      decoration: BoxDecoration(color: lightGreenBG, border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -321,27 +374,17 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _isSaving ? null : () => _submitForm(model, isDraft: true), icon: const Icon(Icons.save_outlined), label: Text("Save as Draft", style: textTheme.labelLarge?.copyWith(color: forestGreen)), style: OutlinedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+          SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _isSaving ? null : () => _submitForm(model, isDraft: true), icon: const Icon(Icons.save_outlined), label: Text("Save as Draft", style: textTheme.labelLarge?.copyWith(color: forestGreen)), style: OutlinedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.5), side: BorderSide(color: forestGreen.withOpacity(0.3)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
         ],
       ),
     );
   }
 
-  Widget _buildTopNavBar(BuildContext context, bool isDark) => Container(padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 10, left: 16, right: 16), color: isDark ? const Color(0xFF1F1F1F) : Colors.white, child: Row(children: [Image.asset('assets/logo2.png', height: 32), const Spacer(), IconButton(icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white : Colors.black), onPressed: () {}), _buildProfileIcon(context, isDark)]));
-
-  Widget _buildSecondaryHeader(BuildContext context, ObservationModel model, TextTheme textTheme) => Container(color: darkGreen, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 20), onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const EmployeePortal(initialIndex: 1)), (route) => false)), Text("BMS Field Diary", style: textTheme.titleSmall?.copyWith(color: Colors.white)), TextButton(onPressed: () => _handleClearAll(model), child: Text("Clear all", style: textTheme.bodySmall?.copyWith(color: Colors.white70)))]));
-
   Widget _buildLabel(String t, TextTheme textTheme) => RichText(text: TextSpan(text: t.replaceFirst('*', ''), style: textTheme.titleSmall?.copyWith(color: Colors.black87), children: [if (t.contains('*')) const TextSpan(text: '*', style: TextStyle(color: Colors.red))]));
-  
   Widget _buildTextField(String h, TextEditingController c, TextTheme textTheme, {bool isNum = false}) => TextField(controller: c, keyboardType: isNum ? TextInputType.number : TextInputType.text, style: textTheme.bodyMedium, decoration: InputDecoration(hintText: h, hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26), filled: true, fillColor: const Color(0xFFF9F9F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)));
-  
   Widget _buildDropdownField(String v, List<String> i, String h, Function(String?) o, TextTheme textTheme) => Container(padding: const EdgeInsets.symmetric(horizontal: 14), decoration: BoxDecoration(color: const Color(0xFFF9F9F9), borderRadius: BorderRadius.circular(12)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: v.isEmpty ? null : v, isExpanded: true, hint: Text(h, style: textTheme.bodyMedium), items: i.map((e) => DropdownMenuItem(value: e, child: Text(e, style: textTheme.bodyMedium))).toList(), onChanged: o)));
-  
   Widget _buildCheckbox(String l, bool v, Function(bool?) o, TextTheme textTheme) => CheckboxListTile(title: Text(l, style: textTheme.bodyMedium), value: v, activeColor: forestGreen, controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero, onChanged: o);
-  
   Widget _whiteCard(bool d, List<Widget> c) => Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: d ? const Color(0xFF1F1F1F) : Colors.white, borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: c));
-  
   Widget _buildCardTitle(String t, bool d, TextTheme textTheme) => Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(t, style: textTheme.labelSmall?.copyWith(color: Colors.black45)));
-  
   Widget _buildProfileIcon(BuildContext context, bool d) => InkWell(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())), child: Container(height: 36, width: 36, decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.person_outline, size: 20)));
 }
