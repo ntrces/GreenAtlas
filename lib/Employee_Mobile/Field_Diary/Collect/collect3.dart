@@ -126,7 +126,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       final user = _supabase.auth.currentUser;
       final userId = user?.id;
 
-      // 1. PLATFORM-SAFE UPLOAD (Web & Mobile)
+      // 1. PLATFORM-SAFE UPLOAD
       List<String> uploadedUrls = [];
       for (String path in model.imagePaths) {
         final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
@@ -145,7 +145,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         uploadedUrls.add(publicUrl);
       }
 
-      // 2. SAVE TO observed_species (FIXED: removed scientific_name)
+      // 2. SAVE TO observed_species
       final speciesData = await _supabase.from('observed_species').upsert({
         'common_name': _commonNameController.text,
         'taxon_group': _taxonController.text,
@@ -158,7 +158,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       if (model.heard) methods.add("Heard");
       if (model.presence) methods.add("Presence Signs");
 
-      // 3. SAVE TO field_entries (FIXED: removed other_habitat)
+      // 3. SAVE TO field_entries
       final Map<String, dynamic> dbData = {
         'user_id': userId,
         'species_id': speciesId,
@@ -183,6 +183,21 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       };
 
       await _supabase.from('field_entries').insert(dbData);
+
+      // 4. NEW: Connect to audit_logs
+      await _supabase.from('audit_logs').insert({
+        'title': isDraft ? 'Draft Saved' : 'Field Report Submitted',
+        'description': isDraft 
+            ? 'User saved a draft for ${_commonNameController.text}' 
+            : 'New field entry submitted for ${_commonNameController.text} in ${model.protectedArea}',
+        'category': 'Field Data',
+        'ip_address': 'Mobile App',
+        'result': 'Success',
+        'severity': 'Low',
+        'user': user?.email,
+        'user_id': userId,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
 
       if (mounted) {
         if (!isDraft) model.reset();

@@ -71,6 +71,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       
       String? finalAvatarUrl = _existingAvatarUrl;
 
+      // 1. Handle Image Upload if changed
       if (_imageBytes != null) {
         final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
         final path = '${user.id}/$fileName';
@@ -84,6 +85,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         finalAvatarUrl = _supabase.storage.from('Profiles').getPublicUrl(path);
       }
 
+      // 2. Update Profile Data
       await _supabase.from('profiles').update({
         'full_name': "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}",
         'first_name': _firstNameController.text.trim(),
@@ -93,6 +95,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'city': _cityController.text.trim(),
         'avatar_url': finalAvatarUrl,
       }).eq('id', user.id);
+
+      // 3. NEW: Connect to audit_logs
+      await _supabase.from('audit_logs').insert({
+        'title': 'Profile Updated',
+        'description': 'User updated their personal and location details.',
+        'category': 'Profile',
+        'ip_address': 'Mobile App',
+        'result': 'Success',
+        'severity': 'Low',
+        'user': user.email,
+        'user_id': user.id,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
