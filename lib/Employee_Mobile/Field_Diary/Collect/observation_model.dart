@@ -23,8 +23,7 @@ class ObservationModel extends ChangeNotifier {
   String? obsCategoryOthers; 
 
   String taxon = '';
-  String speciesName = '';
-  String localName = ''; 
+  String speciesName = ''; // This maps to "Common Name" in your UI
   bool isUnfamiliar = false;
   int quantity = 0;               
 
@@ -33,11 +32,12 @@ class ObservationModel extends ChangeNotifier {
   bool presence = false;
 
   // Image Handling
-  List<String> imagePaths = [];  // Local file paths (Step 3 UI)
+  List<String> imagePaths = [];  // Local Blob URLs (Step 3 UI)
   List<String> imageUrls = [];   // Remote Supabase Storage URLs (Database)
   
   String observationNotes = '';
   
+  // Default to PENDING to satisfy DB Constraint
   String status = 'PENDING';
 
   void updateLocationData({String? region, String? province, String? protectedArea}) {
@@ -60,14 +60,13 @@ class ObservationModel extends ChangeNotifier {
     obsCategoryOthers = null;
     taxon = '';
     speciesName = '';
-    localName = '';
     isUnfamiliar = false;
     quantity = 0;
     seen = false; 
     heard = false; 
     presence = false;
     imagePaths = [];
-    imageUrls = []; // Reset URLs as well
+    imageUrls = []; 
     observationNotes = '';
     status = 'PENDING'; 
     notifyListeners();

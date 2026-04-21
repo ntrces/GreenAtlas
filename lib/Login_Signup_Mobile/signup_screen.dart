@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme_constants.dart';
-import 'login_screen.dart'; // * Added import for navigation
+import 'login_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -17,15 +17,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isCapsLockOn = false; 
+  bool _isCapsLockOn = false;
 
+  // Theme Colors
   final Color darkGreen = const Color(0xFF303D32);
   final Color sageGreen = const Color(0xFF517156);
   final Color lightBgGreen = const Color(0xFFE5F5E8);
+  final Color softGreen = const Color(0xFFF1F8F2); // Added fallback for background
 
   @override
   void dispose() {
@@ -37,6 +39,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
+  /// Handles the Sign Up process and Audit Log connection
   Future<void> _handleSignUp() async {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -54,9 +57,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
 
     setState(() => _isLoading = true);
+
     try {
       final supabase = Supabase.instance.client;
-      
+
+      // 1. Create Auth User
       final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
@@ -64,15 +69,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (res.user != null) {
-        // * This creates the profile row. Note: For the email to "go to database" only 
-        // * after confirmation, a Supabase DB Trigger is the recommended backend approach.
+        final userId = res.user!.id;
+
+        // 2. Create Profile Entry
         await supabase.from('profiles').upsert({
-          'id': res.user!.id, 
-          'email': email, 
-          'role': 'user'
+          'id': userId,
+          'email': email,
+          'role': 'user',
         });
-        
+
+        // 3. Connect to Audit Logs (The fix)
+        await supabase.from('audit_logs').insert({
+          'title': 'Account Created',
+          'description': 'New user account registered: $firstName $lastName',
+          'category': 'Account',
+          'ip_address': 'Mobile App',
+          'result': 'Success',
+          'severity': 'Low',
+          'user': email,
+          'user_id': userId,
+          'timestamp': DateTime.now().toIso8601String(), // Matches your text timestamp field
+        });
+
+        // 4. Sign out until email is verified
         await supabase.auth.signOut();
+        
         if (mounted) _showVerificationPopup(email);
       }
     } catch (e) {
@@ -92,43 +113,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.redAccent)
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
     );
   }
 
-  // * --- THEMED VERIFICATION POPUP ---
   void _showVerificationPopup(String email) {
     showDialog(
       context: context,
-      barrierDismissible: false, // * User must click the button
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
         title: Text(
-          "Confirm Email", 
-          style: TextStyle(
-            fontFamily: 'Poppins-Bold', 
-            fontSize: 20, 
-            color: darkGreen,
-            // * Explicit font weight
-          ),
+          "Confirm Email",
+          style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 20, color: darkGreen),
         ),
         content: Text(
           "A confirmation link has been sent to $email. Please check your inbox and confirm your account to continue.",
-          style: TextStyle(
-            fontFamily: 'Inter', 
-            fontSize: 14.5, 
-            color: Colors.black87,
-          ),
+          style: const TextStyle(fontFamily: 'Inter', fontSize: 14.5, color: Colors.black87),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0, bottom: 8.0),
             child: ElevatedButton(
               onPressed: () {
-                Navigator.pop(context); // * Close dialog
+                Navigator.pop(context);
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -136,18 +145,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: sageGreen,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                 elevation: 0,
               ),
               child: const Text(
-                "OK", 
-                style: TextStyle(
-                  fontFamily: 'Poppins-Bold',
-                  color: Colors.white,
-                   // * Explicit font weight
-                ),
+                "OK",
+                style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white),
               ),
             ),
           ),
@@ -163,9 +166,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       autofocus: true,
       onKeyEvent: (KeyEvent event) {
         if (event.logicalKey == LogicalKeyboardKey.capsLock && event is KeyDownEvent) {
-          setState(() {
-            _isCapsLockOn = !_isCapsLockOn;
-          });
+          setState(() => _isCapsLockOn = !_isCapsLockOn);
         }
       },
       child: Scaffold(
@@ -183,15 +184,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const SizedBox(height: 11),
                 Text(
-                  "Create Account", 
+                  "Create Account",
                   style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 28, color: darkGreen),
                 ),
                 Text(
-                  "Join GreenAtlas to explore and protect our ecosystem", 
+                  "Join GreenAtlas to explore and protect our ecosystem",
                   style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, color: sageGreen),
                 ),
                 const SizedBox(height: 25),
-
                 Container(
                   width: 364,
                   padding: const EdgeInsets.symmetric(horizontal: 23, vertical: 23),
@@ -213,7 +213,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         child: Text("Fill in your details to get started", style: TextStyle(fontFamily: 'Inter', fontSize: 15.2, color: sageGreen)),
                       ),
                       const SizedBox(height: 23),
-
                       Row(
                         children: [
                           Expanded(child: _buildFieldColumn("First Name", _firstNameController, "First")),
@@ -224,9 +223,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       const SizedBox(height: 15.2),
                       _buildFieldColumn("Email Address", _emailController, "your.email@example.com", icon: Icons.email_outlined),
                       const SizedBox(height: 15.2),
-                      
                       _buildFieldColumn("Password", _passwordController, "••••••••", isPassword: true, obscure: _obscurePassword, toggle: () => setState(() => _obscurePassword = !_obscurePassword)),
-                      
                       if (_isCapsLockOn)
                         const Padding(
                           padding: EdgeInsets.only(top: 4.0),
@@ -234,36 +231,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             children: [
                               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 14),
                               SizedBox(width: 4),
-                              Text(
-                                "Caps Lock is ON",
-                                style: TextStyle(color: Colors.orange, fontSize: 12),
-                              ),
+                              Text("Caps Lock is ON", style: TextStyle(color: Colors.orange, fontSize: 12)),
                             ],
                           ),
                         ),
-
                       const SizedBox(height: 4),
                       Text(
                         "Must be 8+ characters with uppercase, lowercase, numbers, and special characters.",
                         style: TextStyle(fontFamily: 'Inter', fontSize: 12, height: 16 / 12, color: Colors.grey[600]),
                       ),
-
                       const SizedBox(height: 15.2),
                       _buildFieldColumn("Confirm Password", _confirmPasswordController, "••••••••", isPassword: true, obscure: _obscureConfirmPassword, toggle: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword)),
-                      
                       const SizedBox(height: 30),
-
                       SizedBox(
                         width: double.infinity, height: 47.5,
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignUp,
                           style: ElevatedButton.styleFrom(backgroundColor: sageGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7.6))),
-                          child: _isLoading 
-                            ? const SizedBox(height: 19, width: 19, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text("Create Account", style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white, fontSize: 15.2)),
+                          child: _isLoading
+                              ? const SizedBox(height: 19, width: 19, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text("Create Account", style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white, fontSize: 15.2)),
                         ),
                       ),
-
                       const SizedBox(height: 23),
                       Row(
                         children: [
@@ -309,14 +298,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
         text: TextSpan(
           children: [
             TextSpan(
-              text: text, 
+              text: text,
               style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13.3, color: darkGreen),
             ),
             if (controller.text.isEmpty)
-              const TextSpan(
-                text: " *",
-                style: TextStyle(color: Colors.red, fontSize: 13.3),
-              ),
+              const TextSpan(text: " *", style: TextStyle(color: Colors.red, fontSize: 13.3)),
           ],
         ),
       ),
@@ -333,7 +319,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscure ?? false,
-            onChanged: (val) => setState(() {}), 
+            onChanged: (val) => setState(() {}),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(fontFamily: 'Inter', fontSize: 13.3, color: Colors.black26),

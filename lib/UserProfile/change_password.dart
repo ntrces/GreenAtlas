@@ -27,14 +27,29 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     try {
       final user = _supabase.auth.currentUser;
 
+      // 1. Re-authenticate to verify current password
       await _supabase.auth.signInWithPassword(
         email: user!.email!,
         password: _currentPasswordController.text,
       );
 
+      // 2. Update to new password
       await _supabase.auth.updateUser(
         UserAttributes(password: _newPasswordController.text),
       );
+
+      // 3. NEW: Connect to audit_logs
+      await _supabase.from('audit_logs').insert({
+        'title': 'Password Changed',
+        'description': 'User successfully updated their account password.',
+        'category': 'Security',
+        'ip_address': 'Mobile App',
+        'result': 'Success',
+        'severity': 'Medium',
+        'user': user.email,
+        'user_id': user.id,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

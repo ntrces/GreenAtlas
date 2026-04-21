@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart'; // Added for kIsWeb
-import 'dart:io' show File; // Conditional use
+import 'package:flutter/foundation.dart'; // For kIsWeb
+import 'dart:io' show File; 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
@@ -116,7 +116,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   Future<void> _submitForm(ObservationModel model, {bool isDraft = false}) async {
     if (_taxonController.text.isEmpty && !isDraft) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Taxon is required")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Taxon group is required")));
       return;
     }
 
@@ -145,11 +145,10 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         uploadedUrls.add(publicUrl);
       }
 
-      // 2. SAVE DATA
+      // 2. SAVE TO observed_species
       final speciesData = await _supabase.from('observed_species').upsert({
         'common_name': _commonNameController.text,
         'taxon_group': _taxonController.text,
-        'scientific_name': 'Pending Identification',
       }, onConflict: 'common_name').select().single();
 
       final String speciesId = speciesData['id'];
@@ -159,6 +158,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       if (model.heard) methods.add("Heard");
       if (model.presence) methods.add("Presence Signs");
 
+      // 3. SAVE TO field_entries
       final Map<String, dynamic> dbData = {
         'user_id': userId,
         'species_id': speciesId,
@@ -173,7 +173,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         'observation_time': DateFormat('HH:mm:ss').format(model.observationDate),
         'observation_category': model.observationCategory,
         'habitat_type': model.habitat,
-        'other_habitat': model.habitat == 'Other' ? _habitatOthersController.text : null,
         'taxon_group': _taxonController.text,
         'common_name': _commonNameController.text,
         'is_unlisted': model.isUnfamiliar,
@@ -184,6 +183,21 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       };
 
       await _supabase.from('field_entries').insert(dbData);
+
+      // 4. NEW: Connect to audit_logs
+      await _supabase.from('audit_logs').insert({
+        'title': isDraft ? 'Draft Saved' : 'Field Report Submitted',
+        'description': isDraft 
+            ? 'User saved a draft for ${_commonNameController.text}' 
+            : 'New field entry submitted for ${_commonNameController.text} in ${model.protectedArea}',
+        'category': 'Field Data',
+        'ip_address': 'Mobile App',
+        'result': 'Success',
+        'severity': 'Low',
+        'user': user?.email,
+        'user_id': userId,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
 
       if (mounted) {
         if (!isDraft) model.reset();
@@ -241,7 +255,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
                 _buildCardTitle("WILDLIFE", isDark, textTheme),
                 _whiteCard(isDark, [
-                  _buildLabel("Taxon *", textTheme),
+                  _buildLabel("Taxon Group *", textTheme),
                   _buildTextField("e.g. Aves, Mammalia", _taxonController, textTheme),
                   const SizedBox(height: 16),
                   _buildLabel("Common Name", textTheme),

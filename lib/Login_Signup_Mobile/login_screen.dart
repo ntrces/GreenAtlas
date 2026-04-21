@@ -25,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final Color darkGreen = const Color(0xFF303D32);
   final Color sageGreen = const Color(0xFF517156);
+  final Color softGreen = const Color(0xFFF1F8F2); // Defined for the background
 
   @override
   void dispose() {
@@ -57,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
         bool isFirstTime = false;
 
         try {
-          // * 1. Fetch current user profile data
+          // 1. Fetch current user profile data
           final userData = await _supabase
               .from('profiles')
               .select('role, is_first_time') 
@@ -69,8 +70,20 @@ class _LoginScreenState extends State<LoginScreen> {
             isFirstTime = userData['is_first_time'] ?? false;
           }
 
-          // * --- UPDATED "ONLY ONCE" LOGIC ---
-          // * If it's a 'user' and it's their first time, update DB immediately
+          // 2. NEW: Connect to audit_logs
+          await _supabase.from('audit_logs').insert({
+            'title': 'User Login',
+            'description': 'User ($role) logged in successfully',
+            'category': 'Authentication',
+            'ip_address': 'Mobile App',
+            'result': 'Success',
+            'severity': 'Low',
+            'user': user.email,
+            'user_id': user.id,
+            'timestamp': DateTime.now().toIso8601String(),
+          });
+
+          // 3. Update First Time Logic
           if (role == 'user' && isFirstTime == true) {
             await _supabase
                 .from('profiles')
@@ -78,12 +91,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 .eq('id', user.id);
           }
         } catch (dbError) {
-          debugPrint("Profile fetch/update error: $dbError");
+          debugPrint("Audit/Profile error: $dbError");
         }
 
         if (!mounted) return;
 
-        // * 2. Routing Logic
+        // 4. Routing Logic
         if (role == 'employee') {
           Navigator.pushReplacement(
             context,
@@ -91,7 +104,6 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         } 
         else if (role == 'user' && isFirstTime == true) {
-          // * This will only trigger once because we set isFirstTime to false above
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const Intro1Screen()),
