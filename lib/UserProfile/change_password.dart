@@ -12,9 +12,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _supabase = Supabase.instance.client;
 
-  final TextEditingController _currentPasswordController = TextEditingController();
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _obscureCurrent = true;
   bool _obscureNew = true;
@@ -54,18 +56,18 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Password updated successfully!"), 
+            content: Text("Password updated successfully!"),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); 
+        Navigator.pop(context);
       }
     } on AuthException catch (e) {
       String message = e.message;
       if (e.message.contains("Invalid login credentials")) {
         message = "The current password you entered is incorrect.";
       }
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
@@ -74,7 +76,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text("Error: $e"), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -87,7 +90,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAF7EA), 
+      backgroundColor: const Color(0xFFEAF7EA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -96,9 +99,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          "Security", 
+          "Security",
           style: textTheme.titleLarge?.copyWith(
-            color: const Color(0xFF2D3E2D), 
+            color: const Color(0xFF2D3E2D),
             fontSize: 18,
           ),
         ),
@@ -109,9 +112,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F8F1), 
+              color: const Color(0xFFF1F8F1),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: const Color(0xFF5D7A5D).withOpacity(0.1)),
+              border:
+                  Border.all(color: const Color(0xFF5D7A5D).withOpacity(0.1)),
             ),
             child: Form(
               key: _formKey,
@@ -121,68 +125,74 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const SizedBox(width: 40), 
+                      const SizedBox(width: 40),
                       Text(
-                        "CHANGE PASSWORD", 
+                        "CHANGE PASSWORD",
                         style: textTheme.titleMedium?.copyWith(
-                          fontSize: 16, 
+                          fontSize: 16,
                           color: const Color(0xFF2D3E2D),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 20, color: Colors.black26),
+                        icon: const Icon(Icons.close,
+                            size: 20, color: Colors.black26),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
                   const Center(
                     child: Text(
-                      "Enter your current password and choose a new one", 
-                      style: TextStyle(fontSize: 12, color: Colors.black38),
+                      "Enter your current password and choose a new one",
+                      style: TextStyle(fontSize: 12, color: Colors.black),
                     ),
                   ),
                   const SizedBox(height: 30),
-
                   _buildPasswordField(
-                    label: "CURRENT PASSWORD", 
+                    label: "CURRENT PASSWORD",
                     controller: _currentPasswordController,
                     obscure: _obscureCurrent,
-                    onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                    onToggle: () =>
+                        setState(() => _obscureCurrent = !_obscureCurrent),
                   ),
                   const SizedBox(height: 16),
                   _buildPasswordField(
-                    label: "NEW PASSWORD", 
+                    label: "NEW PASSWORD",
                     controller: _newPasswordController,
                     obscure: _obscureNew,
                     onToggle: () => setState(() => _obscureNew = !_obscureNew),
                   ),
                   const SizedBox(height: 16),
                   _buildPasswordField(
-                    label: "CONFIRM NEW PASSWORD", 
+                    label: "CONFIRM NEW PASSWORD",
                     controller: _confirmPasswordController,
                     obscure: true,
                     showToggle: false,
                   ),
                   const SizedBox(height: 30),
-
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton.icon(
                       onPressed: _isLoading ? null : _handleUpdatePassword,
-                      icon: _isLoading 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.vpn_key_outlined, size: 18, color: Colors.white),
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.vpn_key_outlined,
+                              size: 18, color: Colors.white),
                       label: Text(
-                        "UPDATE PASSWORD", 
+                        "UPDATE PASSWORD",
                         style: textTheme.labelLarge?.copyWith(
-                          color: Colors.white, 
+                          color: Colors.white,
                           letterSpacing: 0.5,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5D7A5D), 
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        backgroundColor: const Color(0xFF5D7A5D),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                         elevation: 0,
                       ),
                     ),
@@ -197,8 +207,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   }
 
   Widget _buildPasswordField({
-    required String label, 
-    required TextEditingController controller, 
+    required String label,
+    required TextEditingController controller,
     required bool obscure,
     VoidCallback? onToggle,
     bool showToggle = true,
@@ -209,8 +219,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label, 
-          style: textTheme.labelSmall?.copyWith(fontSize: 11, color: Colors.black54),
+          label,
+          style: textTheme.labelSmall
+              ?.copyWith(fontSize: 11, color: Colors.black54),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -220,7 +231,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xFFD6E8D6)),
@@ -229,16 +241,25 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xFF5D7A5D)),
             ),
-            suffixIcon: showToggle ? IconButton(
-              icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, 
-                size: 20, color: const Color(0xFF5D7A5D)),
-              onPressed: onToggle,
-            ) : null,
+            suffixIcon: showToggle
+                ? IconButton(
+                    icon: Icon(
+                        obscure
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 20,
+                        color: const Color(0xFF5D7A5D)),
+                    onPressed: onToggle,
+                  )
+                : null,
           ),
           validator: (val) {
             if (val == null || val.isEmpty) return "Field is required";
-            if (label == "NEW PASSWORD" && val.length < 6) return "Password too short (min 6 chars)";
-            if (label == "CONFIRM NEW PASSWORD" && val != _newPasswordController.text) return "Passwords do not match";
+            if (label == "NEW PASSWORD" && val.length < 6)
+              return "Password too short (min 6 chars)";
+            if (label == "CONFIRM NEW PASSWORD" &&
+                val != _newPasswordController.text)
+              return "Passwords do not match";
             return null;
           },
         ),
