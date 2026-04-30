@@ -19,6 +19,9 @@ dependencies:
   url_launcher: ^6.3.1
   geolocator: ^13.0.2
   model_viewer_plus: ^1.7.0
+  arcore_flutter_plugin: ^0.1.0
+  permission_handler: ^11.0.0
+  flutter_unity_widget: ^2022.2.1
 
 dev_dependencies:
   flutter_test:
