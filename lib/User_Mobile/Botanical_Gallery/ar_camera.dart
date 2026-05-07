@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
@@ -98,10 +99,50 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
     ]),
   );
 
-  Widget _buildSquareHero(String? url) => Center(child: Container(
-    margin: const EdgeInsets.symmetric(vertical: 20), width: MediaQuery.of(context).size.width * 0.75,
-    child: AspectRatio(aspectRatio: 1, child: ClipRRect(borderRadius: BorderRadius.circular(20), child: url != null ? Image.network(url, fit: BoxFit.cover) : Container(color: Colors.black12))),
-  ));
+  Widget _buildSquareHero(dynamic imageRaw) {
+    List<String> urls = [];
+    if (imageRaw is List) {
+      urls = imageRaw.map((e) => e.toString()).toList();
+    } else if (imageRaw is String) {
+      if (imageRaw.trim().startsWith('[')) {
+        try {
+          List<dynamic> parsedList = jsonDecode(imageRaw);
+          urls = parsedList.map((e) => e.toString()).toList();
+        } catch (e) {
+          urls = [imageRaw];
+        }
+      } else if (imageRaw.isNotEmpty) {
+        urls = [imageRaw];
+      }
+    }
+
+    if (urls.isEmpty) {
+      return Center(child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 20), width: MediaQuery.of(context).size.width * 0.75,
+        child: AspectRatio(aspectRatio: 1, child: ClipRRect(borderRadius: BorderRadius.circular(20), child: Container(color: Colors.black12))),
+      ));
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      height: MediaQuery.of(context).size.width * 0.75,
+      child: ListView.separated(
+        padding: EdgeInsets.symmetric(horizontal: MediaQuery.of(context).size.width * 0.125),
+        scrollDirection: Axis.horizontal,
+        itemCount: urls.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          return AspectRatio(
+            aspectRatio: 1,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.network(urls[index], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.black12)),
+            )
+          );
+        },
+      )
+    );
+  }
 
   Widget _buildARActionRow(String? url, TextTheme textTheme) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), 

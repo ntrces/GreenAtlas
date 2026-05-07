@@ -6,6 +6,7 @@ import 'AR View/ar_view.dart';
 import '../../UserProfile/user_profile.dart';
 import 'notification.dart';
 import 'Botanical_Gallery/ar_camera.dart'; 
+import '../../components/notification_badge.dart';
 
 class UserDashboard extends StatefulWidget {
   const UserDashboard({super.key});
@@ -256,8 +257,7 @@ class _UserDashboardState extends State<UserDashboard> {
       }
     ),
     actions: [
-      IconButton(icon: const Icon(Icons.notifications_none, color: Color(0xFF303D32), size: 28), 
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
+      const UserNotificationBadge(iconColor: Color(0xFF303D32)),
       _buildProfileIcon()
     ],
   );

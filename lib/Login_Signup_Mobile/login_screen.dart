@@ -82,9 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
           });
 
           if (role == 'user' && isFirstTime == true) {
-            await _supabase
-                .from('profiles')
-                .update({'is_first_time': false}).eq('id', user.id);
+            // We moved the is_first_time update to completeprofile.dart
+            // so they don't lose first-time status if they close the app during the intro.
           }
         } catch (dbError) {
           debugPrint("Audit/Profile error: $dbError");
@@ -110,7 +109,11 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } on AuthException catch (e) {
-      _showSnackBar(e.message, Colors.redAccent);
+      if (e.message.toLowerCase().contains('email not confirmed')) {
+        _showEmailNotConfirmedPopup();
+      } else {
+        _showSnackBar(e.message, Colors.redAccent);
+      }
     } catch (e) {
       _showSnackBar("Connection Error: Check your database.", Colors.redAccent);
     } finally {
@@ -122,6 +125,48 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: color),
+    );
+  }
+
+  void _showEmailNotConfirmedPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+        title: Row(
+          children: [
+            Icon(Icons.mark_email_unread_outlined, color: sageGreen, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              "Verify Email",
+              style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 18, color: darkGreen),
+            ),
+          ],
+        ),
+        content: const Text(
+          "Please check your Gmail or email inbox for the confirmation link to verify your account.",
+          style: TextStyle(fontFamily: 'Poppins-Light', fontSize: 14, color: Colors.black87, height: 1.4),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0, bottom: 8.0),
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: sageGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                elevation: 0,
+              ),
+              child: const Text(
+                "OK",
+                style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

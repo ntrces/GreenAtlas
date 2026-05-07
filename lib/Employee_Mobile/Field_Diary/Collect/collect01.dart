@@ -6,6 +6,7 @@ import '../../../theme_provider.dart';
 import 'collect2.dart';
 import '../../../UserProfile/user_profile.dart';
 import '../../EmployeeNotification/employeenotif.dart';
+import '../../../components/notification_badge.dart';
 import '../Employee_FieldDiary.dart'; 
 import '../clearentry.dart'; 
 
@@ -263,10 +264,7 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
             style: textTheme.titleLarge?.copyWith(color: isDark ? Colors.white : darkGreen)
           ),
           const Spacer(),
-          IconButton(
-            icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeNotifications())),
-          ),
+          EmployeeNotificationBadge(iconColor: isDark ? Colors.white70 : Colors.black87),
           _buildProfileIcon(context, isDark),
         ],
       ),

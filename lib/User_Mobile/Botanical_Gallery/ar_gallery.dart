@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../user_dashboard.dart';
@@ -6,6 +7,7 @@ import 'ar_camera.dart';
 import '../notification.dart';
 import '../../UserProfile/user_profile.dart';
 import 'gallery_filtering.dart'; 
+import '../../components/notification_badge.dart';
 
 class ARGalleryScreen extends StatefulWidget {
   const ARGalleryScreen({super.key});
@@ -196,10 +198,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_none, color: Color(0xFF303D32), size: 28), 
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
-        ),
+        const UserNotificationBadge(iconColor: Color(0xFF303D32)),
         _buildProfileIcon(),
         const SizedBox(width: 16),
       ],
@@ -467,12 +466,32 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     );
   }
 
-  Widget _buildImageThumb(String? url, double size) => Container(
-    width: size, height: size, color: Colors.grey[100],
-    child: (url != null && url.isNotEmpty) 
-      ? Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.park_outlined, color: Colors.black12)) 
-      : const Icon(Icons.park_outlined, color: Colors.black12),
-  );
+  Widget _buildImageThumb(dynamic imageRaw, double size) {
+    String? url;
+    if (imageRaw is List && imageRaw.isNotEmpty) {
+      url = imageRaw.first?.toString();
+    } else if (imageRaw is String) {
+      if (imageRaw.trim().startsWith('[')) {
+        try {
+          List<dynamic> parsedList = jsonDecode(imageRaw);
+          if (parsedList.isNotEmpty) {
+            url = parsedList.first?.toString();
+          }
+        } catch (e) {
+          url = imageRaw;
+        }
+      } else {
+        url = imageRaw;
+      }
+    }
+
+    return Container(
+      width: size, height: size, color: Colors.grey[100],
+      child: (url != null && url.isNotEmpty) 
+        ? Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.park_outlined, color: Colors.black12)) 
+        : const Icon(Icons.park_outlined, color: Colors.black12),
+    );
+  }
 
   Widget _buildIconButton({required IconData icon, required VoidCallback onPressed}) => Container(
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),

@@ -69,29 +69,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (res.user != null) {
-        final userId = res.user!.id;
+        // NOTE: Manual inserts to 'profiles' and 'audit_logs' have been removed.
+        // When "Confirm Email" is enabled, the user does not have an active session yet,
+        // so inserting data from the app causes a Row Level Security (RLS) violation.
+        // Please use a Supabase Database Trigger to insert these records automatically.
 
-        // 2. Create Profile Entry
-        await supabase.from('profiles').upsert({
-          'id': userId,
-          'email': email,
-          'role': 'user',
-        });
-
-        // 3. Connect to Audit Logs (The fix)
-        await supabase.from('audit_logs').insert({
-          'title': 'Account Created',
-          'description': 'New user account registered: $firstName $lastName',
-          'category': 'Account',
-          'ip_address': 'Mobile App',
-          'result': 'Success',
-          'severity': 'Low',
-          'user': email,
-          'user_id': userId,
-          'timestamp': DateTime.now().toIso8601String(), // Matches your text timestamp field
-        });
-
-        // 4. Sign out until email is verified
+        // Sign out until email is verified
         await supabase.auth.signOut();
         
         if (mounted) _showVerificationPopup(email);
