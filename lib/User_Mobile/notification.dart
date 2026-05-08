@@ -26,11 +26,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   Future<void> _markAllAsRead(List<Map<String, dynamic>> notifications) async {
     try {
-      for (var notif in notifications) {
-        if (!(notif['is_read'] ?? false)) {
-          await _supabase.from('audit_logs').update({'is_read': true}).eq('id', notif['id']);
-        }
-      }
+      final unreadIds = notifications.where((n) => !(n['is_read'] ?? false)).map((n) => n['id']).toList();
+      if (unreadIds.isEmpty) return;
+      await _supabase.from('audit_logs').update({'is_read': true}).inFilter('id', unreadIds);
     } catch (e) {
       debugPrint("Error marking all as read: $e");
     }
@@ -72,20 +70,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase
-          .from('audit_logs')
+          .from('audit_logs_with_roles')
           .stream(primaryKey: ['id'])
           .order('created_at', ascending: false),
       builder: (context, snapshot) {
         if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
         
         final rawNotifs = snapshot.data?.where((n) => 
-          n['user_id'] == null || n['user_id'] == _userId
+          (n['user_id'] == null || n['user_id'] == _userId) && 
+          n['user_role'] != 'admin'
         ).toList() ?? [];
 
         final allNotifs = rawNotifs.where((notif) {
-          final text = '${notif['title']} ${notif['message']} ${notif['type']} ${notif['action']}'.toLowerCase();
+          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
           return text.contains('profile') || text.contains('plant');
-        }).toList();
+        }).take(10).toList();
 
         final unreadCount = allNotifs.where((n) => !(n['is_read'] ?? false)).length;
 
@@ -139,7 +138,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 itemBuilder: (context, index) {
                   final notif = allNotifs[index];
                   final String id = notif['id'].toString();
-                  final String type = notif['type'] ?? 'general';
+                  final String type = notif['type'] ?? notif['category'] ?? 'general';
                   final bool isUnread = !(notif['is_read'] ?? false);
                   
                   final DateTime createdAt = DateTime.parse(notif['created_at']);
@@ -150,7 +149,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       if (isUnread) {
                         _updateReadStatus(notif['id']);
                       }
-                      final text = '${notif['title']} ${notif['message']} ${notif['type']} ${notif['action']}'.toLowerCase();
+                      final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
                       if (text.contains('plant')) {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
                       } else if (text.contains('profile')) {
@@ -161,7 +160,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       icon: _getIcon(type),
                       iconColor: _getIconColor(type),
                       title: notif['title'] ?? "Notification",
-                      body: notif['message'] ?? "",
+                      body: notif['message'] ?? notif['description'] ?? "",
                       time: timeLabel,
                       isUnread: isUnread,
                     ),

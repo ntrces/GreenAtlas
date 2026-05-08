@@ -3,6 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../theme_provider.dart';
+import '../Field_Diary/Employee_FieldDiary.dart';
+import '../EmployeeMeeting/Employee_Meetings.dart';
+import '../../UserProfile/user_profile.dart';
+import '../../User_Mobile/Botanical_Gallery/ar_gallery.dart';
 
 class EmployeeNotifications extends StatefulWidget {
   const EmployeeNotifications({super.key});
@@ -19,7 +23,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
   Future<void> _markAllAsRead() async {
     try {
       await _supabase
-          .from('audit_logs_with_roles')
+          .from('audit_logs')
           .update({'is_read': true})
           .eq('user_id', _userId!)
           .eq('is_read', false);
@@ -76,7 +80,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
                 final allNotifications = snapshot.data ?? [];
 
                 final notifications = allNotifications.where((notif) {
-                  final text = '${notif['title']} ${notif['message']} ${notif['type']} ${notif['action']}'.toLowerCase();
+                  final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
                   return text.contains('observation validatated') ||
                          text.contains('observation validated') ||
                          text.contains('rejected') ||
@@ -117,7 +121,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
 
   Widget _buildNotificationItem(Map<String, dynamic> notif, bool isDark, TextTheme textTheme) {
     final bool isRead = notif['is_read'] ?? false;
-    final String type = notif['type'] ?? 'info';
+    final String type = notif['type'] ?? notif['category'] ?? 'info';
     final DateTime createdAt = DateTime.parse(notif['created_at']);
     
     // UI mapping based on type
@@ -172,7 +176,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
           children: [
             const SizedBox(height: 4),
             Text(
-              notif['message'] ?? '',
+              notif['message'] ?? notif['description'] ?? '',
               style: textTheme.bodySmall?.copyWith(
                 color: isDark ? Colors.white60 : Colors.black54,
               ),
@@ -187,9 +191,19 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
         onTap: () async {
           if (!isRead) {
             await _supabase
-                .from('audit_logs_with_roles')
+                .from('audit_logs')
                 .update({'is_read': true})
                 .eq('id', notif['id']);
+          }
+          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+          if (text.contains('observation') || text.contains('rejected')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const FieldObservationScreen()));
+          } else if (text.contains('meeting')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const MeetingsScreen()));
+          } else if (text.contains('plant')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
+          } else if (text.contains('password') || text.contains('name') || text.contains('profile') || text.contains('security')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
           }
         },
       ),

@@ -376,9 +376,13 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             ),
             subtitle: Row(
               children: [
-                Text(
-                  "${plant['location_zone']} • ", 
-                  style: const TextStyle(color: Colors.black45, fontSize: 11),
+                Flexible(
+                  child: Text(
+                    "${plant['location_zone']} • ", 
+                    style: const TextStyle(color: Colors.black45, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 _getConservationIcon(plant['conservation_status']),
                 const SizedBox(width: 4),

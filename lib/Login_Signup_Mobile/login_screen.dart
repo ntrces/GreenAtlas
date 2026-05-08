@@ -176,12 +176,15 @@ class _LoginScreenState extends State<LoginScreen> {
       focusNode: FocusNode(),
       autofocus: true,
       onKeyEvent: (KeyEvent event) {
-        if (event.logicalKey == LogicalKeyboardKey.capsLock &&
-            event is KeyDownEvent) {
-          setState(() {
-            _isCapsLockOn = !_isCapsLockOn;
-          });
-        }
+        Future.delayed(Duration.zero, () {
+          if (!mounted) return;
+          final isCapsOn = !HardwareKeyboard.instance.lockModesEnabled.contains(KeyboardLockMode.capsLock);
+          if (_isCapsLockOn != isCapsOn) {
+            setState(() {
+              _isCapsLockOn = isCapsOn;
+            });
+          }
+        });
       },
       child: Scaffold(
         backgroundColor: softGreen,

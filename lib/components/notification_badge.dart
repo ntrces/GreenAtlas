@@ -20,13 +20,16 @@ class UserNotificationBadge extends StatelessWidget {
     if (userId == null) return iconButton;
 
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: supabase.from('audit_logs').stream(primaryKey: ['id']),
+      stream: supabase.from('audit_logs_with_roles').stream(primaryKey: ['id']),
       builder: (context, snapshot) {
         int unreadCount = 0;
         if (snapshot.hasData) {
-          final rawNotifs = snapshot.data!.where((n) => n['user_id'] == null || n['user_id'] == userId).toList();
+          final rawNotifs = snapshot.data!.where((n) => 
+            (n['user_id'] == null || n['user_id'] == userId) &&
+            n['user_role'] != 'admin'
+          ).toList();
           final allNotifs = rawNotifs.where((notif) {
-            final text = '${notif['title']} ${notif['message']} ${notif['type']} ${notif['action']}'.toLowerCase();
+            final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
             return text.contains('profile') || text.contains('plant');
           }).toList();
           unreadCount = allNotifs.where((n) => !(n['is_read'] ?? false)).length;
@@ -34,8 +37,7 @@ class UserNotificationBadge extends StatelessWidget {
 
         return Badge(
           isLabelVisible: unreadCount > 0,
-          label: Text(unreadCount > 9 ? '9+' : unreadCount.toString()),
-          offset: const Offset(-8, 8),
+          label: Text(unreadCount.toString()),
           backgroundColor: Colors.redAccent,
           child: iconButton,
         );
@@ -67,7 +69,7 @@ class EmployeeNotificationBadge extends StatelessWidget {
         if (snapshot.hasData) {
           final allNotifs = snapshot.data!;
           final notifications = allNotifs.where((notif) {
-            final text = '${notif['title']} ${notif['message']} ${notif['type']} ${notif['action']}'.toLowerCase();
+            final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
             return text.contains('observation validatated') ||
                    text.contains('observation validated') ||
                    text.contains('rejected') ||
@@ -80,8 +82,7 @@ class EmployeeNotificationBadge extends StatelessWidget {
 
         return Badge(
           isLabelVisible: unreadCount > 0,
-          label: Text(unreadCount > 9 ? '9+' : unreadCount.toString()),
-          offset: const Offset(-8, 8),
+          label: Text(unreadCount.toString()),
           backgroundColor: Colors.redAccent,
           child: iconButton,
         );

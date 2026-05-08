@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -172,37 +173,61 @@ class _UserDashboardState extends State<UserDashboard> {
                 ],
 
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 2) ...[
-                  _buildSectionLabel("RECENT ACTIVITY"),
+                  _buildSectionLabelWithAction("RECENT ACTIVITY", "See all", () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))),
                   
                   if (_userId == null)
                     const Center(child: Padding(padding: EdgeInsets.all(20), child: Text("Log in to see activity")))
                   else
                     StreamBuilder<List<Map<String, dynamic>>>(
                       stream: _supabase
-                          .from('reports')
+                          .from('audit_logs_with_roles')
                           .stream(primaryKey: ['id'])
-                          .eq('user_id', _userId!)
-                          .limit(2),
+                          .order('created_at', ascending: false),
                       builder: (context, snapshot) {
-                        final userReports = snapshot.data ?? [];
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: Color(0xFF4A634A))));
+                        }
+
+                        final rawNotifs = snapshot.data?.where((n) => 
+                          (n['user_id'] == null || n['user_id'] == _userId) &&
+                          n['user_role'] != 'admin'
+                        ).toList() ?? [];
+
+                        final recentNotifs = rawNotifs.where((notif) {
+                          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+                          return text.contains('profile') || text.contains('plant');
+                        }).take(3).toList();
                         
-                        if (userReports.isEmpty) {
+                        if (recentNotifs.isEmpty) {
                           return const Center(
                             child: Padding(
                               padding: EdgeInsets.all(20),
-                              child: Text("No recent reports.", style: TextStyle(color: Colors.black26, fontSize: 13)),
+                              child: Text("No recent activity.", style: TextStyle(color: Colors.black26, fontSize: 13)),
                             ),
                           );
                         }
 
                         return Column(
-                          children: userReports.map((report) => _buildActivityTile(
-                            "${report['incident_type']} reported", 
-                            "Recent", 
-                            Icons.error_outline, 
-                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())), 
-                            status: report['status']
-                          )).toList(),
+                          children: recentNotifs.map((notif) {
+                            String type = notif['type'] ?? notif['category'] ?? 'general';
+                            IconData icon = Icons.notifications_none;
+                            if (type == 'plant_added') icon = Icons.local_library_rounded;
+                            else if (type == 'security' || type == 'profile_update') icon = Icons.person_outline_rounded;
+
+                            return _buildActivityTile(
+                              notif['title'] ?? "Notification", 
+                              notif['message'] ?? notif['description'] ?? "", 
+                              icon, 
+                              () {
+                                final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+                                if (text.contains('plant')) {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
+                                } else if (text.contains('profile') || text.contains('security')) {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+                                }
+                              }, 
+                            );
+                          }).toList(),
                         );
                       }
                     ),
@@ -384,7 +409,26 @@ class _UserDashboardState extends State<UserDashboard> {
   );
 
   Widget _buildPlantTile(Map<String, dynamic> plant, VoidCallback onTap) {
-    final imgUrl = plant['image_url'];
+    dynamic rawImg = plant['image_url'];
+    String? imgUrl;
+    
+    if (rawImg is List && rawImg.isNotEmpty) {
+      imgUrl = rawImg.first.toString();
+    } else if (rawImg is String && rawImg.isNotEmpty) {
+      if (rawImg.trim().startsWith('[')) {
+        try {
+          List<dynamic> parsed = jsonDecode(rawImg);
+          if (parsed.isNotEmpty) {
+            imgUrl = parsed.first.toString();
+          }
+        } catch (_) {
+          imgUrl = rawImg;
+        }
+      } else {
+        imgUrl = rawImg;
+      }
+    }
+
     return Material(
       color: Colors.white,
       child: Column(
@@ -396,7 +440,7 @@ class _UserDashboardState extends State<UserDashboard> {
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 width: 50, height: 50, color: const Color(0xFFF0F4F0),
-                child: (imgUrl != null && imgUrl.toString().isNotEmpty)
+                child: (imgUrl != null && imgUrl.isNotEmpty)
                   ? Image.network(imgUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.eco, color: Colors.black12))
                   : const Icon(Icons.eco, color: Colors.black12),
               ),

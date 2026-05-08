@@ -19,17 +19,6 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
     return await _supabase.from('plants').select().eq('id', widget.plantData['id']).single();
   }
 
-  void _launchAR(BuildContext context, String? url) {
-    if (url == null || url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("AR Model Unavailable")));
-      return;
-    }
-    Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(
-      appBar: AppBar(title: const Text("AR Mode"), backgroundColor: const Color(0xFFE8EDE8)),
-      body: ModelViewer(src: url, ar: true, autoRotate: true, cameraControls: true),
-    )));
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -49,7 +38,7 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
               children: [
                 _buildSmallHeader(d['common_name'], d['scientific_name'], d['category'], textTheme),
                 _buildImageHero(d['image_url']),
-                _buildARActionRow(d['ar_model_url'], textTheme),
+                const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20), 
                   child: Column(
@@ -100,6 +89,110 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
     ]),
   );
 
+  void _openFullScreenGallery(List<String> urls, int initialIndex) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) {
+          int currentIndex = initialIndex;
+          final PageController pageController = PageController(initialPage: initialIndex);
+
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return Scaffold(
+                backgroundColor: Colors.black,
+                appBar: AppBar(
+                  backgroundColor: Colors.black,
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  elevation: 0,
+                ),
+                body: Stack(
+                  children: [
+                    PageView.builder(
+                      controller: pageController,
+                      itemCount: urls.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          currentIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        return InteractiveViewer(
+                          child: Center(
+                            child: Image.network(
+                              urls[index],
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    if (currentIndex > 0)
+                      Positioned(
+                        left: 16,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: CircleAvatar(
+                            backgroundColor: Colors.white24,
+                            child: IconButton(
+                              icon: const Icon(Icons.chevron_left, color: Colors.white),
+                              onPressed: () {
+                                pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    if (currentIndex < urls.length - 1)
+                      Positioned(
+                        right: 16,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: CircleAvatar(
+                            backgroundColor: Colors.white24,
+                            child: IconButton(
+                              icon: const Icon(Icons.chevron_right, color: Colors.white),
+                              onPressed: () {
+                                pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    Positioned(
+                      bottom: 32,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            "${currentIndex + 1} / ${urls.length}",
+                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          );
+        }
+      ),
+    );
+  }
+
   Widget _buildImageHero(dynamic imageRaw) {
     List<String> urls = [];
     if (imageRaw is List) {
@@ -110,8 +203,11 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
           List<dynamic> parsedList = jsonDecode(imageRaw);
           urls = parsedList.map((e) => e.toString()).toList();
         } catch (e) {
-          urls = [imageRaw];
+          String cleaned = imageRaw.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '').replaceAll("'", "");
+          urls = cleaned.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
         }
+      } else if (imageRaw.contains(',')) {
+        urls = imageRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
       } else if (imageRaw.isNotEmpty) {
         urls = [imageRaw];
       }
@@ -121,32 +217,22 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
       return Container(height: 250, width: double.infinity, color: Colors.black12);
     }
 
-    return SizedBox(
-      height: 250,
-      width: double.infinity,
-      child: urls.length == 1
-        ? Image.network(urls[0], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.black12))
-        : PageView.builder(
-            itemCount: urls.length,
-            itemBuilder: (context, index) {
-              return Image.network(urls[index], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.black12));
-            },
-          )
+    if (urls.length == 1) {
+      return SizedBox(
+        height: 250,
+        width: double.infinity,
+        child: GestureDetector(
+          onTap: () => _openFullScreenGallery(urls, 0),
+          child: Image.network(urls[0], fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.black12)),
+        ),
+      );
+    }
+
+    return _ImageCarousel(
+      urls: urls,
+      onTapImage: (index) => _openFullScreenGallery(urls, index),
     );
   }
-
-  Widget _buildARActionRow(String? url, TextTheme textTheme) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), 
-    child: SizedBox(
-      width: double.infinity, height: 45, 
-      child: ElevatedButton.icon(
-        onPressed: () => _launchAR(context, url), 
-        icon: const Icon(Icons.play_arrow_outlined, color: Colors.white, size: 20), 
-        label: Text("View AR Garden", style: textTheme.labelLarge?.copyWith(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), 
-        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5D7A5D), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))
-      )
-    )
-  );
 
   Widget _buildConservationStatus(String? s, String? source, TextTheme textTheme) {
     String status = s ?? 'Common';
@@ -239,31 +325,37 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
     child: Text(t, style: textTheme.labelSmall?.copyWith(fontSize: 11, color: const Color(0xFF5D7A5D), fontWeight: FontWeight.bold))
   );
 
-  Widget _buildCharacteristicsGrid(Map d, TextTheme textTheme) => GridView.count(
-    shrinkWrap: true, crossAxisCount: 2, childAspectRatio: 2.2, mainAxisSpacing: 10, crossAxisSpacing: 10,
-    physics: const NeverScrollableScrollPhysics(),
-    children: [
-      _card(Icons.straighten, "HEIGHT", d['height'] ?? "N/A", textTheme),
-      _card(Icons.eco_outlined, "LEAF TYPE", d['leaf_type'] ?? "N/A", textTheme),
-      _card(Icons.event, "FLOWERING", d['flowering'] ?? "N/A", textTheme),
-      _card(Icons.trending_up, "GROWTH", d['growth'] ?? "N/A", textTheme),
-    ],
+  Widget _buildCharacteristicsGrid(Map d, TextTheme textTheme) => IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: _card(Icons.straighten, "HEIGHT", d['height'] ?? "N/A", textTheme)),
+        const SizedBox(width: 8),
+        Expanded(child: _card(Icons.eco_outlined, "LEAF TYPE", d['leaf_type'] ?? "N/A", textTheme)),
+        const SizedBox(width: 8),
+        Expanded(child: _card(Icons.event, "FLOWERING", d['flowering'] ?? "N/A", textTheme)),
+      ],
+    ),
   );
 
   Widget _card(IconData i, String l, String v, TextTheme textTheme) => Container(
-    padding: const EdgeInsets.all(12), 
+    padding: const EdgeInsets.all(10), 
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black.withOpacity(0.05))), 
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(4)),
-        child: Icon(i, size: 14, color: const Color(0xFF5D7A5D)),
-      ),
-      const SizedBox(height: 8),
-      Text(l, style: textTheme.labelSmall?.copyWith(fontSize: 8, color: Colors.black38)), 
-      const SizedBox(height: 2),
-      Expanded(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(v, style: textTheme.titleSmall?.copyWith(fontSize: 13, fontWeight: FontWeight.w600))))
-    ])
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, 
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(4)),
+          child: Icon(i, size: 14, color: const Color(0xFF5D7A5D)),
+        ),
+        const SizedBox(height: 8),
+        FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(l, style: textTheme.labelSmall?.copyWith(fontSize: 8, color: Colors.black38))), 
+        const SizedBox(height: 2),
+        FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(v, style: textTheme.titleSmall?.copyWith(fontSize: 12, fontWeight: FontWeight.w600)))
+      ]
+    )
   );
 
   Widget _buildScientificClassification(Map d, TextTheme textTheme) => Column(children: [
@@ -300,7 +392,6 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
   );
 
   Widget _buildHabitatRows(String? z, String? e, TextTheme textTheme) => Column(children: [
-    _info(Icons.park_outlined, "ECOSYSTEM TYPE", e ?? "N/A", textTheme), 
     if (z != null && z.isNotEmpty)
       _info(Icons.location_on_outlined, "HABITAT ZONE", z, textTheme)
   ]);
@@ -343,4 +434,122 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
       )
     )
   );
+}
+
+class _ImageCarousel extends StatefulWidget {
+  final List<String> urls;
+  final Function(int) onTapImage;
+
+  const _ImageCarousel({required this.urls, required this.onTapImage});
+
+  @override
+  State<_ImageCarousel> createState() => _ImageCarouselState();
+}
+
+class _ImageCarouselState extends State<_ImageCarousel> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _nextPage() {
+    if (_currentIndex < widget.urls.length - 1) {
+      _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
+
+  void _previousPage() {
+    if (_currentIndex > 0) {
+      _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 250,
+      width: double.infinity,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.urls.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: () => widget.onTapImage(index),
+                child: Image.network(
+                  widget.urls[index], 
+                  fit: BoxFit.cover, 
+                  errorBuilder: (_, __, ___) => Container(color: Colors.black12)
+                ),
+              );
+            },
+          ),
+          
+          if (_currentIndex > 0)
+            Positioned(
+              left: 12,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.4),
+                  child: IconButton(
+                    icon: const Icon(Icons.chevron_left, color: Colors.white),
+                    onPressed: _previousPage,
+                  ),
+                ),
+              ),
+            ),
+
+          if (_currentIndex < widget.urls.length - 1)
+            Positioned(
+              right: 12,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.4),
+                  child: IconButton(
+                    icon: const Icon(Icons.chevron_right, color: Colors.white),
+                    onPressed: _nextPage,
+                  ),
+                ),
+              ),
+            ),
+
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                "${_currentIndex + 1} / ${widget.urls.length}",
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
