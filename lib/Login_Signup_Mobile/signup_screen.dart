@@ -150,7 +150,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       onKeyEvent: (KeyEvent event) {
         Future.delayed(Duration.zero, () {
           if (!mounted) return;
-          final isCapsOn = !HardwareKeyboard.instance.lockModesEnabled.contains(KeyboardLockMode.capsLock);
+          final isCapsOn = HardwareKeyboard.instance.lockModesEnabled.contains(KeyboardLockMode.capsLock);
           if (_isCapsLockOn != isCapsOn) {
             setState(() {
               _isCapsLockOn = isCapsOn;

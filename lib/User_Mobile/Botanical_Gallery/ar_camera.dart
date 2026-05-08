@@ -110,6 +110,7 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                   children: [
                     PageView.builder(
                       controller: pageController,
+                      physics: const NeverScrollableScrollPhysics(),
                       itemCount: urls.length,
                       onPageChanged: (index) {
                         setState(() {
@@ -483,6 +484,7 @@ class _ImageCarouselState extends State<_ImageCarousel> {
         children: [
           PageView.builder(
             controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
             itemCount: widget.urls.length,
             onPageChanged: (index) {
               setState(() {
