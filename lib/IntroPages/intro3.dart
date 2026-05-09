@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme_constants.dart';
-import '../Login_Signup_Mobile/LoadingScreen/loading_pages.dart';
+import 'completeprofile.dart';
 
 class Intro3Screen extends StatelessWidget {
   const Intro3Screen({super.key});
@@ -165,7 +165,7 @@ class Intro3Screen extends StatelessWidget {
                                     onPressed: () {
                                       Navigator.pushReplacement(
                                         context,
-                                        MaterialPageRoute(builder: (context) => const LoadingPage()),
+                                        MaterialPageRoute(builder: (context) => const CompleteProfileScreen()),
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart'; 
+import 'Botanical_Gallery/ar_gallery.dart';
+import '../UserProfile/user_profile.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -11,16 +13,25 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final _supabase = Supabase.instance.client;
-  final Set<String> _readIds = {};
 
   String? get _userId => _supabase.auth.currentUser?.id;
 
-  void _markAllAsRead(List<Map<String, dynamic>> notifications) {
-    setState(() {
-      for (var notif in notifications) {
-        _readIds.add(notif['id'].toString());
-      }
-    });
+  Future<void> _updateReadStatus(dynamic id) async {
+    try {
+      await _supabase.from('audit_logs').update({'is_read': true}).eq('id', id);
+    } catch (e) {
+      debugPrint("Error updating read status: $e");
+    }
+  }
+
+  Future<void> _markAllAsRead(List<Map<String, dynamic>> notifications) async {
+    try {
+      final unreadIds = notifications.where((n) => !(n['is_read'] ?? false)).map((n) => n['id']).toList();
+      if (unreadIds.isEmpty) return;
+      await _supabase.from('audit_logs').update({'is_read': true}).inFilter('id', unreadIds);
+    } catch (e) {
+      debugPrint("Error marking all as read: $e");
+    }
   }
 
   IconData _getIcon(String type) {
@@ -59,17 +70,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase
-          .from('notifications')
+          .from('audit_logs_with_roles')
           .stream(primaryKey: ['id'])
           .order('created_at', ascending: false),
       builder: (context, snapshot) {
         if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
         
-        final allNotifs = snapshot.data?.where((n) => 
-          n['user_id'] == null || n['user_id'] == _userId
+        final rawNotifs = snapshot.data?.where((n) => 
+          (n['user_id'] == null || n['user_id'] == _userId) && 
+          n['user_role'] != 'admin'
         ).toList() ?? [];
 
-        final unreadCount = allNotifs.where((n) => !_readIds.contains(n['id'].toString())).length;
+        final allNotifs = rawNotifs.where((notif) {
+          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+          return text.contains('profile') || text.contains('plant');
+        }).take(10).toList();
+
+        final unreadCount = allNotifs.where((n) => !(n['is_read'] ?? false)).length;
 
         return Scaffold(
           backgroundColor: const Color(0xFFEAF7EA),
@@ -121,19 +138,29 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 itemBuilder: (context, index) {
                   final notif = allNotifs[index];
                   final String id = notif['id'].toString();
-                  final String type = notif['type'] ?? 'general';
-                  final bool isUnread = !_readIds.contains(id);
+                  final String type = notif['type'] ?? notif['category'] ?? 'general';
+                  final bool isUnread = !(notif['is_read'] ?? false);
                   
                   final DateTime createdAt = DateTime.parse(notif['created_at']);
                   final String timeLabel = DateFormat.jm().format(createdAt); 
 
                   return InkWell(
-                    onTap: () => setState(() => _readIds.add(id)),
+                    onTap: () {
+                      if (isUnread) {
+                        _updateReadStatus(notif['id']);
+                      }
+                      final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+                      if (text.contains('plant')) {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
+                      } else if (text.contains('profile')) {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+                      }
+                    },
                     child: _buildNotifTile(
                       icon: _getIcon(type),
                       iconColor: _getIconColor(type),
                       title: notif['title'] ?? "Notification",
-                      body: notif['message'] ?? "",
+                      body: notif['message'] ?? notif['description'] ?? "",
                       time: timeLabel,
                       isUnread: isUnread,
                     ),
@@ -171,11 +198,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isUnread ? Colors.white : const Color(0xFFF1F4F1).withOpacity(0.5),
+        color: isUnread ? const Color(0xFFD4E8D4) : Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: isUnread ? const Color(0xFF5D7A5D).withOpacity(0.2) : Colors.transparent,
-          width: 1,
+          color: isUnread ? const Color(0xFF5D7A5D).withOpacity(0.4) : const Color(0xFFEAEAEA),
+          width: isUnread ? 1.5 : 1,
         ),
       ),
       child: Row(

@@ -4,6 +4,7 @@ import '../user_dashboard.dart';
 import '../Botanical_Gallery/ar_gallery.dart';
 import '../../UserProfile/user_profile.dart';
 import '../notification.dart'; 
+import '../../components/notification_badge.dart';
 
 class Ar_View extends StatefulWidget {
   const Ar_View({super.key});
@@ -62,10 +63,7 @@ class _Ar_ViewState extends State<Ar_View> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Color(0xFF303D32), size: 28), 
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()))
-          ),
+          const UserNotificationBadge(iconColor: Color(0xFF303D32)),
           _buildProfileIcon(),
           const SizedBox(width: 8),
         ],
