@@ -3,6 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../theme_provider.dart';
+import '../Field_Diary/Employee_FieldDiary.dart';
+import '../EmployeeMeeting/Employee_Meetings.dart';
+import '../../UserProfile/user_profile.dart';
+import '../../User_Mobile/Botanical_Gallery/ar_gallery.dart';
 
 class EmployeeNotifications extends StatefulWidget {
   const EmployeeNotifications({super.key});
@@ -19,7 +23,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
   Future<void> _markAllAsRead() async {
     try {
       await _supabase
-          .from('notifications')
+          .from('audit_logs')
           .update({'is_read': true})
           .eq('user_id', _userId!)
           .eq('is_read', false);
@@ -64,7 +68,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
           ? const Center(child: Text("Please login to see notifications."))
           : StreamBuilder<List<Map<String, dynamic>>>(
               stream: _supabase
-                  .from('notifications')
+                  .from('audit_logs_with_roles')
                   .stream(primaryKey: ['id'])
                   .eq('user_id', _userId!)
                   .order('created_at', ascending: false),
@@ -73,7 +77,17 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
                   return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
                 }
 
-                final notifications = snapshot.data ?? [];
+                final allNotifications = snapshot.data ?? [];
+
+                final notifications = allNotifications.where((notif) {
+                  final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+                  return text.contains('observation validatated') ||
+                         text.contains('observation validated') ||
+                         text.contains('rejected') ||
+                         text.contains('meeting') ||
+                         text.contains('password') ||
+                         text.contains('name');
+                }).toList();
 
                 if (notifications.isEmpty) {
                   return Center(
@@ -107,7 +121,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
 
   Widget _buildNotificationItem(Map<String, dynamic> notif, bool isDark, TextTheme textTheme) {
     final bool isRead = notif['is_read'] ?? false;
-    final String type = notif['type'] ?? 'info';
+    final String type = notif['type'] ?? notif['category'] ?? 'info';
     final DateTime createdAt = DateTime.parse(notif['created_at']);
     
     // UI mapping based on type
@@ -130,7 +144,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
     return Container(
       color: isRead 
           ? (isDark ? const Color(0xFF1F1F1F) : Colors.white)
-          : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF4FAF4)),
+          : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFD4E8D4)),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         leading: Stack(
@@ -162,7 +176,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
           children: [
             const SizedBox(height: 4),
             Text(
-              notif['message'] ?? '',
+              notif['message'] ?? notif['description'] ?? '',
               style: textTheme.bodySmall?.copyWith(
                 color: isDark ? Colors.white60 : Colors.black54,
               ),
@@ -177,9 +191,19 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
         onTap: () async {
           if (!isRead) {
             await _supabase
-                .from('notifications')
+                .from('audit_logs')
                 .update({'is_read': true})
                 .eq('id', notif['id']);
+          }
+          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+          if (text.contains('observation') || text.contains('rejected')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const FieldObservationScreen()));
+          } else if (text.contains('meeting')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const MeetingsScreen()));
+          } else if (text.contains('plant')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
+          } else if (text.contains('password') || text.contains('name') || text.contains('profile') || text.contains('security')) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
           }
         },
       ),

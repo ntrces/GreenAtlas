@@ -8,6 +8,7 @@ import '../../UserProfile/user_profile.dart';
 import '../Employee_Mobile/Field_Diary/Employee_FieldDiary.dart';
 import '../Employee_Mobile/EmployeeMeeting/Employee_Meetings.dart';
 import '../Employee_Mobile/EmployeeNotification/employeenotif.dart'; 
+import '../../components/notification_badge.dart';
 
 class EmployeePortal extends StatefulWidget {
   final int initialIndex; 
@@ -269,21 +270,12 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
     actions: [_buildNotificationIcon(context, isDark, textTheme), _buildTopProfileIcon(context, isDark), const SizedBox(width: 16)],
   );
 
-  Widget _buildNotificationIcon(BuildContext context, bool isDark, TextTheme textTheme) => Stack(alignment: Alignment.center, children: [
-     IconButton(
-        icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87, size: 26),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeNotifications())),
-      ),
-      Positioned(
-        right: 8, top: 18,
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle),
-          child: Text("2", style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 8)),
-        ),
-      )
-    ],
-  );
+  Widget _buildNotificationIcon(BuildContext context, bool isDark, TextTheme textTheme) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: EmployeeNotificationBadge(iconColor: isDark ? Colors.white70 : Colors.black87),
+    );
+  }
       
 
 Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
