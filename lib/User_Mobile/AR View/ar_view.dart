@@ -12,95 +12,117 @@ class TreeModel {
   final String name;
   final String scientificName;
   final String assetPath;
+  final Icon icon;
 
   const TreeModel({
     required this.name,
     required this.scientificName,
     required this.assetPath,
+    required this.icon,
   });
 }
 
-// Sample threatened trees from Cavite Protected Area
+// Sample threatened trees from Cavite Protected Area - ordered by conservation status
+// CR (Critically Endangered) > EN (Endangered) > VU (Vulnerable)
 const List<TreeModel> threatenedTrees = [
+  // Critically Endangered (CR)
   TreeModel(
-    name: 'Dao',
-    scientificName: 'Dracontomelon dao',
+    name: 'Subyang',
+    scientificName: 'Hopea quisumbingiana',
     assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
   ),
-  TreeModel(
-    name: 'Pahutan',
-    scientificName: 'Mangifera altissima',
-    assetPath: 'assets/red_rose.glb',
-  ),
-  TreeModel(
-    name: 'Narra',
-    scientificName: 'Pterocarpus indicus',
-    assetPath: 'assets/red_rose.glb',
-  ),
+  // Endangered (EN)
   TreeModel(
     name: 'Molave',
     scientificName: 'Vitex parviflora',
-    assetPath: 'assets/red_rose.glb',
+    assetPath: 'assets/tree.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
   ),
   TreeModel(
     name: 'Manggachapui',
     scientificName: 'Hopea acuminata',
     assetPath: 'assets/red_rose.glb',
-  ),
-  TreeModel(
-    name: 'Kamagong',
-    scientificName: 'Diospyros discolor',
-    assetPath: 'assets/red_rose.glb',
-  ),
-  TreeModel(
-    name: 'Kalantas',
-    scientificName: 'Toona calantas',
-    assetPath: 'assets/red_rose.glb',
-  ),
-  TreeModel(
-    name: 'Dila-dila',
-    scientificName: 'Cynometra inaequifolia',
-    assetPath: 'assets/red_rose.glb',
-  ),
-  TreeModel(
-    name: 'Haikan',
-    scientificName: 'Camellia lanceolata',
-    assetPath: 'assets/red_rose.glb',
-  ),
-  TreeModel(
-    name: 'Malachio',
-    scientificName: 'Glenniea philippinensis',
-    assetPath: 'assets/red_rose.glb',
-  ),
-  TreeModel(
-    name: 'Bagarlau',
-    scientificName: 'Cryptocarya ampla',
-    assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
   ),
   TreeModel(
     name: 'Kubili',
     scientificName: 'Cubilia cubili',
     assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+  ),
+  // Vulnerable (VU)
+  TreeModel(
+    name: 'Dao',
+    scientificName: 'Dracontomelon dao',
+    assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
   ),
   TreeModel(
-    name: 'Subyang',
-    scientificName: 'Hopea quisumbingiana',
+    name: 'Pahutan',
+    scientificName: 'Mangifera altissima',
+    assetPath: 'assets/bigfile.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+  ),
+  TreeModel(
+    name: 'Narra',
+    scientificName: 'Pterocarpus indicus',
+    assetPath: 'assets/narra.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+  ),
+  TreeModel(
+    name: 'Kamagong',
+    scientificName: 'Diospyros discolor',
     assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+  ),
+  TreeModel(
+    name: 'Kalantas',
+    scientificName: 'Toona calantas',
+    assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+  ),
+  TreeModel(
+    name: 'Dila-dila',
+    scientificName: 'Cynometra inaequifolia',
+    assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+  ),
+  TreeModel(
+    name: 'Haikan',
+    scientificName: 'Camellia lanceolata',
+    assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+  ),
+  TreeModel(
+    name: 'Malachio',
+    scientificName: 'Glenniea philippinensis',
+    assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+  ),
+  TreeModel(
+    name: 'Bagarilau',
+    scientificName: 'Cryptocarya ampla',
+    assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
   ),
   TreeModel(
     name: 'Nato',
     scientificName: 'Palaquium luzoniense',
     assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
   ),
   TreeModel(
     name: 'Malak-malak',
     scientificName: 'Palaquium philippense',
     assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
   ),
   TreeModel(
     name: 'Katmon',
     scientificName: 'Dillenia philippinensis',
     assetPath: 'assets/red_rose.glb',
+    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
   ),
 ];
 
@@ -325,7 +347,7 @@ class _Ar_ViewState extends State<Ar_View> {
 
   Widget _buildPlantShelfScreen() {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -369,27 +391,39 @@ class _Ar_ViewState extends State<Ar_View> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        child: SizedBox(
-          width: double.infinity,
-          child: Stack(
-            children: [
-              // Background plant shelf image with fixed size
-              Container(
-                width: double.infinity,
-                height: 600,
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/plant_shelf.png'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Center(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Calculate responsive dimensions based on screen size
+              double width = constraints.maxWidth * 0.95;
+              double height = width * (803 / 412); // Maintain aspect ratio
+              
+              return Container(
+                width: width,
+                height: height,
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage('assets/plant_shelf.jpg'),
+                    image: const AssetImage('assets/plant_shelf.png'),
                     fit: BoxFit.cover,
                     onError: (exception, stackTrace) {},
                   ),
                   color: Colors.grey[300],
                 ),
-              ),
-              // Overlay buttons positioned on plants
-              _buildPlantOverlays(),
-            ],
+                child: Stack(
+                  children: [
+                    // Overlay buttons positioned on plants
+                    _buildPlantOverlays(width, height),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -431,42 +465,51 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
-  Widget _buildPlantOverlays() {
-    // Plant positions on the shelf (adjust these based on your image)
+  Widget _buildPlantOverlays(double containerWidth, double containerHeight) {
+    // Scale factors based on responsive dimensions
+    const double baseWidth = 412;
+    const double baseHeight = 803;
+    final double scaleX = containerWidth / baseWidth;
+    final double scaleY = containerHeight / baseHeight;
+    
+    // Plant positions on the shelf (center points) - base values for 412x803
     final plantPositions = [
       // Top shelf
-      _PlantPosition(left: 30, top: 40, plant: threatenedTrees[0]), // Dao
-      _PlantPosition(left: 130, top: 60, plant: threatenedTrees[1]), // Pahutan
-      _PlantPosition(left: 230, top: 40, plant: threatenedTrees[2]), // Narra
-      _PlantPosition(left: 330, top: 60, plant: threatenedTrees[3]), // Molave
+      _PlantPosition(left: 95, top: 190, plant: threatenedTrees[0]), // Subyang (CR)
+      _PlantPosition(left: 180, top: 170, plant: threatenedTrees[1]), // Molave (EN)
+      _PlantPosition(left: 250, top: 170, plant: threatenedTrees[2]), // Manggachapui (EN)
+      _PlantPosition(left: 360, top: 190, plant: threatenedTrees[3]), // Kubili (EN)
       // Second shelf
-      _PlantPosition(left: 30, top: 180, plant: threatenedTrees[4]), // Manggachapui
-      _PlantPosition(left: 130, top: 180, plant: threatenedTrees[5]), // Kamagong
-      _PlantPosition(left: 230, top: 200, plant: threatenedTrees[6]), // Kalantas
-      _PlantPosition(left: 330, top: 180, plant: threatenedTrees[7]), // Dila-dila
+      _PlantPosition(left: 95, top: 310, plant: threatenedTrees[4]), // Dao (VU)
+      _PlantPosition(left: 180, top: 290, plant: threatenedTrees[5]), // Pahutan (VU)
+      _PlantPosition(left: 270, top: 290, plant: threatenedTrees[6]), // Narra (VU)
+      _PlantPosition(left: 350, top: 310, plant: threatenedTrees[7]), // Kamagong (VU)
       // Middle/Hanging section
-      _PlantPosition(left: 150, top: 260, plant: threatenedTrees[8]), // Haikan
-      _PlantPosition(left: 260, top: 280, plant: threatenedTrees[9]), // Malachio
+      _PlantPosition(left: 95, top: 430, plant: threatenedTrees[8]), // Kalantas (VU)
+      _PlantPosition(left: 355, top: 430, plant: threatenedTrees[9]), // Dila-dila (VU)
       // Third shelf
-      _PlantPosition(left: 30, top: 380, plant: threatenedTrees[10]), // Bagarlau
-      _PlantPosition(left: 130, top: 400, plant: threatenedTrees[11]), // Kubili
-      _PlantPosition(left: 230, top: 380, plant: threatenedTrees[12]), // Subyang
-      _PlantPosition(left: 330, top: 400, plant: threatenedTrees[13]), // Nato
+      _PlantPosition(left: 95, top: 545, plant: threatenedTrees[10]), // Haikan (VU)
+      _PlantPosition(left: 175, top: 540, plant: threatenedTrees[11]), // Malachio (VU)
+      _PlantPosition(left: 260, top: 540, plant: threatenedTrees[12]), // Bagarilau (VU)
+      _PlantPosition(left: 355, top: 550, plant: threatenedTrees[13]), // Nato (VU)
       // Bottom shelf
-      _PlantPosition(left: 30, top: 500, plant: threatenedTrees[14]), // Malak-malak
-      _PlantPosition(left: 130, top: 520, plant: threatenedTrees[15]), // Katmon
+      _PlantPosition(left: 80, top: 655, plant: threatenedTrees[14]), // Malak-malak (VU)
+      _PlantPosition(left: 355, top: 655, plant: threatenedTrees[15]), // Katmon (VU)
     ];
 
     return SizedBox(
-      width: double.infinity,
-      height: 600,
+      width: containerWidth,
+      height: containerHeight,
       child: Stack(
         children: plantPositions
             .map(
               (pos) => Positioned(
-                left: pos.left,
-                top: pos.top,
-                child: _buildPlantButton(pos.plant),
+                left: pos.left * scaleX,
+                top: pos.top * scaleY,
+                child: Transform.translate(
+                  offset: const Offset(-55, -35),
+                  child: _buildPlantButton(pos.plant),
+                ),
               ),
             )
             .toList(),
@@ -477,36 +520,41 @@ class _Ar_ViewState extends State<Ar_View> {
   Widget _buildPlantButton(TreeModel plant) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        plant.icon,
+        const SizedBox(height: 4),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.black87,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             plant.name,
             style: const TextStyle(
               color: Colors.white,
               fontFamily: 'Poppins-Bold',
-              fontSize: 10,
+              fontSize: 11,
             ),
+            textAlign: TextAlign.center,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         ElevatedButton(
           onPressed: () => _viewPlantInAR(plant),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF517156),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            minimumSize: const Size(0, 32),
+            minimumSize: const Size(70, 28),
           ),
           child: const Text(
             'View in AR',
             style: TextStyle(
               color: Colors.white,
               fontFamily: 'Poppins-Bold',
-              fontSize: 10,
+              fontSize: 9,
             ),
           ),
         ),
