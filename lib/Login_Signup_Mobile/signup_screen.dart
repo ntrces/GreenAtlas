@@ -56,6 +56,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    // Name Validation: No numbers allowed
+    final nameRegExp = RegExp(r'^[a-zA-Z\s]+$');
+    if (!nameRegExp.hasMatch(firstName) || !nameRegExp.hasMatch(lastName)) {
+      _showError("Names should only contain letters and cannot include numbers.");
+      return;
+    }
+    
+    // Email Validation: Only allow @gmail.com
+    if (!email.toLowerCase().endsWith("@gmail.com")) {
+      _showError("Only @gmail.com email addresses are allowed.");
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -69,20 +82,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       if (res.user != null) {
-        // NOTE: Manual inserts to 'profiles' and 'audit_logs' have been removed.
-        // When "Confirm Email" is enabled, the user does not have an active session yet,
-        // so inserting data from the app causes a Row Level Security (RLS) violation.
-        // Please use a Supabase Database Trigger to insert these records automatically.
-
-        // Sign out until email is verified
+        // Sign out immediately to prevent auto-login
         await supabase.auth.signOut();
         
-        if (mounted) _showVerificationPopup(email);
+        if (mounted) {
+          _showSuccessDialog();
+        }
       }
     } catch (e) {
       String errorMessage = "Sign up failed";
       if (e is AuthException) {
-        errorMessage = e.message;
+        if (e.message.toLowerCase().contains("already registered") || 
+            e.message.toLowerCase().contains("already used") ||
+            e.message.toLowerCase().contains("taken")) {
+          errorMessage = "This Gmail address is already in use. Please use a different one or sign in.";
+        } else {
+          errorMessage = e.message;
+        }
       } else if (e is PostgrestException) {
         errorMessage = "Database Error: ${e.message}";
       } else {
@@ -100,7 +116,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  void _showVerificationPopup(String email) {
+  void _showSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -108,23 +124,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
         title: Text(
-          "Confirm Email",
+          "Account Created",
           style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 20, color: darkGreen),
         ),
-        content: Text(
-          "A confirmation link has been sent to $email. Please check your inbox and confirm your account to continue.",
-          style: const TextStyle(fontFamily: 'Inter', fontSize: 14.5, color: Colors.black87),
+        content: const Text(
+          "Your account has been created successfully! You can now sign in with your credentials.",
+          style: TextStyle(fontFamily: 'Inter', fontSize: 14.5, color: Colors.black87),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0, bottom: 8.0),
             child: ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Go back to Login screen
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: sageGreen,
@@ -132,7 +145,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 elevation: 0,
               ),
               child: const Text(
-                "OK",
+                "Sign In Now",
                 style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white),
               ),
             ),
