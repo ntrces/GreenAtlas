@@ -363,110 +363,150 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   );
 
   Widget _buildListItem(Map<String, dynamic> plant) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          ListTile(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
-            leading: _buildImageThumb(plant['image_url'], 55),
-            title: Text(
-              plant['common_name'] ?? "Unknown", 
-              style: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 15, color: Color(0xFF303D32)),
-            ),
-            subtitle: Row(
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            color: isHovered ? const Color(0xFFF8FFF8) : Colors.white,
+            child: Column(
               children: [
-                Flexible(
-                  child: Text(
-                    "${plant['location_zone']} • ", 
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
+                ListTile(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: _buildImageThumb(plant['image_url'], 70),
+                  ),
+                  title: Text(
+                    plant['common_name'] ?? "Unknown", 
+                    style: TextStyle(
+                      fontFamily: 'Poppins-Bold', 
+                      fontSize: 16, 
+                      color: isHovered ? _getConservationColor(plant['conservation_status']) : const Color(0xFF303D32)
+                    ),
+                  ),
+                  subtitle: Text(
+                    plant['scientific_name'] ?? "Unknown Species", 
+                    style: TextStyle(
+                      color: isHovered ? _getConservationColor(plant['conservation_status']) : Colors.black45, 
+                      fontSize: 13, 
+                      fontStyle: FontStyle.italic,
+                      fontWeight: isHovered ? FontWeight.w600 : FontWeight.normal,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                _getConservationIcon(plant['conservation_status']),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    plant['conservation_status'] ?? "", 
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  trailing: Icon(
+                    Icons.chevron_right, 
+                    color: isHovered ? _getConservationColor(plant['conservation_status']).withOpacity(0.5) : Colors.black12
                   ),
                 ),
+                const Divider(height: 1, indent: 102, color: Color(0xFFF0F0F0)),
               ],
             ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.black12),
           ),
-          const Divider(height: 1, indent: 85, color: Color(0xFFF0F0F0)),
-        ],
-      ),
+        );
+      }
     );
   }
 
   // UPDATED GRID VIEW DESIGN
   Widget _buildGridItem(Map<String, dynamic> plant) {
-    final status = plant['conservation_status'] ?? "Unknown";
-    return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white, 
-          borderRadius: BorderRadius.circular(15), 
-          border: Border.all(color: Colors.black.withOpacity(0.05))
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return MouseRegion(
+          onEnter: (_) => setState(() => isHovered = true),
+          onExit: (_) => setState(() => isHovered = false),
+          cursor: SystemMouseCursors.click,
+          child: InkWell(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white, 
+                borderRadius: BorderRadius.circular(15), 
+                border: Border.all(
+                  color: isHovered 
+                      ? _getConservationColor(plant['conservation_status']).withOpacity(0.3) 
+                      : Colors.black.withOpacity(0.05),
+                  width: isHovered ? 2 : 1,
+                ),
+                boxShadow: isHovered ? [
+                  BoxShadow(
+                    color: _getConservationColor(plant['conservation_status']).withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ] : null,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), 
-                    child: _buildImageThumb(plant['image_url'], double.infinity)
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), 
+                      child: Stack(
+                        children: [
+                          _buildImageThumb(plant['image_url'], double.infinity),
+                          if (isHovered)
+                            Positioned(
+                              bottom: 8, 
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getConservationColor(plant['conservation_status']),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  plant['conservation_status'] ?? "Unknown",
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    ),
                   ),
-                  Positioned(
-                    bottom: 8, 
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF7EA), // Light background badge
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          color: _getConservationColor(status),
-                          fontSize: 10,
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          plant['common_name'] ?? "Unknown", 
+                          style: TextStyle(
+                            fontFamily: 'Poppins-Bold', 
+                            fontSize: 13, 
+                            color: isHovered ? _getConservationColor(plant['conservation_status']) : const Color(0xFF303D32)
+                          ), 
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
                         ),
-                      ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isHovered 
+                              ? plant['conservation_status'] ?? "" 
+                              : plant['scientific_name'] ?? "",
+                          style: TextStyle(
+                            color: isHovered ? _getConservationColor(plant['conservation_status']) : Colors.black45, 
+                            fontSize: 11,
+                            fontWeight: isHovered ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plant['common_name'] ?? "Unknown", 
-                    style: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13, color: Color(0xFF303D32)), 
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    plant['scientific_name'] ?? "",
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      }
     );
   }
 

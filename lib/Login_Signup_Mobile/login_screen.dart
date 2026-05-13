@@ -6,6 +6,7 @@ import 'signup_screen.dart';
 import '../User_Mobile/user_dashboard.dart';
 import '../Employee_Mobile/Employee_Dashboard.dart';
 import '../IntroPages/intro1.dart';
+import '../IntroPages/completeprofile.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -91,7 +92,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!mounted) return;
 
-        if (role == 'employee') {
+        if (role == 'employee' && isFirstTime == true) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CompleteProfileScreen()),
+          );
+        } else if (role == 'employee') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const EmployeePortal()),

@@ -39,11 +39,12 @@ class _CannotAttendScreenState extends State<CannotAttendScreen> {
       });
 
       if (mounted) {
-        // Navigate to the Not Attending summary view
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CannotAttendViewScreen(meeting: widget.meeting),
+        // Return to the meetings list as requested
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Justification submitted successfully"),
+            backgroundColor: Color(0xFF5D7A5D),
           ),
         );
       }

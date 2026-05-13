@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../LandingPage_Mobile/landing_screen.dart';
 import '../../User_Mobile/user_dashboard.dart';
+import '../../Employee_Mobile/Employee_Dashboard.dart';
 
 class LoadingPage extends StatefulWidget {
   const LoadingPage({super.key});
@@ -19,11 +20,46 @@ class _LoadingPageState extends State<LoadingPage> {
 
   Future<void> _redirectToLanding() async {
     await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
+    if (!mounted) return;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const UserDashboard()),
+        MaterialPageRoute(builder: (context) => const UserDashboard()), // Fallback
       );
+      return;
+    }
+
+    try {
+      final userData = await Supabase.instance.client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (mounted) {
+        if (userData != null && userData['role'] == 'employee') {
+          // Note: Using dynamic import or common interface might be cleaner if files grow,
+          // but for now we'll just use the pushReplacement.
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const EmployeePortal()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const UserDashboard()),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const UserDashboard()),
+        );
+      }
     }
   }
 

@@ -76,7 +76,8 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
       "Field Observation", 
       style: textTheme.titleLarge?.copyWith(
         color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
-        fontSize: 20
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
       )
     ),
     actions: [
@@ -329,6 +330,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
       style: textTheme.titleSmall?.copyWith( 
         fontSize: 14, 
         color: isDark ? Colors.white : Colors.black87,
+        fontWeight: FontWeight.bold,
       ),
     ),
   );

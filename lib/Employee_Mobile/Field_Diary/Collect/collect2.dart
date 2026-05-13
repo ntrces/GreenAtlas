@@ -264,7 +264,10 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
           const SizedBox(width: 12),
           Text(
             "Field Observation", 
-            style: textTheme.titleLarge?.copyWith(color: isDark ? Colors.white : darkGreen)
+            style: textTheme.titleLarge?.copyWith(
+              color: isDark ? Colors.white : darkGreen,
+              fontWeight: FontWeight.bold,
+            )
           ),
           const Spacer(),
           IconButton(

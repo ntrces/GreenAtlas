@@ -261,7 +261,10 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
           const SizedBox(width: 12),
           Text(
             "Field Observation", 
-            style: textTheme.titleLarge?.copyWith(color: isDark ? Colors.white : darkGreen)
+            style: textTheme.titleLarge?.copyWith(
+              color: isDark ? Colors.white : darkGreen,
+              fontWeight: FontWeight.bold,
+            )
           ),
           const Spacer(),
           EmployeeNotificationBadge(iconColor: isDark ? Colors.white70 : Colors.black87),
@@ -283,7 +286,7 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
             onPressed: () => Navigator.pop(context),
           ),
           Text(
-            "BMS Field Diary", 
+            "BMS Field Observation", 
             style: textTheme.titleSmall?.copyWith(color: Colors.white)
           ),
           TextButton(

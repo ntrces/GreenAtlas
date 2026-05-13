@@ -63,7 +63,7 @@ class _EmployeePortalState extends State<EmployeePortal> {
           unselectedFontSize: 12,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: "Dashboard"),
-            BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book), label: "Field Diary"),
+            BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book), label: "Field Observation"),
             BottomNavigationBarItem(icon: Icon(Icons.calendar_today_outlined), activeIcon: Icon(Icons.calendar_today), label: "Meetings"),
           ],
         ),
@@ -152,7 +152,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
             stream: _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!),
             builder: (context, snapshot) {
               final count = snapshot.data?.length ?? 0;
-              return _buildLargeStatCard(Icons.menu_book_outlined, "$count", "Diary Entries", isDark, textTheme, onTap: () => widget.onNavigate(1));
+              return _buildLargeStatCard(Icons.menu_book_outlined, "$count", "Observation Entries", isDark, textTheme, onTap: () => widget.onNavigate(1));
             },
           ),
         ),
@@ -231,7 +231,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
       stream: _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!),
       builder: (context, snapshot) {
         final pending = snapshot.data?.where((e) => e['status'] == 'Pending').length ?? 0;
-        return _buildDetailedAction(icon: Icons.menu_book_outlined, title: "Field Diary", subtitle: "Document observations", badge: pending > 0 ? "$pending Pending" : null, badgeColor: Colors.orange, isDark: isDark, textTheme: textTheme, onTap: () => widget.onNavigate(1));
+        return _buildDetailedAction(icon: Icons.menu_book_outlined, title: "Field Observation", subtitle: "Document observations", badge: pending > 0 ? "$pending Pending" : null, badgeColor: Colors.orange, isDark: isDark, textTheme: textTheme, onTap: () => widget.onNavigate(1));
       }
     );
   }
@@ -265,7 +265,11 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
     leading: Padding(padding: const EdgeInsets.only(left: 16.0), child: Image.asset('assets/logo2.png', fit: BoxFit.contain)),
     title: Text(
       "Dashboard", 
-      style: textTheme.titleLarge?.copyWith(color: isDark ? Colors.white : const Color(0xFF2D3E2D), fontSize: 22),
+      style: textTheme.titleLarge?.copyWith(
+        color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
+        fontSize: 22,
+        fontWeight: FontWeight.bold,
+      ),
     ),
     actions: [_buildNotificationIcon(context, isDark, textTheme), _buildTopProfileIcon(context, isDark), const SizedBox(width: 16)],
   );
@@ -295,7 +299,11 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       Text(
         title, 
-        style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white38 : Colors.black54, letterSpacing: 0.5),
+        style: textTheme.labelSmall?.copyWith(
+          color: isDark ? Colors.white38 : Colors.black54, 
+          letterSpacing: 0.5,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       if (trailing != null) 
         InkWell(

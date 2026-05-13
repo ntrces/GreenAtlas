@@ -34,10 +34,13 @@ class MeetingViewScreen extends StatelessWidget {
       });
 
       if (context.mounted) {
-        // Navigate to the success/attending screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => MeetingAttendanceScreen(meeting: meeting)),
+        // Return to the meetings list as requested
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Attendance confirmed!"),
+            backgroundColor: Color(0xFF5D7A5D),
+          ),
         );
       }
     } catch (e) {
@@ -217,7 +220,7 @@ class MeetingViewScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: TextButton(
-                    onPressed: () => Navigator.push(
+                    onPressed: () => Navigator.pushReplacement(
                       context, 
                       MaterialPageRoute(builder: (_) => CannotAttendScreen(meeting: meeting))
                     ),
