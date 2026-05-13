@@ -394,7 +394,9 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
 
   Widget _buildHabitatRows(String? z, String? e, TextTheme textTheme) => Column(children: [
     if (z != null && z.isNotEmpty)
-      _info(Icons.location_on_outlined, "HABITAT ZONE", z, textTheme)
+      _info(Icons.location_on_outlined, "HABITAT ZONE", z, textTheme),
+    if (e != null && e.isNotEmpty)
+      _info(Icons.park_outlined, "ECOSYSTEM TYPE", e, textTheme),
   ]);
 
   Widget _info(IconData i, String l, String v, TextTheme textTheme) => Padding(
@@ -406,10 +408,12 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
         child: Icon(i, size: 16, color: const Color(0xFF5D7A5D)),
       ),
       const SizedBox(width: 12), 
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(l, style: textTheme.labelSmall?.copyWith(fontSize: 9, color: Colors.black54)), 
-        Text(v, style: textTheme.titleSmall?.copyWith(fontSize: 13, fontWeight: FontWeight.w500))
-      ])
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(l, style: textTheme.labelSmall?.copyWith(fontSize: 9, color: Colors.black54)), 
+          Text(v, style: textTheme.titleSmall?.copyWith(fontSize: 13, fontWeight: FontWeight.w500))
+        ]),
+      )
     ])
   );
 
