@@ -172,23 +172,47 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         textTheme: textTheme,
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep1Screen())),
       ),
-      _actionRow(
-        icon: Icons.insert_drive_file_rounded, 
-        label: "Drafts", 
-        color: const Color(0xFFFF9800), 
-        isDark: isDark, 
-        textTheme: textTheme,
-        badge: "1",
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DraftsListScreen())),
+      // Drafts with dynamic count
+      StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _supabase
+            .from('field_entries')
+            .select()
+            .eq('user_id', _userId!)
+            .eq('status', 'DRAFT')
+            .asStream(),
+        builder: (context, snapshot) {
+          final draftCount = snapshot.data?.length ?? 0;
+          return _actionRow(
+            icon: Icons.insert_drive_file_rounded, 
+            label: "Drafts", 
+            color: const Color(0xFFFF9800), 
+            isDark: isDark, 
+            textTheme: textTheme,
+            badge: draftCount > 0 ? draftCount.toString() : null,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DraftsListScreen())),
+          );
+        },
       ),
-      _actionRow(
-        icon: Icons.cloud_done_rounded, 
-        label: "Sent", 
-        color: const Color(0xFF78909C), 
-        isDark: isDark, 
-        textTheme: textTheme,
-        badge: "3",
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SentListScreen())),
+      // Sent with dynamic count
+      StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _supabase
+            .from('field_entries')
+            .select()
+            .eq('user_id', _userId!)
+            .neq('status', 'DRAFT')
+            .asStream(),
+        builder: (context, snapshot) {
+          final sentCount = snapshot.data?.length ?? 0;
+          return _actionRow(
+            icon: Icons.cloud_done_rounded, 
+            label: "Sent", 
+            color: const Color(0xFF78909C), 
+            isDark: isDark, 
+            textTheme: textTheme,
+            badge: sentCount > 0 ? sentCount.toString() : null,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SentListScreen())),
+          );
+        },
       ),
     ],
   );
@@ -216,16 +240,29 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         label, 
         style: textTheme.titleSmall?.copyWith(fontSize: 15)
       ),
-      trailing: badge != null 
-        ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(
-              badge, 
-              style: textTheme.labelSmall?.copyWith(color: color, fontSize: 11)
-            ),
-          )
-        : const Icon(Icons.chevron_right, color: Colors.black26),
+      trailing: SizedBox(
+        width: badge != null ? 90 : 30,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (badge != null)
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                  child: Text(
+                    badge, 
+                    style: textTheme.labelSmall?.copyWith(color: color, fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: Colors.black26, size: 20),
+          ],
+        ),
+      ),
     ),
   );
 
@@ -235,9 +272,10 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase
           .from('field_entries')
-          .stream(primaryKey: ['id'])
+          .select()
           .eq('user_id', _userId!)
-          .limit(5), 
+          .limit(5)
+          .asStream(), 
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -287,10 +325,14 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              "BMS-${id.padLeft(3, '0')}", 
-              style: textTheme.titleSmall?.copyWith(fontSize: 15, color: isDark ? Colors.white : Colors.black)
+            Flexible(
+              child: Text(
+                "BMS-${id.padLeft(3, '0')}", 
+                style: textTheme.titleSmall?.copyWith(fontSize: 15, color: isDark ? Colors.white : Colors.black),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 8),
             _buildStatusBadge(status, textTheme),
           ],
         ),

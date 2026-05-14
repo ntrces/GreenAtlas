@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../LandingPage_Mobile/landing_screen.dart';
+import '../../Employee_Mobile/Employee_Dashboard.dart';
+import '../../User_Mobile/user_dashboard.dart';
+import '../../IntroPages/completeprofile.dart';
+import '../../IntroPages/intro1.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,16 +17,77 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _redirectToLanding();
+    _redirectToAppropriateScreen();
   }
 
-  Future<void> _redirectToLanding() async {
-    await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LandingScreen()),
-      );
+  Future<void> _redirectToAppropriateScreen() async {
+    // Wait for splash to show briefly
+    await Future.delayed(const Duration(seconds: 2));
+    
+    if (!mounted) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      final currentUser = supabase.auth.currentUser;
+
+      if (currentUser != null) {
+        // User is already logged in, check their profile
+        final userData = await supabase
+            .from('profiles')
+            .select('role, is_first_time')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+        if (mounted) {
+          if (userData == null) {
+            // No profile exists yet - go to complete profile
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const CompleteProfileScreen()),
+            );
+          } else {
+            final role = userData['role'] ?? 'user';
+            final isFirstTime = userData['is_first_time'] ?? true;
+
+            if (isFirstTime && role == 'user') {
+              // User needs to see intro pages first
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const Intro1Screen()),
+              );
+            } else if (role == 'employee') {
+              // Go to employee dashboard
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const EmployeePortal()),
+              );
+            } else {
+              // Go to user dashboard
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const UserDashboard()),
+              );
+            }
+          }
+        }
+      } else {
+        // No user logged in - go to landing page
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LandingScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking auth status: $e');
+      // On error, redirect to landing page
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LandingScreen()),
+        );
+      }
     }
   }
 

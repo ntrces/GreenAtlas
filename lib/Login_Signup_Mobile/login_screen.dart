@@ -83,8 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
           });
 
           if (role == 'user' && isFirstTime == true) {
-            // We moved the is_first_time update to completeprofile.dart
-            // so they don't lose first-time status if they close the app during the intro.
+            await _supabase
+                .from('profiles')
+                .update({'is_first_time': false}).eq('id', user.id);
           }
         } catch (dbError) {
           debugPrint("Audit/Profile error: $dbError");
@@ -182,15 +183,12 @@ class _LoginScreenState extends State<LoginScreen> {
       focusNode: FocusNode(),
       autofocus: true,
       onKeyEvent: (KeyEvent event) {
-        Future.delayed(Duration.zero, () {
-          if (!mounted) return;
-          final isCapsOn = HardwareKeyboard.instance.lockModesEnabled.contains(KeyboardLockMode.capsLock);
-          if (_isCapsLockOn != isCapsOn) {
-            setState(() {
-              _isCapsLockOn = isCapsOn;
-            });
-          }
-        });
+        if (event.logicalKey == LogicalKeyboardKey.capsLock &&
+            event is KeyDownEvent) {
+          setState(() {
+            _isCapsLockOn = !_isCapsLockOn;
+          });
+        }
       },
       child: Scaffold(
         backgroundColor: softGreen,
@@ -280,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 13),
+                        const SizedBox(height: 12),
                         _buildLabel("Email Address *"),
                         TextField(
                           controller: _emailController,
