@@ -360,13 +360,15 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
               .where(
                   (p) => p['status']?.toString().toLowerCase() == 'published')
               .map((p) {
-                var copy = Map<String, dynamic>.from(p);
-                String status = (copy['conservation_status'] ?? '').toString().trim();
-                if (status == 'Non Threatened') status = 'Not Threatened';
-                if (status == 'Other Threatened Species') status = 'Other Threatened Status';
-                copy['conservation_status'] = status;
-                return copy;
-              }).toList();
+            var copy = Map<String, dynamic>.from(p);
+            String status =
+                (copy['conservation_status'] ?? '').toString().trim();
+            if (status == 'Non Threatened') status = 'Not Threatened';
+            if (status == 'Other Threatened Species')
+              status = 'Other Threatened Status';
+            copy['conservation_status'] = status;
+            return copy;
+          }).toList();
           var plants = _allPlantsRaw.where((p) {
             final matchesSearch = p['common_name']
                 .toString()
@@ -417,74 +419,51 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       );
 
   Widget _buildListItem(Map<String, dynamic> plant) {
-<<<<<<< HEAD
-    bool isHovered = false;
-    return StatefulBuilder(builder: (context, setState) {
-      return MouseRegion(
-        onEnter: (_) => setState(() => isHovered = true),
-        onExit: (_) => setState(() => isHovered = false),
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          color: isHovered ? const Color(0xFFF8FFF8) : Colors.white,
-          child: Column(
-            children: [
-              ListTile(
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ARCameraScreen(plantData: plant))),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _buildImageThumb(plant['image_url'], 70),
-                ),
-                title: Text(
-                  plant['common_name'] ?? "Unknown",
-                  style: const TextStyle(
-                      fontFamily: 'Poppins-Bold',
-                      fontSize: 16,
-                      color: Color(0xFF303D32)),
-                ),
-                subtitle: Text(
-                  plant['scientific_name'] ?? "Unknown Species",
-                  style: const TextStyle(
-                    color: Colors.black45,
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: Icon(Icons.chevron_right,
-                    color: _getConservationColor(plant['conservation_status'])),
-              ),
-              const Divider(height: 1, indent: 102, color: Color(0xFFF0F0F0)),
-            ],
-=======
     return Container(
       color: Colors.white,
       child: Column(
         children: [
           ListTile(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ARCameraScreen(plantData: plant))),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => ARCameraScreen(plantData: plant))),
             leading: _buildImageThumb(plant['image_url'], 55),
             title: Text(
-              plant['common_name'] ?? "Unknown", 
-              style: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 15, color: Color(0xFF303D32)),
+              plant['common_name'] ?? "Unknown",
+              style: const TextStyle(
+                  fontFamily: 'Poppins-Bold',
+                  fontSize: 15,
+                  color: Color(0xFF303D32)),
             ),
-            subtitle: Text(
-              plant['scientific_name'] ?? "Unknown", 
-              style: const TextStyle(color: Colors.black45, fontSize: 11),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            subtitle: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    "${plant['location_zone']} • ",
+                    style: const TextStyle(color: Colors.black45, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                _getConservationIcon(plant['conservation_status']),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    plant['conservation_status'] ?? "",
+                    style: const TextStyle(color: Colors.black45, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.black12),
->>>>>>> 10fc45e25a416b74e432412c5f50cc3e12438188
           ),
-        ),
-      );
-    });
+          const Divider(height: 1, indent: 85, color: Color(0xFFF0F0F0)),
+        ],
+      ),
+    );
   }
 
   // UPDATED GRID VIEW DESIGN
