@@ -102,10 +102,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     'Other'
   ];
 
-  final List<String> _speciesChoices = [
-    'Scientific Name',
-    'Not Applicable'
-  ];
+  final List<String> _speciesChoices = ['Scientific Name', 'Not Applicable'];
 
   Future<void> _pickImages(ObservationModel model) async {
     try {
@@ -199,7 +196,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           draftData['discovery_method'] = methods.join(', ');
 
           final draftId = await _offlineService.saveDraftOffline(draftData);
-          await _offlineService.saveImagePathsOffline(draftId, model.imagePaths);
+          await _offlineService.saveImagePathsOffline(
+              draftId, model.imagePaths);
 
           if (mounted) {
             model.reset();
@@ -337,9 +335,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
       body: Column(
         children: [
-<<<<<<< HEAD
-          _buildTopNavBar(context, isDark, textTheme),
-=======
           // Offline indicator
           if (!_offlineService.isOnline)
             Container(
@@ -358,7 +353,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               ),
             ),
           _buildTopNavBar(context, isDark),
->>>>>>> 10fc45e25a416b74e432412c5f50cc3e12438188
           _buildSecondaryHeader(context, model, textTheme),
           Expanded(
             child: ListView(
@@ -391,10 +385,13 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                   _buildLabel("Observation *", textTheme),
                   const SizedBox(height: 8),
                   _buildDropdownField(
-                      _observations.contains(model.observationCategory) ? model.observationCategory : null,
+                      _observations.contains(model.observationCategory)
+                          ? model.observationCategory
+                          : null,
                       _observations,
                       "Select category",
-                      (v) => setState(() => model.observationCategory = v ?? ''),
+                      (v) =>
+                          setState(() => model.observationCategory = v ?? ''),
                       textTheme),
                 ]),
                 const SizedBox(height: 24),
@@ -402,19 +399,18 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                 _whiteCard(isDark, [
                   _buildLabel("Species Name *", textTheme),
                   _buildDropdownField(
-                    (_speciesChoices?.contains(model.taxon ?? '') ?? false)
-                        ? model.taxon
-                        : null,
-                    _speciesChoices ?? [],
-                    "Select option",
-                    (v) => setState(() {
-                      model.taxon = v ?? '';
-                      if (v == 'Not Applicable') {
-                        _taxonController.text = 'N/A';
-                      }
-                    }),
-                    textTheme
-                  ),
+                      (_speciesChoices?.contains(model.taxon ?? '') ?? false)
+                          ? model.taxon
+                          : null,
+                      _speciesChoices ?? [],
+                      "Select option",
+                      (v) => setState(() {
+                            model.taxon = v ?? '';
+                            if (v == 'Not Applicable') {
+                              _taxonController.text = 'N/A';
+                            }
+                          }),
+                      textTheme),
                   if (model.taxon == 'Scientific Name') ...[
                     const SizedBox(height: 12),
                     _buildTextField(
@@ -476,33 +472,33 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   // --- UI HELPERS ---
 
-  Widget _buildTopNavBar(BuildContext context, bool isDark, TextTheme textTheme) => Container(
-      padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 10,
-          bottom: 10,
-          left: 16,
-          right: 16),
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-      child: Row(children: [
-        Image.asset('assets/logo2.png', height: 32),
-        const SizedBox(width: 12),
-        Text(
-          "Field Observation", 
-          style: textTheme.titleLarge?.copyWith(
-            color: isDark ? Colors.white : darkGreen,
-            fontWeight: FontWeight.bold,
-          )
-        ),
-        const Spacer(),
-        IconButton(
-            icon: Icon(Icons.notifications_none_outlined,
-                color: isDark ? Colors.white : Colors.black),
-            onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const EmployeeNotifications()))),
-        _buildProfileIcon(context, isDark)
-      ]));
+  Widget _buildTopNavBar(
+          BuildContext context, bool isDark, TextTheme textTheme) =>
+      Container(
+          padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 10,
+              bottom: 10,
+              left: 16,
+              right: 16),
+          color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          child: Row(children: [
+            Image.asset('assets/logo2.png', height: 32),
+            const SizedBox(width: 12),
+            Text("Field Observation",
+                style: textTheme.titleLarge?.copyWith(
+                  color: isDark ? Colors.white : darkGreen,
+                  fontWeight: FontWeight.bold,
+                )),
+            const Spacer(),
+            IconButton(
+                icon: Icon(Icons.notifications_none_outlined,
+                    color: isDark ? Colors.white : Colors.black),
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const EmployeeNotifications()))),
+            _buildProfileIcon(context, isDark)
+          ]));
 
   Widget _buildSecondaryHeader(
           BuildContext context, ObservationModel model, TextTheme textTheme) =>
@@ -702,22 +698,27 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           decoration: BoxDecoration(
               color: const Color(0xFFF9F9F9),
               borderRadius: BorderRadius.circular(12)),
-          child: isLoading 
-            ? Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: forestGreen))),
-              )
-            : DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                  value: (v == null || v.isEmpty) ? null : v,
-                  isExpanded: true,
-                  hint: Text(h, style: textTheme.bodyMedium),
-                  items: i
-                      .map((e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(e, style: textTheme.bodyMedium)))
-                      .toList(),
-                  onChanged: o)));
+          child: isLoading
+              ? Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Center(
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: forestGreen))),
+                )
+              : DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                      value: (v == null || v.isEmpty) ? null : v,
+                      isExpanded: true,
+                      hint: Text(h, style: textTheme.bodyMedium),
+                      items: i
+                          .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, style: textTheme.bodyMedium)))
+                          .toList(),
+                      onChanged: o)));
   Widget _buildCheckbox(
           String l, bool v, Function(bool?) o, TextTheme textTheme) =>
       CheckboxListTile(
