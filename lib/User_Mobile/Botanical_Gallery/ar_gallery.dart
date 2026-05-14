@@ -436,27 +436,11 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                   fontSize: 15,
                   color: Color(0xFF303D32)),
             ),
-            subtitle: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    "${plant['location_zone']} • ",
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                _getConservationIcon(plant['conservation_status']),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    plant['conservation_status'] ?? "",
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            subtitle: Text(
+              plant['scientific_name'] ?? "",
+              style: const TextStyle(color: Colors.black45, fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.black12),
           ),
@@ -543,29 +527,20 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                     children: [
                       Text(
                         plant['common_name'] ?? "Unknown",
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontFamily: 'Poppins-Bold',
                             fontSize: 13,
-                            color: isHovered
-                                ? _getConservationColor(
-                                    plant['conservation_status'])
-                                : const Color(0xFF303D32)),
+                            color: Color(0xFF303D32)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        isHovered
-                            ? plant['conservation_status'] ?? ""
-                            : plant['scientific_name'] ?? "",
-                        style: TextStyle(
-                          color: isHovered
-                              ? _getConservationColor(
-                                  plant['conservation_status'])
-                              : Colors.black45,
+                        plant['scientific_name'] ?? "",
+                        style: const TextStyle(
+                          color: Colors.black45,
                           fontSize: 11,
-                          fontWeight:
-                              isHovered ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: FontWeight.normal,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

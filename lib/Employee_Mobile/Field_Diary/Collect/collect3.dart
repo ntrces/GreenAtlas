@@ -337,9 +337,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
       body: Column(
         children: [
-<<<<<<< HEAD
-          _buildTopNavBar(context, isDark, textTheme),
-=======
           // Offline indicator
           if (!_offlineService.isOnline)
             Container(
@@ -357,8 +354,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                 ],
               ),
             ),
-          _buildTopNavBar(context, isDark),
->>>>>>> 10fc45e25a416b74e432412c5f50cc3e12438188
+          _buildTopNavBar(context, isDark, textTheme),
           _buildSecondaryHeader(context, model, textTheme),
           Expanded(
             child: ListView(
