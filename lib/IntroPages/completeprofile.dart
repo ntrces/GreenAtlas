@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:typed_data';
 import '../Login_Signup_Mobile/LoadingScreen/loading_pages.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
@@ -18,6 +21,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _phoneController = TextEditingController();
   final _municipalityController = TextEditingController();
   final _cityController = TextEditingController();
+  Uint8List? _imageBytes;
+  final _picker = ImagePicker();
 
   bool _isLoading = false;
 
@@ -46,6 +51,37 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      setState(() => _imageBytes = bytes);
+    }
+  }
+
+  Future<String?> _uploadAvatar(String userId) async {
+    if (_imageBytes == null) return null;
+    try {
+      final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final filePath = '$userId/$fileName';
+      
+      await _supabase.storage.from('Profiles').uploadBinary(
+            filePath,
+            _imageBytes!,
+            fileOptions: const FileOptions(upsert: true),
+          );
+          
+      final publicUrl = _supabase.storage.from('Profiles').getPublicUrl(filePath);
+      return publicUrl;
+    } catch (e) {
+      debugPrint("Upload error: $e");
+      return null;
+    }
+  }
+
   Future<void> _handleComplete() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -57,16 +93,27 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
       final firstName = _firstNameController.text.trim();
       final lastName = _lastNameController.text.trim();
+      
+      String? avatarUrl;
+      if (_imageBytes != null) {
+        avatarUrl = await _uploadAvatar(user.id);
+      }
 
-      await _supabase.from('profiles').update({
+      final Map<String, dynamic> updateData = {
         'full_name': "$firstName $lastName",
         'first_name': firstName,
         'last_name': lastName,
         'phone': _phoneController.text.trim(),
         'municipality': _municipalityController.text.trim(),
         'city': _cityController.text.trim(),
-        'is_first_time': false, // Mark intro as completed
-      }).eq('id', user.id);
+        'is_first_time': false,
+      };
+      
+      if (avatarUrl != null) {
+        updateData['avatar_url'] = avatarUrl;
+      }
+
+      await _supabase.from('profiles').update(updateData).eq('id', user.id);
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -112,6 +159,45 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     fontSize: 14,
                     fontFamily: 'Poppins-Light',
                     color: sageGreen,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                Center(
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: sageGreen.withOpacity(0.2), width: 4),
+                          image: _imageBytes != null 
+                              ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover)
+                              : null,
+                        ),
+                        child: _imageBytes == null 
+                            ? Icon(Icons.person_outline, size: 50, color: sageGreen.withOpacity(0.5))
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: sageGreen,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 30),

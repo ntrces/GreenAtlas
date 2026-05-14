@@ -52,6 +52,21 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
 
   String _getCount(String key) => widget.counts[key]?.toString() ?? "0";
 
+  Color _getConservationColorForFilter(String status) {
+    switch (status) {
+      case 'Critically Endangered': return Colors.red;
+      case 'Endangered': return Colors.orange;
+      case 'Vulnerable': return Colors.amber;
+      case 'Threatened': return Colors.orange;
+      case 'Other Threatened Status': return Colors.amber;
+      case 'Near Threatened': return Colors.lightGreen;
+      case 'Not Threatened': return Colors.teal;
+      case 'Least Concern (LC)': return Colors.green;
+      case 'Data Deficient': return Colors.blueGrey;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -105,9 +120,10 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                   // --- PLANT TYPE ---
                   _buildSectionHeader("Plant Type", textTheme, onClear: () => setState(() => selectedTypes = {"All Plants"})),
                   _buildOption("All Plants", _getCount('Total'), textTheme, isSelected: selectedTypes.contains("All Plants"), onTap: () => _toggle(selectedTypes, "All Plants", "All Plants")),
-                  _buildOption("Flowering Plants", _getCount('Flowering Plants'), textTheme, isSelected: selectedTypes.contains("Flowering Plants"), onTap: () => _toggle(selectedTypes, "Flowering Plants", "All Plants"), icon: const Icon(Icons.filter_vintage_outlined, color: Color(0xFF4A634A), size: 20)),
-                  _buildOption("Ferns", _getCount('Ferns'), textTheme, isSelected: selectedTypes.contains("Ferns"), onTap: () => _toggle(selectedTypes, "Ferns", "All Plants"), icon: const Icon(Icons.eco_outlined, color: Color(0xFF4A634A), size: 20)),
-                  _buildOption("Trees", _getCount('Trees'), textTheme, isSelected: selectedTypes.contains("Trees"), onTap: () => _toggle(selectedTypes, "Trees", "All Plants"), icon: const Icon(Icons.park_outlined, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Orchid", _getCount('Orchid'), textTheme, isSelected: selectedTypes.contains("Orchid"), onTap: () => _toggle(selectedTypes, "Orchid", "All Plants"), icon: const Icon(Icons.filter_vintage_outlined, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Fern", _getCount('Fern'), textTheme, isSelected: selectedTypes.contains("Fern"), onTap: () => _toggle(selectedTypes, "Fern", "All Plants"), icon: const Icon(Icons.eco_outlined, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Tree", _getCount('Tree'), textTheme, isSelected: selectedTypes.contains("Tree"), onTap: () => _toggle(selectedTypes, "Tree", "All Plants"), icon: const Icon(Icons.park_outlined, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Shrub", _getCount('Shrub'), textTheme, isSelected: selectedTypes.contains("Shrub"), onTap: () => _toggle(selectedTypes, "Shrub", "All Plants"), icon: const Icon(Icons.grass_outlined, color: Color(0xFF4A634A), size: 20)),
 
                   const SizedBox(height: 24),
 

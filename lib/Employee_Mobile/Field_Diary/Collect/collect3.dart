@@ -70,6 +70,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         text: model.quantity == 0 ? "" : model.quantity.toString());
   }
 
+  // Species fetching removed as per request for only 2 static choices
+
   @override
   void dispose() {
     _habitatOthersController.dispose();
@@ -98,6 +100,11 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     'Wildlife',
     'Signs of people presence',
     'Other'
+  ];
+
+  final List<String> _speciesChoices = [
+    'Scientific Name',
+    'Not Applicable'
   ];
 
   Future<void> _pickImages(ObservationModel model) async {
@@ -245,11 +252,12 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         uploadedUrls.add(publicUrl);
       }
 
+      // Save to observed_species table (taxon_group is the column name)
       final speciesData = await _supabase
           .from('observed_species')
           .upsert({
-            'common_name': _commonNameController.text,
             'taxon_group': _taxonController.text,
+            'common_name': _commonNameController.text,
           }, onConflict: 'common_name')
           .select()
           .single();
@@ -329,6 +337,9 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
       body: Column(
         children: [
+<<<<<<< HEAD
+          _buildTopNavBar(context, isDark, textTheme),
+=======
           // Offline indicator
           if (!_offlineService.isOnline)
             Container(
@@ -347,6 +358,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               ),
             ),
           _buildTopNavBar(context, isDark),
+>>>>>>> 10fc45e25a416b74e432412c5f50cc3e12438188
           _buildSecondaryHeader(context, model, textTheme),
           Expanded(
             child: ListView(
@@ -365,10 +377,10 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                   _buildLabel("Habitat *", textTheme),
                   const SizedBox(height: 8),
                   _buildDropdownField(
-                      model.habitat,
+                      _habitats.contains(model.habitat) ? model.habitat : null,
                       _habitats,
                       "Select habitat",
-                      (v) => setState(() => model.habitat = v!),
+                      (v) => setState(() => model.habitat = v ?? ''),
                       textTheme),
                   if (model.habitat == 'Other') ...[
                     const SizedBox(height: 12),
@@ -379,21 +391,36 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                   _buildLabel("Observation *", textTheme),
                   const SizedBox(height: 8),
                   _buildDropdownField(
-                      model.observationCategory,
+                      _observations.contains(model.observationCategory) ? model.observationCategory : null,
                       _observations,
                       "Select category",
-                      (v) => setState(() => model.observationCategory = v!),
+                      (v) => setState(() => model.observationCategory = v ?? ''),
                       textTheme),
                 ]),
                 const SizedBox(height: 24),
                 _buildCardTitle("WILDLIFE", isDark, textTheme),
                 _whiteCard(isDark, [
-                  // UPDATED: Added helpText for hover functionality
-                  _buildLabel("Taxon Group *", textTheme,
-                      helpText:
-                          "A taxon group represents biological classification levels (e.g., Aves for birds, Mammalia for mammals, or Flora for plants)."),
-                  _buildTextField(
-                      "e.g. Aves, Mammalia", _taxonController, textTheme),
+                  _buildLabel("Species Name *", textTheme),
+                  _buildDropdownField(
+                    (_speciesChoices?.contains(model.taxon ?? '') ?? false)
+                        ? model.taxon
+                        : null,
+                    _speciesChoices ?? [],
+                    "Select option",
+                    (v) => setState(() {
+                      model.taxon = v ?? '';
+                      if (v == 'Not Applicable') {
+                        _taxonController.text = 'N/A';
+                      }
+                    }),
+                    textTheme
+                  ),
+                  if (model.taxon == 'Scientific Name') ...[
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                        "Type scientific name...", _taxonController, textTheme,
+                        onChanged: (v) => setState(() => model.updateData())),
+                  ],
                   const SizedBox(height: 16),
                   _buildLabel("Common Name", textTheme),
                   _buildTextField(
@@ -449,7 +476,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   // --- UI HELPERS ---
 
-  Widget _buildTopNavBar(BuildContext context, bool isDark) => Container(
+  Widget _buildTopNavBar(BuildContext context, bool isDark, TextTheme textTheme) => Container(
       padding: EdgeInsets.only(
           top: MediaQuery.of(context).padding.top + 10,
           bottom: 10,
@@ -458,6 +485,14 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
       child: Row(children: [
         Image.asset('assets/logo2.png', height: 32),
+        const SizedBox(width: 12),
+        Text(
+          "Field Observation", 
+          style: textTheme.titleLarge?.copyWith(
+            color: isDark ? Colors.white : darkGreen,
+            fontWeight: FontWeight.bold,
+          )
+        ),
         const Spacer(),
         IconButton(
             icon: Icon(Icons.notifications_none_outlined,
@@ -483,7 +518,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                         builder: (_) => const EmployeePortal(initialIndex: 1)),
                     (route) => false)),
             const Spacer(),
-            Text("BMS Field Diary",
+            Text("BMS Field Observation",
                 style: textTheme.titleSmall?.copyWith(color: Colors.white)),
             const Spacer(),
             TextButton(
@@ -646,9 +681,10 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   }
 
   Widget _buildTextField(String h, TextEditingController c, TextTheme textTheme,
-          {bool isNum = false}) =>
+          {bool isNum = false, Function(String)? onChanged}) =>
       TextField(
           controller: c,
+          onChanged: onChanged,
           keyboardType: isNum ? TextInputType.number : TextInputType.text,
           style: textTheme.bodyMedium,
           decoration: InputDecoration(
@@ -659,16 +695,21 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none)));
-  Widget _buildDropdownField(String v, List<String> i, String h,
-          Function(String?) o, TextTheme textTheme) =>
+  Widget _buildDropdownField(String? v, List<String> i, String h,
+          Function(String?) o, TextTheme textTheme, {bool isLoading = false}) =>
       Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
               color: const Color(0xFFF9F9F9),
               borderRadius: BorderRadius.circular(12)),
-          child: DropdownButtonHideUnderline(
+          child: isLoading 
+            ? Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: forestGreen))),
+              )
+            : DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                  value: v.isEmpty ? null : v,
+                  value: (v == null || v.isEmpty) ? null : v,
                   isExpanded: true,
                   hint: Text(h, style: textTheme.bodyMedium),
                   items: i
@@ -695,7 +736,10 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   Widget _buildCardTitle(String t, bool d, TextTheme textTheme) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(t,
-          style: textTheme.labelSmall?.copyWith(color: Colors.black45)));
+          style: textTheme.labelSmall?.copyWith(
+            color: Colors.black45,
+            fontWeight: FontWeight.bold,
+          )));
   Widget _buildProfileIcon(BuildContext context, bool d) => InkWell(
       onTap: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => const UserProfileScreen())),

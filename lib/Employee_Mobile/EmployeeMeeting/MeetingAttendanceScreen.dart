@@ -63,7 +63,7 @@ class MeetingAttendanceScreen extends StatelessWidget {
             Row(children: [
               Expanded(child: ElevatedButton(onPressed: null, style: ElevatedButton.styleFrom(disabledBackgroundColor: forestGreen.withOpacity(0.1), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), elevation: 0), child: Text("Attending (confirmed)", style: TextStyle(color: forestGreen, fontSize: 13)))),
               const SizedBox(width: 12),
-              Expanded(child: OutlinedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CannotAttendScreen(meeting: meeting))), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Text("Cannot Attend", style: TextStyle(color: Colors.redAccent, fontSize: 13)))),
+              Expanded(child: OutlinedButton(onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => CannotAttendScreen(meeting: meeting))), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Text("Cannot Attend", style: TextStyle(color: Colors.redAccent, fontSize: 13)))),
             ]),
           ])),
         ],
