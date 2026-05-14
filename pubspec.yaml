@@ -21,6 +21,10 @@ dependencies:
   model_viewer_plus: ^1.7.0
   arcore_flutter_plugin: ^0.1.0
   permission_handler: ^11.0.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  connectivity_plus: ^5.0.0
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:
@@ -37,6 +41,7 @@ flutter:
     - assets/narra.glb
     - assets/tree.glb
     - assets/plant_shelf.png
+    - assets/paho.glb 
 
   fonts:
     - family: Poppins

@@ -465,7 +465,7 @@ class _UserDashboardState extends State<UserDashboard> {
                 ]
               ],
             ),
-            subtitle: Text("${plant['location_zone']} • ${plant['conservation_status']}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            subtitle: Text(plant['scientific_name'] ?? "Unknown", style: const TextStyle(fontSize: 12, color: Colors.grey)),
             trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black26),
           ),
           const Divider(height: 1, indent: 82, color: Color(0xFFF0F0F0)),

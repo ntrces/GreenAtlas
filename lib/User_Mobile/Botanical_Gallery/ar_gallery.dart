@@ -374,26 +374,11 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
               plant['common_name'] ?? "Unknown", 
               style: const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 15, color: Color(0xFF303D32)),
             ),
-            subtitle: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    "${plant['location_zone']} • ", 
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                _getConservationIcon(plant['conservation_status']),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    plant['conservation_status'] ?? "", 
-                    style: const TextStyle(color: Colors.black45, fontSize: 11),
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            subtitle: Text(
+              plant['scientific_name'] ?? "Unknown", 
+              style: const TextStyle(color: Colors.black45, fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.black12),
           ),

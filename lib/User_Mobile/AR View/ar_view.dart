@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:ui';
 import '../user_dashboard.dart';
 import '../Botanical_Gallery/ar_gallery.dart';
 import '../../UserProfile/user_profile.dart';
@@ -12,13 +13,13 @@ class TreeModel {
   final String name;
   final String scientificName;
   final String assetPath;
-  final Icon icon;
+  final Color color;
 
   const TreeModel({
     required this.name,
     required this.scientificName,
     required this.assetPath,
-    required this.icon,
+    required this.color,
   });
 }
 
@@ -29,100 +30,100 @@ const List<TreeModel> threatenedTrees = [
   TreeModel(
     name: 'Subyang',
     scientificName: 'Hopea quisumbingiana',
-    assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+    assetPath: 'assets/paho.glb',
+    color: Colors.red,
   ),
   // Endangered (EN)
   TreeModel(
     name: 'Molave',
     scientificName: 'Vitex parviflora',
-    assetPath: 'assets/tree.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+    assetPath: 'assets/paho.glb',
+    color: Colors.orange,
   ),
   TreeModel(
     name: 'Manggachapui',
     scientificName: 'Hopea acuminata',
-    assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+    assetPath: 'assets/paho.glb',
+    color: Colors.orange,
   ),
   TreeModel(
     name: 'Kubili',
     scientificName: 'Cubilia cubili',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+    color: Colors.orange,
   ),
   // Vulnerable (VU)
   TreeModel(
     name: 'Dao',
     scientificName: 'Dracontomelon dao',
-    assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    assetPath: 'assets/paho.glb',
+    color: Colors.amber,
   ),
   TreeModel(
-    name: 'Pahutan',
+    name: 'Paho',
     scientificName: 'Mangifera altissima',
-    assetPath: 'assets/bigfile.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    assetPath: 'assets/paho.glb',
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Narra',
     scientificName: 'Pterocarpus indicus',
     assetPath: 'assets/narra.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Kamagong',
     scientificName: 'Diospyros discolor',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Kalantas',
     scientificName: 'Toona calantas',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Dila-dila',
     scientificName: 'Cynometra inaequifolia',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Haikan',
     scientificName: 'Camellia lanceolata',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Malachio',
     scientificName: 'Glenniea philippinensis',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Bagarilau',
     scientificName: 'Cryptocarya ampla',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Nato',
     scientificName: 'Palaquium luzoniense',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Malak-malak',
     scientificName: 'Palaquium philippense',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
   TreeModel(
     name: 'Katmon',
     scientificName: 'Dillenia philippinensis',
     assetPath: 'assets/red_rose.glb',
-    icon: Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+    color: Colors.amber,
   ),
 ];
 
@@ -248,20 +249,22 @@ class _Ar_ViewState extends State<Ar_View> {
       ),
       body: Stack(
         children: [
-          // AR viewer
+          // AR viewer - immersive 3D model exploration
           ModelViewer(
             backgroundColor: const Color(0xFF0A0A0A),
             src: _viewingArTree!.assetPath,
             alt: "A 3D model of ${_viewingArTree!.name}",
             ar: true,
-            autoRotate: true,
-            cameraControls: true,
-            arModes: const ['scene-viewer', 'webxr-ar-module', 'quick-look'],
+            autoRotate: false,  // Don't auto-rotate - let user control
+            cameraControls: true,  // Enable full camera control for exploration
+            exposure: 1.2,  // Brighter sunlight effect
+            shadowIntensity: 0.5,  // Dynamic shadows for depth
+            shadowSoftness: 1.0,  // Soft shadows for natural lighting
           ),
 
-          // Surface prompt text
+          // Surface placement prompt
           Positioned(
-            bottom: 120,
+            bottom: 160,
             left: 0,
             right: 0,
             child: Column(
@@ -279,6 +282,12 @@ class _Ar_ViewState extends State<Ar_View> {
                   "Point at a flat surface, then tap the cube icon to place",
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Move around • Pinch to zoom • Drag to rotate",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -418,6 +427,12 @@ class _Ar_ViewState extends State<Ar_View> {
                 ),
                 child: Stack(
                   children: [
+                    // Dark overlay (~10% opacity for enhanced contrast)
+                    Container(
+                      width: width,
+                      height: height,
+                      color: Colors.black.withOpacity(0.1),
+                    ),
                     // Overlay buttons positioned on plants
                     _buildPlantOverlays(width, height),
                   ],
@@ -481,7 +496,7 @@ class _Ar_ViewState extends State<Ar_View> {
       _PlantPosition(left: 360, top: 190, plant: threatenedTrees[3]), // Kubili (EN)
       // Second shelf
       _PlantPosition(left: 95, top: 310, plant: threatenedTrees[4]), // Dao (VU)
-      _PlantPosition(left: 180, top: 290, plant: threatenedTrees[5]), // Pahutan (VU)
+      _PlantPosition(left: 180, top: 290, plant: threatenedTrees[5]), // Paho (VU)
       _PlantPosition(left: 270, top: 290, plant: threatenedTrees[6]), // Narra (VU)
       _PlantPosition(left: 350, top: 310, plant: threatenedTrees[7]), // Kamagong (VU)
       // Middle/Hanging section
@@ -523,22 +538,34 @@ class _Ar_ViewState extends State<Ar_View> {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        plant.icon,
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            plant.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Poppins-Bold',
-              fontSize: 11,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                plant.name,
+                style: TextStyle(
+                  color: plant.color,
+                  fontFamily: 'Poppins-Bold',
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      offset: const Offset(1, 1),
+                      blurRadius: 3,
+                      color: Colors.black54,
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
         ),
         const SizedBox(height: 6),
@@ -546,15 +573,15 @@ class _Ar_ViewState extends State<Ar_View> {
           onPressed: () => _viewPlantInAR(plant),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF517156),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            minimumSize: const Size(70, 28),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            minimumSize: const Size(60, 24),
           ),
           child: const Text(
             'View in AR',
             style: TextStyle(
               color: Colors.white,
               fontFamily: 'Poppins-Bold',
-              fontSize: 9,
+              fontSize: 8,
             ),
           ),
         ),
