@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../theme_provider.dart';
 import '../Collect/offline_draft_service.dart';
-import './draft.dart'; // Import the detail screen
+import './Draft.dart'; // Import the detail screen
 
 class DraftsListScreen extends StatefulWidget {
   const DraftsListScreen({super.key});
@@ -266,12 +266,14 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
 
     return GestureDetector(
       onTap: () {
-        // Show offline draft details
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text("This draft will be synced when you go online"),
-            duration: Duration(seconds: 2),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DraftDetailScreen(
+              draft: draft,
+              isOfflineDraft: true,
+              offlineService: _offlineService,
+            ),
           ),
         );
       },

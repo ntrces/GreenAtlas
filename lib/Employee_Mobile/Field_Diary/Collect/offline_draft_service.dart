@@ -4,7 +4,6 @@ import 'dart:io' show File;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OfflineDraftService extends ChangeNotifier {
@@ -157,6 +156,23 @@ class OfflineDraftService extends ChangeNotifier {
       final updated = Map<String, dynamic>.from(draft as Map);
       updated['synced'] = synced;
       updated['sync_attempts'] = (updated['sync_attempts'] ?? 0) + 1;
+      await _draftsBox.put(draftId, updated);
+      notifyListeners();
+    }
+  }
+
+  /// Update offline draft content
+  Future<void> updateOfflineDraft(String draftId, Map<String, dynamic> updatedData) async {
+    if (!_draftsBox.isOpen) {
+      throw Exception('Offline storage service not initialized. Please restart the app.');
+    }
+    final draft = _draftsBox.get(draftId);
+    if (draft != null) {
+      final updated = Map<String, dynamic>.from(draft as Map);
+      // Merge updated data while preserving metadata
+      updated.addAll(updatedData);
+      updated['draft_id'] = draftId; // Preserve draft ID
+      updated['created_at'] = draft['created_at']; // Preserve creation timestamp
       await _draftsBox.put(draftId, updated);
       notifyListeners();
     }

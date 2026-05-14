@@ -39,6 +39,9 @@ class ObservationModel extends ChangeNotifier {
   
   // Default to PENDING to satisfy DB Constraint
   String status = 'PENDING';
+  
+  // Track original draft ID when editing (used to delete old draft after submission)
+  String? originalDraftId;
 
   void updateLocationData({String? region, String? province, String? protectedArea}) {
     this.region = region ?? this.region;
@@ -68,7 +71,8 @@ class ObservationModel extends ChangeNotifier {
     imagePaths = [];
     imageUrls = []; 
     observationNotes = '';
-    status = 'PENDING'; 
+    status = 'PENDING';
+    originalDraftId = null; 
     notifyListeners();
   }
 }

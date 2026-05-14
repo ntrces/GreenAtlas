@@ -296,6 +296,24 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
       await _supabase.from('field_entries').insert(dbData);
 
+      // If this was an edited draft, delete the original draft
+      if (model.originalDraftId != null && !isDraft) {
+        try {
+          // Delete online draft from database
+          await _supabase
+              .from('field_entries')
+              .delete()
+              .eq('id', model.originalDraftId!);
+          
+          // Also check if it was an offline draft and delete from local storage
+          if (_offlineService.getOfflineDraft(model.originalDraftId!) != null) {
+            await _offlineService.deleteOfflineDraft(model.originalDraftId!);
+          }
+        } catch (e) {
+          debugPrint('Error deleting original draft: $e');
+        }
+      }
+
       await _supabase.from('audit_logs').insert({
         'title': isDraft ? 'Draft Saved' : 'Field Report Submitted',
         'description': isDraft
