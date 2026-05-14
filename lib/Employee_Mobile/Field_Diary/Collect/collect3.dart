@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 // Model & Components
 import '../Collect/observation_model.dart';
+import '../Collect/offline_draft_service.dart';
 import '../../../theme_provider.dart';
 import '../../../UserProfile/user_profile.dart';
 import '../../EmployeeNotification/employeenotif.dart';
@@ -27,6 +28,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   final _supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
   bool _isSaving = false;
+  late OfflineDraftService _offlineService;
   Key _formKey = UniqueKey();
 
   final Color darkGreen = const Color(0xFF2D3E2D);
@@ -43,6 +45,17 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   void initState() {
     super.initState();
     _initControllers();
+    _initOfflineService();
+  }
+
+  void _initOfflineService() async {
+    _offlineService = OfflineDraftService();
+    await _offlineService.init();
+    setState(() {});
+    // Listen for online status changes
+    _offlineService.addListener(() {
+      setState(() {});
+    });
   }
 
   void _initControllers() {
@@ -64,6 +77,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     _taxonController.dispose();
     _commonNameController.dispose();
     _countController.dispose();
+    _offlineService.dispose();
     super.dispose();
   }
 
@@ -141,6 +155,75 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       final user = _supabase.auth.currentUser;
       final userId = user?.id;
 
+      if (userId == null) {
+        throw Exception("User not authenticated");
+      }
+
+      // Check connectivity
+      if (!_offlineService.isOnline) {
+        // Save offline
+        if (isDraft) {
+          final draftData = {
+            'user_id': userId,
+            'team_members': model.members,
+            'region': model.region,
+            'province': model.province,
+            'protected_area': model.protectedArea,
+            'weather_condition': model.weatherConditions.join(', '),
+            'temperature': model.temperature,
+            'observation_date':
+                DateFormat('yyyy-MM-dd').format(model.observationDate),
+            'observation_time':
+                DateFormat('HH:mm:ss').format(model.observationDate),
+            'observation_category': model.observationCategory,
+            'habitat_type': model.habitat,
+            'taxon_group': _taxonController.text,
+            'common_name': _commonNameController.text,
+            'is_unlisted': model.isUnfamiliar,
+            'count': int.tryParse(_countController.text) ?? 0,
+            'notes': model.observationNotes,
+            'status': 'DRAFT',
+          };
+
+          List<String> methods = [];
+          if (model.seen) methods.add("Seen");
+          if (model.heard) methods.add("Heard");
+          if (model.presence) methods.add("Presence Signs");
+          draftData['discovery_method'] = methods.join(', ');
+
+          final draftId = await _offlineService.saveDraftOffline(draftData);
+          await _offlineService.saveImagePathsOffline(draftId, model.imagePaths);
+
+          if (mounted) {
+            model.reset();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    "Draft saved offline. Will sync when you're back online."),
+                duration: Duration(seconds: 3),
+              ),
+            );
+            Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const EmployeePortal(initialIndex: 1)),
+                (route) => false);
+          }
+          return;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  "You are offline. Please save as draft or connect to internet."),
+              duration: Duration(seconds: 3),
+            ),
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+      }
+
+      // Online flow - original implementation
       List<String> uploadedUrls = [];
       for (String path in model.imagePaths) {
         final fileName =
@@ -214,7 +297,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         'ip_address': 'Mobile App',
         'result': 'Success',
         'severity': 'Low',
-        'user': user?.email,
+        'user': user?.email ?? 'Unknown',
         'user_id': userId,
         'timestamp': DateTime.now().toIso8601String(),
       });
@@ -246,6 +329,23 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
       body: Column(
         children: [
+          // Offline indicator
+          if (!_offlineService.isOnline)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              color: Colors.orange.shade600,
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    "You are offline - Drafts will be saved locally",
+                    style: textTheme.labelSmall?.copyWith(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
           _buildTopNavBar(context, isDark),
           _buildSecondaryHeader(context, model, textTheme),
           Expanded(
