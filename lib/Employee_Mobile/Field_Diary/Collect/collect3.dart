@@ -296,6 +296,24 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
       await _supabase.from('field_entries').insert(dbData);
 
+      // If this was an edited draft, delete the original draft
+      if (model.originalDraftId != null && !isDraft) {
+        try {
+          // Delete online draft from database
+          await _supabase
+              .from('field_entries')
+              .delete()
+              .eq('id', model.originalDraftId!);
+          
+          // Also check if it was an offline draft and delete from local storage
+          if (_offlineService.getOfflineDraft(model.originalDraftId!) != null) {
+            await _offlineService.deleteOfflineDraft(model.originalDraftId!);
+          }
+        } catch (e) {
+          debugPrint('Error deleting original draft: $e');
+        }
+      }
+
       await _supabase.from('audit_logs').insert({
         'title': isDraft ? 'Draft Saved' : 'Field Report Submitted',
         'description': isDraft
@@ -312,6 +330,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
       if (mounted) {
         if (!isDraft) model.reset();
+        // Wait a moment for backend to sync before navigating
+        await Future.delayed(const Duration(milliseconds: 300));
         Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
@@ -337,9 +357,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
       body: Column(
         children: [
-<<<<<<< HEAD
-          _buildTopNavBar(context, isDark, textTheme),
-=======
           // Offline indicator
           if (!_offlineService.isOnline)
             Container(
@@ -357,8 +374,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                 ],
               ),
             ),
-          _buildTopNavBar(context, isDark),
->>>>>>> 10fc45e25a416b74e432412c5f50cc3e12438188
+          _buildTopNavBar(context, isDark, textTheme),
           _buildSecondaryHeader(context, model, textTheme),
           Expanded(
             child: ListView(

@@ -4,7 +4,6 @@ import 'dart:io' show File;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OfflineDraftService extends ChangeNotifier {
@@ -162,16 +161,70 @@ class OfflineDraftService extends ChangeNotifier {
     }
   }
 
-  /// Delete offline draft
+  /// Update offline draft content
+  Future<void> updateOfflineDraft(String draftId, Map<String, dynamic> updatedData) async {
+    if (!_draftsBox.isOpen) {
+      throw Exception('Offline storage service not initialized. Please restart the app.');
+    }
+    final draft = _draftsBox.get(draftId);
+    if (draft != null) {
+      final updated = Map<String, dynamic>.from(draft as Map);
+      // Merge updated data while preserving metadata
+      updated.addAll(updatedData);
+      updated['draft_id'] = draftId; // Preserve draft ID
+      updated['created_at'] = draft['created_at']; // Preserve creation timestamp
+      await _draftsBox.put(draftId, updated);
+      notifyListeners();
+    }
+  }
+
+  /// Delete offline draft and associated image files
   Future<void> deleteOfflineDraft(String draftId) async {
     if (!_draftsBox.isOpen || !_imagesBox.isOpen) {
       debugPrint('Offline service not initialized');
       return;
     }
-    await _draftsBox.delete(draftId);
-    final imageKey = 'images_$draftId';
-    await _imagesBox.delete(imageKey);
-    notifyListeners();
+    
+    try {
+      // Get image paths for cleanup
+      final imagePaths = getImagePathsForDraft(draftId);
+      
+      // Delete image files from device storage
+      for (final imagePath in imagePaths) {
+        try {
+          final file = File(imagePath);
+          if (file.existsSync()) {
+            await file.delete();
+            debugPrint('Deleted image file: $imagePath');
+          }
+        } catch (e) {
+          debugPrint('Error deleting image file $imagePath: $e');
+          // Continue deleting other files even if one fails
+        }
+      }
+      
+      // Delete from Hive storage
+      await _draftsBox.delete(draftId);
+      final imageKey = 'images_$draftId';
+      await _imagesBox.delete(imageKey);
+      
+      debugPrint('Offline draft deleted: $draftId');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error deleting offline draft: $e');
+      rethrow;
+    }
+  }
+
+  /// Safe delete offline draft - returns success/failure instead of throwing
+  Future<bool> safeDeleteOfflineDraft(String draftId) async {
+    try {
+      await deleteOfflineDraft(draftId);
+      return true;
+    } catch (e) {
+      debugPrint('Safe delete failed for $draftId: $e');
+      return false;
+    }
   }
 
   /// Sync pending drafts when online
@@ -298,6 +351,31 @@ class OfflineDraftService extends ChangeNotifier {
     }
     
     await _syncPendingDrafts();
+  }
+
+  /// Clean up offline copy of a synced draft
+  /// Call this when a synced draft is deleted online to remove the offline copy
+  Future<void> cleanupSyncedDraft(String? draftId) async {
+    if (draftId == null || draftId.isEmpty) return;
+    
+    // Ensure boxes are initialized before accessing
+    if (!_draftsBox.isOpen || !_imagesBox.isOpen) {
+      debugPrint('Offline service not initialized, skipping cleanup');
+      return;
+    }
+    
+    try {
+      // Check if this draft exists offline
+      final offlineDraft = getOfflineDraft(draftId);
+      if (offlineDraft != null && offlineDraft['synced'] == true) {
+        // Delete the offline copy since it's been synced
+        await deleteOfflineDraft(draftId);
+        debugPrint('Cleaned up synced draft: $draftId');
+      }
+    } catch (e) {
+      debugPrint('Error cleaning up synced draft: $e');
+      // Don't throw - this is a cleanup operation
+    }
   }
 
   @override

@@ -1,37 +1,178 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../Collect/observation_model.dart';
-import '../Collect/collect01.dart'; 
+import '../Collect/collect01.dart';
+import '../Collect/offline_draft_service.dart';
 
-class DraftDetailScreen extends StatelessWidget {
+class DraftDetailScreen extends StatefulWidget {
   final Map<String, dynamic> draft;
-  const DraftDetailScreen({super.key, required this.draft});
+  final bool isOfflineDraft;
+  final OfflineDraftService? offlineService;
+
+  const DraftDetailScreen({
+    super.key,
+    required this.draft,
+    this.isOfflineDraft = false,
+    this.offlineService,
+  });
+
+  @override
+  State<DraftDetailScreen> createState() => _DraftDetailScreenState();
+}
+
+class _DraftDetailScreenState extends State<DraftDetailScreen> {
+  late Map<String, dynamic> _editingDraft;
+  bool _isDeleting = false;
 
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
   final Color lightGreenBG = const Color(0xFFEAF7EA);
   final Color draftBadgeColor = const Color(0xFF8BA88B);
 
+  @override
+  void initState() {
+    super.initState();
+    _editingDraft = Map<String, dynamic>.from(widget.draft);
+  }
+
   // --- LOGIC: EDIT ---
   void _handleEdit(BuildContext context) {
-    final model = context.read<ObservationModel>();
-    
-    model.observationDate = DateTime.parse(draft['observation_date'] ?? DateTime.now().toString());
-    model.region = draft['region'] ?? '';
-    model.province = draft['province'] ?? '';
-    model.protectedArea = draft['protected_area'] ?? '';
-    model.speciesName = draft['common_name'] ?? '';
-    model.taxon = draft['taxon_group'] ?? '';
-    model.habitat = draft['habitat_type'] ?? '';
-    model.quantity = draft['count'] ?? 0;
-    model.observationNotes = draft['notes'] ?? '';
+    if (widget.isOfflineDraft) {
+      // For offline drafts, navigate to collector with draft data
+      final model = context.read<ObservationModel>();
+      
+      model.observationDate = DateTime.parse(_editingDraft['observation_date'] ?? DateTime.now().toString());
+      model.region = _editingDraft['region'] ?? '';
+      model.province = _editingDraft['province'] ?? '';
+      model.protectedArea = _editingDraft['protected_area'] ?? '';
+      model.speciesName = _editingDraft['common_name'] ?? '';
+      model.taxon = _editingDraft['taxon_group'] ?? '';
+      model.habitat = _editingDraft['habitat_type'] ?? '';
+      model.quantity = _editingDraft['count'] ?? 0;
+      model.observationNotes = _editingDraft['notes'] ?? '';
+      model.originalDraftId = _editingDraft['draft_id'] as String?;
 
-    model.updateData();
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep1Screen()));
+      model.updateData();
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep1Screen()));
+    } else {
+      final model = context.read<ObservationModel>();
+      
+      model.observationDate = DateTime.parse(_editingDraft['observation_date'] ?? DateTime.now().toString());
+      model.region = _editingDraft['region'] ?? '';
+      model.province = _editingDraft['province'] ?? '';
+      model.protectedArea = _editingDraft['protected_area'] ?? '';
+      model.speciesName = _editingDraft['common_name'] ?? '';
+      model.taxon = _editingDraft['taxon_group'] ?? '';
+      model.habitat = _editingDraft['habitat_type'] ?? '';
+      model.quantity = _editingDraft['count'] ?? 0;
+      model.observationNotes = _editingDraft['notes'] ?? '';
+      model.originalDraftId = _editingDraft['id'] as String?; // Set original draft ID for online drafts
+
+      model.updateData();
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep1Screen()));
+    }
+  }
+
+  // --- LOGIC: DELETE ---
+  void _handleDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text("Delete Draft?"),
+        content: Text(
+          "Are you sure you want to delete this ${widget.isOfflineDraft ? 'offline ' : ''}draft? This action cannot be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: _isDeleting ? null : () => Navigator.pop(dialogContext),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: _isDeleting ? null : () async {
+              Navigator.pop(dialogContext);
+              await _performDelete();
+            },
+            child: _isDeleting
+                ? const Text("Deleting...", style: TextStyle(color: Colors.red))
+                : const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performDelete() async {
+    if (_isDeleting) return;
+
+    setState(() => _isDeleting = true);
+
+    try {
+      if (widget.isOfflineDraft && widget.offlineService != null) {
+        // Delete offline draft
+        final draftId = _editingDraft['draft_id'] as String?;
+        if (draftId != null) {
+          await widget.offlineService!.deleteOfflineDraft(draftId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Offline draft deleted successfully"),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            // Pop with result indicating deletion
+            Navigator.pop(context, true);
+          }
+        }
+      } else {
+        // Delete online draft from Supabase
+        final supabase = Supabase.instance.client;
+        final draftId = _editingDraft['id'];
+
+        await supabase.from('field_entries').delete().eq('id', draftId);
+
+        // Also cleanup offline copy if it exists
+        if (widget.offlineService != null) {
+          await widget.offlineService!.cleanupSyncedDraft(draftId);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Draft deleted successfully"),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          // Pop with result indicating deletion
+          Navigator.pop(context, true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+        final errorMsg = e.toString();
+        debugPrint('Error deleting draft: $errorMsg');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Error deleting draft: ${errorMsg.length > 50 ? errorMsg.substring(0, 50) + '...' : errorMsg}",
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final badgeColor = widget.isOfflineDraft ? Colors.orange : draftBadgeColor;
+    final badgeText = widget.isOfflineDraft ? "Offline Draft" : "Draft";
+
     return Scaffold(
       backgroundColor: lightGreenBG,
       appBar: AppBar(
@@ -44,7 +185,7 @@ class DraftDetailScreen extends StatelessWidget {
         title: Column(
           children: [
             const Text("Entry Details", style: TextStyle(color: Colors.white, fontSize: 16)),
-            Text("BMS-${draft['id'].toString().substring(0,5).toUpperCase()}", 
+            Text("BMS-${_editingDraft['draft_id']?.toString().substring(0, 5).toUpperCase() ?? _editingDraft['id'].toString().substring(0, 5).toUpperCase()}", 
                 style: const TextStyle(color: Colors.white70, fontSize: 10)),
           ],
         ),
@@ -57,16 +198,40 @@ class DraftDetailScreen extends StatelessWidget {
             // Status Badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(color: draftBadgeColor, borderRadius: BorderRadius.circular(8)),
-              child: const Text("Draft", style: TextStyle(color: Colors.white, fontSize: 10)),
+              decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(8)),
+              child: Text(badgeText, style: const TextStyle(color: Colors.white, fontSize: 10)),
             ),
             const SizedBox(height: 16),
+
+            // Offline indicator
+            if (widget.isOfflineDraft)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_off, color: Colors.orange.shade700, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "This draft is stored offline and will sync when online",
+                        style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
             // Metadata Card
             _buildCard([
               _buildDataRow("User ID:", "FO-12345"),
-              _buildDataRow("Created:", draft['created_at'].toString().substring(0, 16)),
-              _buildDataRow("Modified:", draft['observation_date'] ?? "N/A"),
+              _buildDataRow("Created:", _editingDraft['created_at'].toString().substring(0, 16)),
+              _buildDataRow("Modified:", _editingDraft['observation_date'] ?? "N/A"),
             ]),
 
             // Location Card
@@ -74,13 +239,13 @@ class DraftDetailScreen extends StatelessWidget {
               const Text("Location Details", style: TextStyle(fontSize: 14, color: Colors.black87)),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Region", draft['region'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Province", draft['province'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Region", _editingDraft['region'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Province", _editingDraft['province'] ?? "N/A")),
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Protected Area", draft['protected_area'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Date", draft['observation_date'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Protected Area", _editingDraft['protected_area'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Date", _editingDraft['observation_date'] ?? "N/A")),
               ]),
             ]),
 
@@ -88,9 +253,9 @@ class DraftDetailScreen extends StatelessWidget {
             _buildCard([
               const Text("Observation 1", style: TextStyle(fontSize: 14, color: Colors.black87)),
               const SizedBox(height: 12),
-              _buildInfoItem("Species Name", draft['common_name'] ?? "Unnamed"),
+              _buildInfoItem("Species Name", _editingDraft['common_name'] ?? "Unnamed"),
               const SizedBox(height: 12),
-              _buildInfoItem("Habitat", draft['habitat_type'] ?? "N/A"),
+              _buildInfoItem("Habitat", _editingDraft['habitat_type'] ?? "N/A"),
             ]),
 
             const SizedBox(height: 24),
@@ -112,7 +277,7 @@ class DraftDetailScreen extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pop(context), // Link to your delete logic
+                    onPressed: () => _handleDelete(context),
                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                     label: const Text("Delete", style: TextStyle(color: Colors.redAccent)),
                     style: OutlinedButton.styleFrom(

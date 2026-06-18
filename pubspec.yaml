@@ -38,7 +38,6 @@ flutter:
     - assets/logo1.png
     - assets/logo2.png
     - assets/red_rose.glb
-    - assets/bigfile.glb
     - assets/narra.glb
     - assets/tree.glb
     - assets/plant_shelf.png
