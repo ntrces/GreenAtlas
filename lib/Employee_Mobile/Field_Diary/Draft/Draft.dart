@@ -23,6 +23,7 @@ class DraftDetailScreen extends StatefulWidget {
 
 class _DraftDetailScreenState extends State<DraftDetailScreen> {
   late Map<String, dynamic> _editingDraft;
+  bool _isDeleting = false;
 
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
@@ -84,56 +85,87 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: _isDeleting ? null : () => Navigator.pop(dialogContext),
             child: const Text("Cancel"),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: _isDeleting ? null : () async {
               Navigator.pop(dialogContext);
-              
-              if (widget.isOfflineDraft && widget.offlineService != null) {
-                // Delete offline draft
-                final draftId = _editingDraft['draft_id'] as String?;
-                if (draftId != null) {
-                  await widget.offlineService!.deleteOfflineDraft(draftId);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Offline draft deleted")),
-                    );
-                    Navigator.pop(context);
-                  }
-                }
-              } else {
-                // Delete online draft from Supabase
-                try {
-                  final supabase = Supabase.instance.client;
-                  final draftId = _editingDraft['id'];
-                  
-                  await supabase
-                      .from('field_entries')
-                      .delete()
-                      .eq('id', draftId);
-                  
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Draft deleted successfully")),
-                    );
-                    Navigator.pop(context);
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Error deleting draft: $e")),
-                    );
-                  }
-                }
-              }
+              await _performDelete();
             },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: _isDeleting
+                ? const Text("Deleting...", style: TextStyle(color: Colors.red))
+                : const Text("Delete", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _performDelete() async {
+    if (_isDeleting) return;
+
+    setState(() => _isDeleting = true);
+
+    try {
+      if (widget.isOfflineDraft && widget.offlineService != null) {
+        // Delete offline draft
+        final draftId = _editingDraft['draft_id'] as String?;
+        if (draftId != null) {
+          await widget.offlineService!.deleteOfflineDraft(draftId);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Offline draft deleted successfully"),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            // Pop with result indicating deletion
+            Navigator.pop(context, true);
+          }
+        }
+      } else {
+        // Delete online draft from Supabase
+        final supabase = Supabase.instance.client;
+        final draftId = _editingDraft['id'];
+
+        await supabase.from('field_entries').delete().eq('id', draftId);
+
+        // Also cleanup offline copy if it exists
+        if (widget.offlineService != null) {
+          await widget.offlineService!.cleanupSyncedDraft(draftId);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Draft deleted successfully"),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          // Pop with result indicating deletion
+          Navigator.pop(context, true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+        final errorMsg = e.toString();
+        debugPrint('Error deleting draft: $errorMsg');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Error deleting draft: ${errorMsg.length > 50 ? errorMsg.substring(0, 50) + '...' : errorMsg}",
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override

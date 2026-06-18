@@ -330,6 +330,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
       if (mounted) {
         if (!isDraft) model.reset();
+        // Wait a moment for backend to sync before navigating
+        await Future.delayed(const Duration(milliseconds: 300));
         Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(

@@ -19,20 +19,37 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
   final Color forestGreen = const Color(0xFF5D7A5D);
   late OfflineDraftService _offlineService;
   bool _isSyncing = false;
+  int _refreshKey = 0;
 
   @override
   void initState() {
     super.initState();
-    _initOfflineService();
-  }
+    _initOfflineService();    // Add a small delay to allow Supabase to process updates
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _refreshDraftList();
+      }
+    });  }
 
   void _initOfflineService() async {
     _offlineService = OfflineDraftService();
     await _offlineService.init();
     setState(() {});
     _offlineService.addListener(() {
-      setState(() {});
+      if (mounted) {
+        setState(() {
+          _refreshKey++; // Force rebuild with new key
+        });
+      }
     });
+  }
+
+  void _refreshDraftList() {
+    if (mounted) {
+      setState(() {
+        _refreshKey++;
+      });
+    }
   }
 
   @override
@@ -201,59 +218,74 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
   }
 
   Widget _buildOnlineDraftsSection(String? userId, bool isDark) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: userId != null
-          ? _supabase
-              .from('field_entries')
-              .stream(primaryKey: ['id'])
-              .eq('user_id', userId)
-          : const Stream.empty(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: CircularProgressIndicator(),
-          );
-        }
+    // Use a key that includes _refreshKey to force StreamBuilder rebuild
+    return KeyedSubtree(
+      key: ValueKey('online_drafts_$_refreshKey'),
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: userId != null
+            ? _supabase
+                .from('field_entries')
+                .stream(primaryKey: ['id'])
+                .eq('user_id', userId)
+            : const Stream.empty(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.all(20.0),
+              child: CircularProgressIndicator(),
+            );
+          }
 
-        final drafts = (snapshot.data ?? [])
-            .where((d) => d['status'] == 'DRAFT')
-            .toList();
+          // Handle errors
+          if (snapshot.hasError) {
+            debugPrint('Stream error: ${snapshot.error}');
+            return const Padding(
+              padding: EdgeInsets.all(20.0),
+              child: Center(
+                  child: Text("Error loading drafts",
+                      style: TextStyle(color: Colors.red))),
+            );
+          }
 
-        if (drafts.isEmpty && !_offlineService.hasOfflineDrafts) {
-          return const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Center(
-                child: Text("No drafts yet",
-                    style: TextStyle(color: Colors.black38))),
-          );
-        }
+          final drafts = (snapshot.data ?? [])
+              .where((d) => d['status'] == 'DRAFT')
+              .toList();
 
-        if (drafts.isEmpty) {
-          return const SizedBox.shrink();
-        }
+          if (drafts.isEmpty && !_offlineService.hasOfflineDrafts) {
+            return const Padding(
+              padding: EdgeInsets.all(20.0),
+              child: Center(
+                  child: Text("No drafts yet",
+                      style: TextStyle(color: Colors.black38))),
+            );
+          }
 
-        return Container(
-          margin: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                child: Text(
-                  "Synced Drafts (${drafts.length})",
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black54),
+          if (drafts.isEmpty) {
+            return const SizedBox.shrink();
+          }
+
+          return Container(
+            margin: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  child: Text(
+                    "Synced Drafts (${drafts.length})",
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54),
+                  ),
                 ),
-              ),
-              ...drafts.map((item) =>
-                  _buildDraftTile(context, item, isDark)),
-            ],
-          ),
-        );
-      },
+                ...drafts.map((item) =>
+                    _buildDraftTile(context, item, isDark)),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -263,66 +295,112 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     final dateString = draft['observation_date'] ?? DateTime.now().toString();
     final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(dateString));
     final isSynced = draft['synced'] == true;
+    final draftId = draft['draft_id'] as String;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DraftDetailScreen(
-              draft: draft,
-              isOfflineDraft: true,
-              offlineService: _offlineService,
+    return Dismissible(
+      key: ValueKey('offline_$draftId$_refreshKey'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (direction) async {
+        await _offlineService.deleteOfflineDraft(draftId);
+        _refreshDraftList(); // Ensure UI updates
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Offline draft deleted"),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
-          ),
-        );
+          );
+        }
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.orange.withOpacity(0.1),
-              child: Icon(
-                isSynced ? Icons.cloud_done : Icons.cloud_queue,
-                color: isSynced ? Colors.green : Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(species,
-                      style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontSize: 16)),
-                  Text(
-                    "Last edited: $date",
-                    style: const TextStyle(fontSize: 12, color: Colors.black45),
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                title: const Text("Delete Offline Draft?"),
+                content: const Text(
+                  "Are you sure you want to delete this offline draft?",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Cancel"),
                   ),
-                  if (isSynced)
-                    const Text(
-                      "Synced",
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.green,
-                          fontWeight: FontWeight.w500),
-                    ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                  ),
                 ],
               ),
+            ) ??
+            false;
+      },
+      background: Container(
+        color: Colors.red.shade400,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DraftDetailScreen(
+                draft: draft,
+                isOfflineDraft: true,
+                offlineService: _offlineService,
+              ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
-          ],
+          ).then((_) => _refreshDraftList()); // Refresh when returning from detail screen
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
+            ],
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.orange.withOpacity(0.1),
+                child: Icon(
+                  isSynced ? Icons.cloud_done : Icons.cloud_queue,
+                  color: isSynced ? Colors.green : Colors.orange,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(species,
+                        style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontSize: 16)),
+                    Text(
+                      "Last edited: $date",
+                      style: const TextStyle(fontSize: 12, color: Colors.black45),
+                    ),
+                    if (isSynced)
+                      const Text(
+                        "Synced",
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.green,
+                            fontWeight: FontWeight.w500),
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
+            ],
+          ),
         ),
       ),
     );
@@ -333,47 +411,121 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     final species = draft['common_name'] ?? "Unnamed Entry";
     final dateString = draft['observation_date'] ?? DateTime.now().toString();
     final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(dateString));
+    final draftId = draft['id'];
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => DraftDetailScreen(draft: draft)),
-        );
+    return Dismissible(
+      key: ValueKey('online_$draftId$_refreshKey'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (direction) async {
+        try {
+          final supabase = Supabase.instance.client;
+          // Delete from Supabase
+          await supabase.from('field_entries').delete().eq('id', draftId);
+          debugPrint('Deleted draft $draftId from Supabase');
+
+          // Cleanup offline copy if it exists
+          try {
+            await _offlineService.cleanupSyncedDraft(draftId);
+          } catch (cleanupError) {
+            debugPrint('Cleanup error (non-critical): $cleanupError');
+          }
+
+          // Wait for backend to sync
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // Force UI refresh
+          if (mounted) {
+            _refreshDraftList();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Draft deleted successfully"),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('Error deleting draft: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("Error deleting draft: $e"),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: forestGreen.withOpacity(0.1),
-              child: Icon(Icons.edit_document, color: forestGreen, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(species,
-                      style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontSize: 16)),
-                  Text("Last edited: $date",
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.black45)),
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                title: const Text("Delete Draft?"),
+                content: const Text(
+                  "Are you sure you want to delete this draft?",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Cancel"),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                  ),
                 ],
               ),
-            ),
-            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
-          ],
+            ) ??
+            false;
+      },
+      background: Container(
+        color: Colors.red.shade400,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => DraftDetailScreen(draft: draft)),
+          ).then((_) => _refreshDraftList()); // Refresh when returning from detail screen
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
+            ],
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: forestGreen.withOpacity(0.1),
+                child: Icon(Icons.edit_document, color: forestGreen, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(species,
+                        style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontSize: 16)),
+                    Text("Last edited: $date",
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.black45)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
+            ],
+          ),
         ),
       ),
     );
