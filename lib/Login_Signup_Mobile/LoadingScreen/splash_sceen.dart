@@ -21,13 +21,23 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _redirectToAppropriateScreen() async {
-    // Wait for splash to show briefly
-    await Future.delayed(const Duration(seconds: 2));
-    
     if (!mounted) return;
 
     try {
       final supabase = Supabase.instance.client;
+      
+      // Wait for auth state to be fully restored from device storage
+      // Listen to the first auth state change to know session is restored
+      bool sessionRestored = false;
+      await for (final authState in supabase.auth.onAuthStateChange.take(1)) {
+        sessionRestored = true;
+        if (!mounted) return;
+        break;
+      }
+      
+      // Add small delay to ensure all data is loaded
+      await Future.delayed(const Duration(milliseconds: 300));
+      
       final currentUser = supabase.auth.currentUser;
 
       if (currentUser != null) {
