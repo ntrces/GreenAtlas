@@ -352,7 +352,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                 ],
               ),
             ),
-          _buildTopNavBar(context, isDark),
+          _buildTopNavBar(context, isDark, textTheme),
           _buildSecondaryHeader(context, model, textTheme),
           Expanded(
             child: ListView(
