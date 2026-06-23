@@ -14,6 +14,95 @@ class SentObservationsScreen extends StatelessWidget {
   final Color lightGreenBG = const Color(0xFFEAF7EA);
   final Color statusBlue = const Color(0xFF5D7A7A); // Soft blue for Validated/Sent
 
+  List<String> _getImages(Map<String, dynamic> obs) {
+    final urls = obs['image_urls'] ?? obs['image_url'];
+    if (urls is List) {
+      return List<String>.from(urls);
+    } else if (urls is String) {
+      return [urls];
+    }
+    return [];
+  }
+
+  void _showImagePreview(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.black,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Image.network(url, fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black45,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagesSection(BuildContext context, List<String> images) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Photos", style: TextStyle(fontSize: 12, color: Colors.black38)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: images.length,
+            itemBuilder: (context, index) {
+              final url = images[index];
+              return GestureDetector(
+                onTap: () => _showImagePreview(context, url),
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Icon(Icons.broken_image, color: Colors.black26),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -23,6 +112,7 @@ class SentObservationsScreen extends StatelessWidget {
     final date = DateFormat('MMMM dd, yyyy').format(DateTime.parse(rawDate));
     
     final String status = observation['status']?.toString().toUpperCase() ?? "PENDING";
+    final List<String> images = _getImages(observation);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
@@ -70,12 +160,12 @@ class SentObservationsScreen extends StatelessWidget {
             // Team Members Card (If jsonb data exists)
             if (observation['team_members'] != null)
               _buildWhiteCard([
-                const Text("Team Members", style: TextStyle(fontSize: 14, color: Colors.black87)),
+                const Text("Team Members", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 ... (observation['team_members'] as List).map((m) => Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text("${m['firstname']} ${m['lastname']}", style: const TextStyle(fontSize: 13, color: Colors.black87)),
                       Text(m['role'] ?? "Member", style: const TextStyle(color: Colors.black38, fontSize: 11)),
@@ -86,7 +176,7 @@ class SentObservationsScreen extends StatelessWidget {
 
             // Location Details Card
             _buildWhiteCard([
-              const Text("Location Details", style: TextStyle(fontSize: 14, color: Colors.black87)),
+              const Text("Location Details", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(child: _buildInfoItem("Region", observation['region'] ?? "N/A")),
@@ -95,43 +185,52 @@ class SentObservationsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(child: _buildInfoItem("Protected Area", observation['protected_area'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Date", date)),
+                Expanded(child: _buildInfoItem("Observation Date", date)),
               ]),
+            ]),
+
+            // Environment Card
+            _buildWhiteCard([
+              const Text("Environment", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              _buildInfoItem("Weather", "${observation['weather_condition'] ?? 'N/A'}, ${observation['temperature'] ?? '--'}°C"),
+              Row(children: [
+                Expanded(child: _buildInfoItem("Weather Conditions", observation['weather_condition'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Temperature", "${observation['temperature'] ?? '--'}°C")),
+              ]),
             ]),
 
             // Observation Details Card
             _buildWhiteCard([
-              const Text("Observation 1", style: TextStyle(fontSize: 14, color: Colors.black87)),
+              const Text("Observation Details", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              _buildInfoItem("Time", observation['observation_time'] ?? "N/A"),
+              Row(children: [
+                Expanded(child: _buildInfoItem("Species Name", observation['common_name'] ?? "Unnamed")),
+                Expanded(child: _buildInfoItem("Taxon Group", observation['taxon_group'] ?? "N/A")),
+              ]),
               const SizedBox(height: 12),
-              _buildInfoItem("Habitat", observation['habitat_type'] ?? "N/A"),
+              Row(children: [
+                Expanded(child: _buildInfoItem("Category", observation['observation_category'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Habitat", observation['habitat_type'] ?? "N/A")),
+              ]),
               const SizedBox(height: 12),
-              _buildInfoItem("Wildlife Details", "${observation['taxon_group'] ?? 'N/A'}: ${observation['common_name'] ?? 'Unnamed'}"),
+              Row(children: [
+                Expanded(child: _buildInfoItem("Count/Quantity", observation['count']?.toString() ?? "0")),
+                Expanded(child: _buildInfoItem("Discovery Method", observation['discovery_method'] ?? "N/A")),
+              ]),
               const SizedBox(height: 12),
-              _buildInfoItem("Discovery Method", observation['discovery_method'] ?? "N/A"),
+              Row(children: [
+                Expanded(child: _buildInfoItem("Observation Time", observation['observation_time'] ?? "N/A")),
+                Expanded(child: const SizedBox.shrink()),
+              ]),
+              if (observation['notes'] != null && observation['notes'].toString().trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildInfoItem("Observation Notes", observation['notes']),
+              ],
+              if (images.isNotEmpty) ...[
+                const Divider(height: 32),
+                _buildImagesSection(context, images),
+              ],
             ]),
-
-            // Image Card (if available)
-            if (observation['image_url'] != null)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    observation['image_url'],
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
             
             const SizedBox(height: 40),
           ],

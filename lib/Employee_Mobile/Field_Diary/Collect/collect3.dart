@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart'; // For kIsWeb
 import 'dart:io' show File;
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Model & Components
 import '../Collect/observation_model.dart';
@@ -30,6 +35,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   bool _isSaving = false;
   late OfflineDraftService _offlineService;
   Key _formKey = UniqueKey();
+  final Map<String, Position> _imageLocations = {};
 
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
@@ -104,13 +110,128 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   final List<String> _speciesChoices = ['Scientific Name', 'Not Applicable'];
 
+  Future<String> _watermarkImage(String path, Position? position, ObservationModel model) async {
+    if (kIsWeb) {
+      return path;
+    }
+    try {
+      final File file = File(path);
+      final Uint8List bytes = await file.readAsBytes();
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final ui.Image image = frameInfo.image;
+
+      final ui.PictureRecorder recorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(recorder);
+
+      final Paint paint = Paint();
+      canvas.drawImage(image, Offset.zero, paint);
+
+      final String timestampStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+      
+      String locationStr = "";
+      String addressStr = "";
+      if (position != null) {
+        locationStr = "GPS: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}";
+        try {
+          List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+          if (placemarks.isNotEmpty) {
+            final Placemark place = placemarks.first;
+            final String city = place.locality ?? "";
+            final String subAdmin = place.subAdministrativeArea ?? "";
+            
+            final List<String> addressParts = [];
+            if (city.isNotEmpty) addressParts.add(city);
+            if (subAdmin.isNotEmpty && subAdmin != city) addressParts.add(subAdmin);
+            
+            addressStr = addressParts.join(', ');
+          }
+        } catch (e) {
+          debugPrint("Error reverse geocoding: $e");
+        }
+      }
+
+      final List<String> watermarkLines = [
+        timestampStr,
+        if (addressStr.isNotEmpty) addressStr,
+        locationStr.isNotEmpty ? locationStr : "GPS: Unavailable",
+      ];
+      final String watermarkText = watermarkLines.join('\n');
+
+      final double fontSize = image.height * 0.035; 
+      
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: watermarkText,
+          style: TextStyle(
+            color: Colors.orangeAccent,
+            fontSize: fontSize > 12 ? fontSize : 12,
+            fontWeight: FontWeight.bold,
+            height: 1.2,
+            shadows: const [
+              Shadow(
+                blurRadius: 4.0,
+                color: Colors.black,
+                offset: Offset(2.0, 2.0),
+              ),
+            ],
+          ),
+        ),
+        textAlign: TextAlign.right,
+        textDirection: ui.TextDirection.ltr,
+      );
+      textPainter.layout();
+
+      final double padding = image.height * 0.02;
+      final double x = image.width - textPainter.width - padding;
+      final double y = image.height - textPainter.height - padding;
+
+      textPainter.paint(canvas, Offset(x, y));
+
+      final ui.Picture picture = recorder.endRecording();
+      final ui.Image watermarkedUiImage = await picture.toImage(image.width, image.height);
+      final ByteData? byteData = await watermarkedUiImage.toByteData(format: ui.ImageByteFormat.png);
+      
+      if (byteData != null) {
+        final Uint8List watermarkedBytes = byteData.buffer.asUint8List();
+        await file.writeAsBytes(watermarkedBytes);
+      }
+    } catch (e) {
+      debugPrint("Error watermarking image: $e");
+    }
+    return path;
+  }
+
   Future<void> _pickImages(ObservationModel model) async {
     try {
-      final List<XFile> pickedImages =
-          await _picker.pickMultiImage(imageQuality: 70);
-      if (pickedImages.isNotEmpty) {
+      final XFile? pickedImage =
+          await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+      if (pickedImage != null) {
+        Position? position;
+        try {
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+          if (serviceEnabled) {
+            LocationPermission permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.denied) {
+              permission = await Geolocator.requestPermission();
+            }
+            if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+              position = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.high,
+                timeLimit: const Duration(seconds: 5),
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint("Error getting GPS location: $e");
+        }
+
+        final String watermarkedPath = await _watermarkImage(pickedImage.path, position, model);
         setState(() {
-          model.imagePaths.addAll(pickedImages.map((img) => img.path));
+          if (position != null) {
+            _imageLocations[watermarkedPath] = position;
+          }
+          model.imagePaths.add(watermarkedPath);
           model.updateData();
         });
       }
@@ -120,7 +241,9 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   }
 
   void _removeImage(int index, ObservationModel model) {
+    final String path = model.imagePaths[index];
     setState(() {
+      _imageLocations.remove(path);
       model.imagePaths.removeAt(index);
       model.updateData();
     });
@@ -544,6 +667,47 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                         textTheme.bodySmall?.copyWith(color: Colors.white70)))
           ]));
 
+  void _showImagePreview(BuildContext context, String path) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.black,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: kIsWeb
+                    ? Image.network(path, fit: BoxFit.contain)
+                    : Image.file(File(path), fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black45,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMultiPhotoBox(
       bool d, ObservationModel model, TextTheme textTheme) {
     return Column(
@@ -559,16 +723,19 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                 final String path = model.imagePaths[index];
                 return Stack(
                   children: [
-                    Container(
-                        width: 100,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            image: DecorationImage(
-                                image: kIsWeb
-                                    ? NetworkImage(path) as ImageProvider
-                                    : FileImage(File(path)),
-                                fit: BoxFit.cover))),
+                    GestureDetector(
+                      onTap: () => _showImagePreview(context, path),
+                      child: Container(
+                          width: 100,
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              image: DecorationImage(
+                                  image: kIsWeb
+                                      ? NetworkImage(path) as ImageProvider
+                                      : FileImage(File(path)),
+                                  fit: BoxFit.cover))),
+                    ),
                     Positioned(
                         top: 4,
                         right: 14,

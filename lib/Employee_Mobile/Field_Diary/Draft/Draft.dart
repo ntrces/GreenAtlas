@@ -1,3 +1,5 @@
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -168,6 +170,191 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
     }
   }
 
+  List<String> _getImages() {
+    if (widget.isOfflineDraft && widget.offlineService != null) {
+      final draftId = _editingDraft['draft_id'] as String?;
+      if (draftId != null) {
+        return widget.offlineService!.getImagePathsForDraft(draftId);
+      }
+    } else {
+      final urls = _editingDraft['image_urls'];
+      if (urls is List) {
+        return List<String>.from(urls);
+      }
+    }
+    return [];
+  }
+
+  void _showImagePreview(BuildContext context, String pathOrUrl) {
+    final isUrl = pathOrUrl.startsWith('http') || pathOrUrl.startsWith('https');
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.black,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: isUrl
+                    ? Image.network(pathOrUrl, fit: BoxFit.contain)
+                    : Image.file(File(pathOrUrl), fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black45,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageWidget(String pathOrUrl) {
+    final isUrl = pathOrUrl.startsWith('http') || pathOrUrl.startsWith('https');
+    return Container(
+      width: 120,
+      height: 120,
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: isUrl
+          ? Image.network(pathOrUrl, fit: BoxFit.cover)
+          : (kIsWeb
+              ? Image.network(pathOrUrl, fit: BoxFit.cover)
+              : Image.file(File(pathOrUrl), fit: BoxFit.cover)),
+    );
+  }
+
+  Widget _buildImagesSection() {
+    final images = _getImages();
+    if (images.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Photos", style: TextStyle(fontSize: 12, color: Colors.black38)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: images.length,
+            itemBuilder: (context, index) {
+              final img = images[index];
+              return GestureDetector(
+                onTap: () => _showImagePreview(context, img),
+                child: _buildImageWidget(img),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTeamCard() {
+    final List<dynamic>? members = _editingDraft['team_members'];
+    if (members == null || members.isEmpty) return const SizedBox.shrink();
+    
+    // Filter out completely empty members
+    final activeMembers = members.where((m) {
+      if (m is! Map) return false;
+      final first = m['firstname']?.toString().trim() ?? '';
+      final last = m['lastname']?.toString().trim() ?? '';
+      return first.isNotEmpty || last.isNotEmpty;
+    }).toList();
+    
+    if (activeMembers.isEmpty) return const SizedBox.shrink();
+    
+    return _buildCard([
+      const Text("Team Members", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12),
+      ...activeMembers.map((m) {
+        final map = m as Map;
+        final name = "${map['firstname'] ?? ''} ${map['lastname'] ?? ''}".trim();
+        final role = map['role'] ?? 'Member';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(name, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+              Text(role, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+            ],
+          ),
+        );
+      }).toList(),
+    ]);
+  }
+
+  Widget _buildEnvironmentCard() {
+    return _buildCard([
+      const Text("Environment", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _buildInfoItem("Weather Conditions", _editingDraft['weather_condition'] ?? "N/A")),
+        Expanded(child: _buildInfoItem("Temperature", "${_editingDraft['temperature'] ?? 'N/A'}°C")),
+      ]),
+    ]);
+  }
+
+  Widget _buildObservationCard() {
+    final List<String> methods = [];
+    final discoveryMethod = _editingDraft['discovery_method'];
+    if (discoveryMethod != null && discoveryMethod.toString().isNotEmpty) {
+      methods.add(discoveryMethod.toString());
+    }
+
+    return _buildCard([
+      const Text("Observation Details", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _buildInfoItem("Species Name", _editingDraft['common_name'] ?? "Unnamed")),
+        Expanded(child: _buildInfoItem("Taxon Group", _editingDraft['taxon_group'] ?? "N/A")),
+      ]),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _buildInfoItem("Category", _editingDraft['observation_category'] ?? "N/A")),
+        Expanded(child: _buildInfoItem("Habitat", _editingDraft['habitat_type'] ?? "N/A")),
+      ]),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _buildInfoItem("Count/Quantity", _editingDraft['count']?.toString() ?? "0")),
+        Expanded(child: _buildInfoItem("Discovery Method", methods.isNotEmpty ? methods.join(', ') : "N/A")),
+      ]),
+      if (_editingDraft['notes'] != null && _editingDraft['notes'].toString().trim().isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _buildInfoItem("Observation Notes", _editingDraft['notes']),
+      ],
+      if (_getImages().isNotEmpty) ...[
+        const Divider(height: 32),
+        _buildImagesSection(),
+      ],
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final badgeColor = widget.isOfflineDraft ? Colors.orange : draftBadgeColor;
@@ -234,9 +421,12 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
               _buildDataRow("Modified:", _editingDraft['observation_date'] ?? "N/A"),
             ]),
 
+            // Team Members Card
+            _buildTeamCard(),
+
             // Location Card
             _buildCard([
-              const Text("Location Details", style: TextStyle(fontSize: 14, color: Colors.black87)),
+              const Text("Location Details", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(child: _buildInfoItem("Region", _editingDraft['region'] ?? "N/A")),
@@ -245,18 +435,20 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(child: _buildInfoItem("Protected Area", _editingDraft['protected_area'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Date", _editingDraft['observation_date'] ?? "N/A")),
+                Expanded(
+                  child: _buildInfoItem(
+                    "Observation Date/Time", 
+                    "${_editingDraft['observation_date'] ?? 'N/A'} ${_editingDraft['observation_time'] ?? ''}".trim()
+                  )
+                ),
               ]),
             ]),
 
-            // Observation Card
-            _buildCard([
-              const Text("Observation 1", style: TextStyle(fontSize: 14, color: Colors.black87)),
-              const SizedBox(height: 12),
-              _buildInfoItem("Species Name", _editingDraft['common_name'] ?? "Unnamed"),
-              const SizedBox(height: 12),
-              _buildInfoItem("Habitat", _editingDraft['habitat_type'] ?? "N/A"),
-            ]),
+            // Environment Card
+            _buildEnvironmentCard(),
+
+            // Observation Details Card (includes photos)
+            _buildObservationCard(),
 
             const SizedBox(height: 24),
 
