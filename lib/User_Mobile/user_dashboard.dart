@@ -182,6 +182,7 @@ class _UserDashboardState extends State<UserDashboard> {
                       stream: _supabase
                           .from('audit_logs_with_roles')
                           .stream(primaryKey: ['id'])
+                          .eq('user_id', _userId!)
                           .order('created_at', ascending: false),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -189,7 +190,7 @@ class _UserDashboardState extends State<UserDashboard> {
                         }
 
                         final rawNotifs = snapshot.data?.where((n) => 
-                          (n['user_id'] == null || n['user_id'] == _userId) &&
+                          n['user_id'] == _userId &&
                           n['user_role'] != 'admin'
                         ).toList() ?? [];
 

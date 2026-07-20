@@ -4,12 +4,17 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../theme_provider.dart';
 import '../Field_Diary/Employee_FieldDiary.dart';
+import '../Field_Diary/Sent/sent0.dart';
 import '../EmployeeMeeting/Employee_Meetings.dart';
+import '../EmployeeMeeting/required_meetingview.dart';
 import '../../UserProfile/user_profile.dart';
-import '../../User_Mobile/Botanical_Gallery/ar_gallery.dart';
 
 class EmployeeNotifications extends StatefulWidget {
   const EmployeeNotifications({super.key});
+
+  // Global static state to persist cleared/dismissed notifications across screen re-opens
+  static final Set<String> globalDismissedIds = {};
+  static DateTime? globalClearedAt;
 
   @override
   State<EmployeeNotifications> createState() => _EmployeeNotificationsState();
@@ -19,16 +24,37 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
   final _supabase = Supabase.instance.client;
   String? get _userId => _supabase.auth.currentUser?.id;
 
-  // Function to mark all notifications as read
-  Future<void> _markAllAsRead() async {
-    try {
-      await _supabase
-          .from('audit_logs')
-          .update({'is_read': true})
-          .eq('user_id', _userId!)
-          .eq('is_read', false);
-    } catch (e) {
-      debugPrint('Error marking notifications: $e');
+  Future<void> _clearAll() async {
+    final now = DateTime.now();
+    setState(() {
+      EmployeeNotifications.globalClearedAt = now;
+    });
+
+    if (_userId != null) {
+      try {
+        await _supabase
+            .from('audit_logs')
+            .update({'is_read': true})
+            .eq('user_id', _userId!)
+            .eq('is_read', false);
+      } catch (e) {
+        debugPrint('Error marking notifications: $e');
+      }
+    }
+  }
+
+  void _dismissSingle(String notifId) async {
+    setState(() {
+      EmployeeNotifications.globalDismissedIds.add(notifId);
+    });
+
+    if (_userId != null) {
+      try {
+        await _supabase
+            .from('audit_logs')
+            .update({'is_read': true})
+            .eq('id', notifId);
+      } catch (_) {}
     }
   }
 
@@ -47,6 +73,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
           "Notifications",
           style: textTheme.titleLarge?.copyWith(
             color: isDark ? Colors.white : const Color(0xFF2D3E2D),
+            fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(
@@ -55,10 +82,10 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
         ),
         actions: [
           TextButton(
-            onPressed: _markAllAsRead,
+            onPressed: _clearAll,
             child: Text(
-              "Mark all read", 
-              style: textTheme.labelLarge?.copyWith(color: const Color(0xFF5D7A5D)),
+              "Clear all", 
+              style: textTheme.labelLarge?.copyWith(color: const Color(0xFF5D7A5D), fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 8),
@@ -68,50 +95,197 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
           ? const Center(child: Text("Please login to see notifications."))
           : StreamBuilder<List<Map<String, dynamic>>>(
               stream: _supabase
-                  .from('audit_logs_with_roles')
+                  .from('meetings')
                   .stream(primaryKey: ['id'])
-                  .eq('user_id', _userId!)
                   .order('created_at', ascending: false),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
-                }
+              builder: (context, meetingSnapshot) {
+                return StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _supabase
+                      .from('field_entries')
+                      .stream(primaryKey: ['id'])
+                      .eq('user_id', _userId!)
+                      .order('created_at', ascending: false),
+                  builder: (context, entrySnapshot) {
+                    return StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: _supabase
+                          .from('audit_logs_with_roles')
+                          .stream(primaryKey: ['id'])
+                          .order('created_at', ascending: false),
+                      builder: (context, auditSnapshot) {
+                        if (meetingSnapshot.connectionState == ConnectionState.waiting &&
+                            entrySnapshot.connectionState == ConnectionState.waiting &&
+                            auditSnapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
+                        }
 
-                final allNotifications = snapshot.data ?? [];
+                        final List<Map<String, dynamic>> notifications = [];
+                        final Set<String> addedKeys = {};
 
-                final notifications = allNotifications.where((notif) {
-                  final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-                  return text.contains('observation validatated') ||
-                         text.contains('observation validated') ||
-                         text.contains('rejected') ||
-                         text.contains('meeting') ||
-                         text.contains('password') ||
-                         text.contains('name');
-                }).toList();
+                        // 1. MEETINGS TABLE: Minutes of Meeting Posted Only
+                        final rawMeetings = meetingSnapshot.data ?? [];
+                        for (final m in rawMeetings) {
+                          final String mId = m['id'].toString();
+                          final String mTitle = m['title'] ?? 'Meeting';
+                          final String mCreatedAt = m['created_at'] ?? DateTime.now().toIso8601String();
+                          final DateTime itemDt = DateTime.tryParse(mCreatedAt) ?? DateTime.now();
+                          final String? minutes = m['minutes']?.toString().trim();
+                          final String? momUrl = m['mom_attachment_url']?.toString().trim();
 
-                if (notifications.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
-                        const SizedBox(height: 16),
-                        Text(
-                          "No notifications yet", 
-                          style: textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+                          if ((minutes != null && minutes.isNotEmpty) || (momUrl != null && momUrl.isNotEmpty)) {
+                            final momKey = 'mtg_mom_$mId';
+                            if (!addedKeys.contains(momKey) && 
+                                !EmployeeNotifications.globalDismissedIds.contains(momKey) &&
+                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
+                              addedKeys.add(momKey);
+                              notifications.add({
+                                'id': momKey,
+                                'title': 'Minutes of Meeting Posted',
+                                'message': 'Official Minutes of Meeting (MoM) have been posted for "$mTitle". Tap to view details.',
+                                'type': 'meeting_mom',
+                                'created_at': mCreatedAt,
+                                'is_read': false,
+                                'target': 'meeting',
+                                'meeting_data': m,
+                              });
+                            }
+                          }
+                        }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.only(top: 8),
-                  itemCount: notifications.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
-                  itemBuilder: (context, index) {
-                    final notif = notifications[index];
-                    return _buildNotificationItem(notif, isDark, textTheme);
+                        // 2. FIELD ENTRIES: Entry Approved, Entry Rejected, Entry Flagged for Review (Current User)
+                        final rawEntries = entrySnapshot.data ?? [];
+                        for (final e in rawEntries) {
+                          final String eId = e['id'].toString();
+                          final String species = e['species_name'] ?? e['plant_type'] ?? 'Observation Entry';
+                          final String status = (e['status'] ?? '').toString().toUpperCase();
+                          final String updatedAt = e['updated_at'] ?? e['created_at'] ?? DateTime.now().toIso8601String();
+                          final DateTime itemDt = DateTime.tryParse(updatedAt) ?? DateTime.now();
+
+                          // Entry Approved
+                          if (status == 'VALIDATED' || status == 'APPROVED' || status == 'ACCEPTED') {
+                            final appKey = 'entry_app_$eId';
+                            if (!addedKeys.contains(appKey) && 
+                                !EmployeeNotifications.globalDismissedIds.contains(appKey) &&
+                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
+                              addedKeys.add(appKey);
+                              notifications.add({
+                                'id': appKey,
+                                'title': 'Observation Entry Approved',
+                                'message': 'Your field entry for "$species" has been validated and approved.',
+                                'type': 'entry_validated',
+                                'created_at': updatedAt,
+                                'is_read': false,
+                                'target': 'entry',
+                                'entry_id': eId,
+                                'entry_data': e,
+                              });
+                            }
+                          } 
+                          // Entry Rejected
+                          else if (status == 'REJECTED') {
+                            final String reason = (e['rejection_reason'] ?? e['rejection_remarks'] ?? e['admin_feedback'] ?? e['remarks'] ?? 'Needs correction').toString();
+                            final rejKey = 'entry_rej_$eId';
+                            if (!addedKeys.contains(rejKey) && 
+                                !EmployeeNotifications.globalDismissedIds.contains(rejKey) &&
+                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
+                              addedKeys.add(rejKey);
+                              notifications.add({
+                                'id': rejKey,
+                                'title': 'Observation Entry Rejected',
+                                'message': 'Your field entry for "$species" was rejected. Reason: $reason',
+                                'type': 'entry_rejected',
+                                'created_at': updatedAt,
+                                'is_read': false,
+                                'target': 'entry',
+                                'entry_id': eId,
+                                'entry_data': e,
+                              });
+                            }
+                          } 
+                          // Entry Flagged for Review
+                          else if (status == 'FLAGGED' || status == 'PENDING' || status == 'UNDER REVIEW' || status == 'NEEDS_REVIEW') {
+                            final revKey = 'entry_rev_$eId';
+                            if (!addedKeys.contains(revKey) && 
+                                !EmployeeNotifications.globalDismissedIds.contains(revKey) &&
+                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
+                              addedKeys.add(revKey);
+                              notifications.add({
+                                'id': revKey,
+                                'title': 'Observation Flagged for Review',
+                                'message': 'Your field entry for "$species" has been flagged for administrative review.',
+                                'type': 'entry_review',
+                                'created_at': updatedAt,
+                                'is_read': false,
+                                'target': 'entry',
+                                'entry_id': eId,
+                                'entry_data': e,
+                              });
+                            }
+                          }
+                        }
+
+                        // 3. AUDIT LOGS: MoM / Minutes Updates Only
+                        final rawAudits = auditSnapshot.data ?? [];
+                        for (final log in rawAudits) {
+                          final String logId = log['id']?.toString() ?? UniqueKey().toString();
+                          final String title = (log['title'] ?? '').toString();
+                          final String msg = (log['message'] ?? log['description'] ?? log['action'] ?? '').toString();
+                          final String text = '$title $msg'.toLowerCase();
+                          final String createdAt = log['created_at'] ?? DateTime.now().toIso8601String();
+                          final DateTime itemDt = DateTime.tryParse(createdAt) ?? DateTime.now();
+
+                          if (text.contains('meeting minutes') || text.contains('mom updated') || text.contains('minutes updated')) {
+                            final logKey = 'audit_mom_$logId';
+                            if (!addedKeys.contains(logKey) && 
+                                !EmployeeNotifications.globalDismissedIds.contains(logKey) &&
+                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
+                              addedKeys.add(logKey);
+                              notifications.add({
+                                'id': logKey,
+                                'title': 'Minutes of Meeting Posted',
+                                'message': msg.isNotEmpty ? msg : 'New Minutes of Meeting have been posted by admin.',
+                                'type': 'meeting_mom',
+                                'created_at': createdAt,
+                                'is_read': false,
+                                'target': 'meeting',
+                              });
+                            }
+                          }
+                        }
+
+                        // Sort newest first
+                        notifications.sort((a, b) {
+                          final dtA = DateTime.tryParse(a['created_at']) ?? DateTime.now();
+                          final dtB = DateTime.tryParse(b['created_at']) ?? DateTime.now();
+                          return dtB.compareTo(dtA);
+                        });
+
+                        if (notifications.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "No notifications yet", 
+                                  style: textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: notifications.length,
+                          separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
+                          itemBuilder: (context, index) {
+                            final notif = notifications[index];
+                            return _buildNotificationItem(notif, isDark, textTheme);
+                          },
+                        );
+                      },
+                    );
                   },
                 );
               },
@@ -120,90 +294,119 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
   }
 
   Widget _buildNotificationItem(Map<String, dynamic> notif, bool isDark, TextTheme textTheme) {
-    final bool isRead = notif['is_read'] ?? false;
-    final String type = notif['type'] ?? notif['category'] ?? 'info';
-    final DateTime createdAt = DateTime.parse(notif['created_at']);
+    final String type = notif['type']?.toString() ?? 'info';
+    final DateTime createdAt = DateTime.tryParse(notif['created_at']) ?? DateTime.now();
     
-    // UI mapping based on type
     IconData icon;
     Color iconColor;
+    String badgeLabel;
+    Color badgeColor;
+
     switch (type) {
-      case 'meeting':
-        icon = Icons.calendar_today_outlined;
+      case 'meeting_mom':
+        icon = Icons.assignment_turned_in_outlined;
         iconColor = const Color(0xFF5D7A5D);
+        badgeLabel = "MoM POSTED";
+        badgeColor = const Color(0xFF5D7A5D);
         break;
-      case 'alert':
-        icon = Icons.warning_amber_rounded;
+      case 'entry_validated':
+        icon = Icons.check_circle_outline;
+        iconColor = const Color(0xFF4CAF50);
+        badgeLabel = "APPROVED";
+        badgeColor = const Color(0xFF4CAF50);
+        break;
+      case 'entry_rejected':
+        icon = Icons.cancel_outlined;
+        iconColor = const Color(0xFFF44336);
+        badgeLabel = "REJECTED";
+        badgeColor = const Color(0xFFF44336);
+        break;
+      case 'entry_review':
+        icon = Icons.rate_review_outlined;
         iconColor = Colors.orange;
+        badgeLabel = "FLAGGED FOR REVIEW";
+        badgeColor = Colors.orange;
         break;
       default:
         icon = Icons.info_outline;
         iconColor = Colors.blueGrey;
+        badgeLabel = "NOTICE";
+        badgeColor = Colors.blueGrey;
     }
 
     return Container(
-      color: isRead 
-          ? (isDark ? const Color(0xFF1F1F1F) : Colors.white)
-          : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFD4E8D4)),
+      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        leading: Stack(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        leading: CircleAvatar(
+          backgroundColor: iconColor.withOpacity(0.12),
+          child: Icon(icon, color: iconColor, size: 22),
+        ),
+        title: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: iconColor.withOpacity(0.1),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            if (!isRead)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+            Expanded(
+              child: Text(
+                notif['title'] ?? 'Notification',
+                style: textTheme.titleMedium?.copyWith(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: badgeColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                badgeLabel,
+                style: TextStyle(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
-        ),
-        title: Text(
-          notif['title'] ?? 'System Update',
-          style: (isRead ? textTheme.titleSmall : textTheme.titleMedium)?.copyWith(
-            color: isDark ? Colors.white : Colors.black87,
-          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
-              notif['message'] ?? notif['description'] ?? '',
+              notif['message'] ?? '',
               style: textTheme.bodySmall?.copyWith(
-                color: isDark ? Colors.white60 : Colors.black54,
+                color: isDark ? Colors.white70 : Colors.black87,
+                height: 1.3,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              DateFormat('MMM d, h:mm a').format(createdAt),
-              style: textTheme.labelSmall?.copyWith(color: Colors.grey),
+              DateFormat('MMM d, yyyy • h:mm a').format(createdAt),
+              style: textTheme.labelSmall?.copyWith(color: Colors.grey, fontSize: 10),
             ),
           ],
         ),
-        onTap: () async {
-          if (!isRead) {
-            await _supabase
-                .from('audit_logs')
-                .update({'is_read': true})
-                .eq('id', notif['id']);
-          }
-          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-          if (text.contains('observation') || text.contains('rejected')) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const FieldObservationScreen()));
-          } else if (text.contains('meeting')) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const MeetingsScreen()));
-          } else if (text.contains('plant')) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
-          } else if (text.contains('password') || text.contains('name') || text.contains('profile') || text.contains('security')) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+        onTap: () {
+          // 1. Permanently dismiss this notification item
+          _dismissSingle(notif['id'].toString());
+
+          // 2. Open destination screen with specific data highlighted
+          final target = notif['target']?.toString() ?? '';
+          if (target == 'meeting' || type.startsWith('meeting_')) {
+            final Map<String, dynamic> meetingData = notif['meeting_data'] ?? {};
+            if (meetingData.isNotEmpty) {
+              Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => MeetingViewScreen(meeting: meetingData, highlightMoM: true))
+              );
+            } else {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MeetingsScreen()));
+            }
+          } else if (target == 'entry' || type.startsWith('entry_')) {
+            final String entryId = notif['entry_id']?.toString() ?? '';
+            Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (_) => SentListScreen(highlightEntryId: entryId))
+            );
           }
         },
       ),

@@ -30,13 +30,16 @@ class _CannotAttendScreenState extends State<CannotAttendScreen> {
 
     try {
       // Upsert to match your NatureLink database schema
-      await _supabase.from('meeting_rsvps').upsert({
-        'meeting_id': widget.meeting['id'],
-        'user_id': userId,
-        'status': 'declined', 
-        'reason': _reasonController.text.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+      await _supabase.from('meeting_rsvps').upsert(
+        {
+          'meeting_id': widget.meeting['id'],
+          'user_id': userId,
+          'status': 'declined', 
+          'reason': _reasonController.text.trim(),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        onConflict: 'meeting_id,user_id',
+      );
 
       if (mounted) {
         // Return to the meetings list as requested

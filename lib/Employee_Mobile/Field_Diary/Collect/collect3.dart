@@ -276,6 +276,25 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       return;
     }
 
+    if (model.isResubmit && !isDraft) {
+      final hasChanges = model.hasTextChanges(
+        commonName: _commonNameController.text,
+        taxonGroup: _taxonController.text,
+        count: int.tryParse(_countController.text) ?? 0,
+        notes: model.observationNotes,
+      );
+      if (!hasChanges) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("You must edit at least one text field to resubmit (e.g., name, notes, quantity, or location details)."),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
 
     try {
@@ -354,6 +373,10 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       // Online flow - original implementation
       List<String> uploadedUrls = [];
       for (String path in model.imagePaths) {
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+          uploadedUrls.add(path);
+          continue;
+        }
         final fileName =
             '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
         final storagePath = '$userId/$fileName';
@@ -415,10 +438,23 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         'status': isDraft ? 'DRAFT' : 'PENDING',
       };
 
-      await _supabase.from('field_entries').insert(dbData);
+      if (model.isResubmit) {
+        dbData['resubmit_count'] = model.resubmitCount + 1;
+        dbData['confidence_score'] = null;
+        dbData['auto_validation_reason'] = null;
+        dbData['admin_feedback'] = null;
+        dbData['modified_at'] = DateTime.now().toIso8601String();
+
+        await _supabase
+            .from('field_entries')
+            .update(dbData)
+            .eq('id', model.originalDraftId!);
+      } else {
+        await _supabase.from('field_entries').insert(dbData);
+      }
 
       // If this was an edited draft, delete the original draft
-      if (model.originalDraftId != null && !isDraft) {
+      if (model.originalDraftId != null && !isDraft && !model.isResubmit) {
         try {
           // Delete online draft from database
           await _supabase
@@ -811,22 +847,24 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                  onPressed: _isSaving
-                      ? null
-                      : () => _submitForm(model, isDraft: true),
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text("Save as Draft",
-                      style:
-                          textTheme.labelLarge?.copyWith(color: forestGreen)),
-                  style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.5),
-                      side: BorderSide(color: forestGreen.withOpacity(0.3)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))))),
+          if (!model.isResubmit) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                    onPressed: _isSaving
+                        ? null
+                        : () => _submitForm(model, isDraft: true),
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text("Save as Draft",
+                        style:
+                            textTheme.labelLarge?.copyWith(color: forestGreen)),
+                    style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.5),
+                        side: BorderSide(color: forestGreen.withOpacity(0.3)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))))),
+          ],
         ],
       ),
     );

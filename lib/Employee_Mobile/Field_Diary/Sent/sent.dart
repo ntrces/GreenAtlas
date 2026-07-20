@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../theme_provider.dart';
+import '../Collect/observation_model.dart';
+import '../Collect/collect01.dart';
 
 class SentObservationsScreen extends StatelessWidget {
   final Map<String, dynamic> observation;
@@ -150,6 +152,11 @@ class SentObservationsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
+            // Rejection Reason Card (If Rejected)
+            if (status == 'REJECTED') ...[
+              _buildRejectionReasonCard(observation, isDark),
+            ],
+
             // Metadata Card
             _buildWhiteCard([
               _buildDataRow("User ID:", "FO-12345"),
@@ -231,9 +238,123 @@ class SentObservationsScreen extends StatelessWidget {
                 _buildImagesSection(context, images),
               ],
             ]),
-            
+            if (status == 'REJECTED') ...[
+              _buildResubmitButton(context, isDark),
+            ],
             const SizedBox(height: 40),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRejectionReasonCard(Map<String, dynamic> observation, bool isDark) {
+    final String? reason = (observation['rejection_reason'] ??
+            observation['rejection_remarks'] ??
+            observation['admin_feedback'] ??
+            observation['auto_validation_reason'] ??
+            observation['remarks'] ??
+            observation['reason'])
+        ?.toString()
+        .trim();
+
+    final String displayReason = (reason != null && reason.isNotEmpty)
+        ? reason
+        : "No specific reason was provided for this rejection. Please review your observation data or contact your supervisor.";
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
+              SizedBox(width: 8),
+              Text(
+                "Reason for Rejection",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            displayReason,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? Colors.white70 : Colors.black87,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResubmitButton(BuildContext context, bool isDark) {
+    final int resubmitCount = observation['resubmit_count'] is int 
+        ? observation['resubmit_count'] as int 
+        : int.tryParse(observation['resubmit_count']?.toString() ?? '') ?? 0;
+
+    if (resubmitCount >= 1) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: const [
+            Text(
+              "Resubmission Limit Reached",
+              style: TextStyle(color: Colors.red, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 6),
+            Text(
+              "This entry has already been resubmitted the maximum allowed number of times (1). We limit corrections to prevent flooding the validation queue. Please submit a new observation instead.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red, fontSize: 11, height: 1.4),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 24),
+      child: ElevatedButton.icon(
+        onPressed: () {
+          final model = context.read<ObservationModel>();
+          model.populateForResubmit(observation);
+          
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CollectStep1Screen()),
+          );
+        },
+        icon: const Icon(Icons.replay_rounded, color: Colors.white),
+        label: Text("Resubmit Entry (${1 - resubmitCount} remaining)"),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: forestGreen,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
         ),
       ),
     );
@@ -271,8 +392,10 @@ class SentObservationsScreen extends StatelessWidget {
   );
 
   Color _getStatusColor(String status) {
-    if (status == 'VALIDATED') return Colors.blue;
-    if (status == 'REJECTED') return Colors.red;
+    final statusUpper = status.toUpperCase();
+    if (statusUpper == 'VALIDATED') return Colors.blue;
+    if (statusUpper == 'REJECTED') return Colors.red;
+    if (statusUpper == 'FLAGGED') return Colors.orange;
     return forestGreen; // Default for PENDING
   }
 }

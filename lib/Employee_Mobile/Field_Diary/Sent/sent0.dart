@@ -6,7 +6,8 @@ import '../../../theme_provider.dart';
 import 'sent.dart'; 
 
 class SentListScreen extends StatefulWidget {
-  const SentListScreen({super.key});
+  final String? highlightEntryId;
+  const SentListScreen({super.key, this.highlightEntryId});
 
   @override
   State<SentListScreen> createState() => _SentListScreenState();
@@ -118,11 +119,13 @@ class _SentListScreenState extends State<SentListScreen> {
   );
 
   Widget _buildSentTile(BuildContext context, Map<String, dynamic> entry, bool isDark, TextTheme textTheme) {
+    final String entryId = entry['id']?.toString() ?? '';
+    final bool isHighlighted = widget.highlightEntryId != null && widget.highlightEntryId == entryId;
     final species = entry['common_name'] ?? "Unnamed Entry";
     final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(entry['obs_date'] ?? DateTime.now().toString()));
     final status = entry['status']?.toString().toUpperCase() ?? 'PENDING';
 
-    Color badgeColor = (status == 'VALIDATED') ? Colors.blue : (status == 'REJECTED' ? Colors.red : forestGreen);
+    Color badgeColor = (status == 'VALIDATED') ? Colors.blue : (status == 'REJECTED' ? Colors.red : (status == 'FLAGGED' ? Colors.orange : forestGreen));
 
     return GestureDetector(
       onTap: () {
@@ -137,34 +140,69 @@ class _SentListScreenState extends State<SentListScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          color: isHighlighted 
+              ? (isDark ? Colors.amber.withOpacity(0.12) : Colors.amber.shade50) 
+              : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
           borderRadius: BorderRadius.circular(16),
+          border: isHighlighted ? Border.all(color: Colors.amber.shade700, width: 2.0) : null,
+          boxShadow: isHighlighted 
+              ? [BoxShadow(color: Colors.amber.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))] 
+              : null,
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    species, 
-                    style: textTheme.titleMedium?.copyWith(color: isDark ? Colors.white : Colors.black),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
+            if (isHighlighted) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star_rounded, color: Colors.amber.shade900, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      "Highlighted Notification Item",
+                      style: TextStyle(color: Colors.amber.shade900, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        date, 
-                        style: textTheme.bodySmall?.copyWith(color: Colors.grey),
+                        species, 
+                        style: textTheme.titleMedium?.copyWith(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+                        ),
                       ),
-                      const SizedBox(width: 10),
-                      _buildBadge(status, badgeColor, textTheme),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            date, 
+                            style: textTheme.bodySmall?.copyWith(color: Colors.grey),
+                          ),
+                          const SizedBox(width: 10),
+                          _buildBadge(status, badgeColor, textTheme),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Icon(Icons.arrow_forward_ios, size: 14, color: forestGreen),
+              ],
             ),
-            Icon(Icons.arrow_forward_ios, size: 14, color: forestGreen),
           ],
         ),
       ),

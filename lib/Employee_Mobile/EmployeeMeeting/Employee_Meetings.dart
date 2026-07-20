@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
@@ -247,6 +248,8 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   Widget _buildMeetingCard(Map<String, dynamic> m, bool d) {
     final status = m['user_status'];
     final bool isMandatory = m['is_mandatory'] == true;
+    final bool hasMom = (m['minutes'] != null && m['minutes'].toString().trim().isNotEmpty) ||
+        (m['mom_attachment_url'] != null && m['mom_attachment_url'].toString().trim().isNotEmpty);
 
     // Badge Logic: Declaring text and colors based on RSVP status and date
     bool hasPassed = false;
@@ -257,11 +260,13 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
       hasPassed = mDate.isBefore(startOfToday);
     } catch (_) {}
 
+    final bool isCompleted = m['is_completed'] == true || m['status']?.toString().toUpperCase() == 'COMPLETED';
+
     String badgeTxt = status == 'attending' ? "Attending" : (status == 'declined' ? "Declined" : "RSVP Required");
     Color badgeCol = status == 'attending' ? forestGreen : (status == 'declined' ? errorRed : accentOrange);
 
-    if (hasPassed) {
-      badgeTxt = "Done";
+    if (hasPassed || isCompleted) {
+      badgeTxt = "Meeting Done";
       badgeCol = Colors.grey;
     }
 
@@ -284,7 +289,40 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
             ]),
             const SizedBox(height: 5),
             Text("${m['meeting_date']} • ${m['meeting_time'] ?? ''} • ${m['location']}", style: const TextStyle(fontSize: 11, color: Colors.black38)),
-            const Padding(padding: EdgeInsets.symmetric(vertical: 15), child: Divider(height: 1, thickness: 0.5)),
+            if (hasMom) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: forestGreen.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: forestGreen.withOpacity(0.15)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.assignment_turned_in_outlined, size: 16, color: forestGreen),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Minutes of Meeting:", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: forestGreen)),
+                          const SizedBox(height: 2),
+                          Text(
+                            _getMomPreviewText(m['minutes']),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11, color: Colors.black87, height: 1.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, thickness: 0.5)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -295,6 +333,13 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(color: errorRed.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
                       child: Text("Required", style: TextStyle(color: errorRed, fontSize: 10)),
+                    ),
+                  if (hasMom)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                      child: const Text("MoM Available", style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.w600)),
                     ),
                   const Text("12/25 Capacity Limit", style: TextStyle(fontSize: 11, color: Colors.black45)),
                 ]),
@@ -311,7 +356,23 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     );
   }
 
-  
+  String _getMomPreviewText(dynamic minutesRaw) {
+    if (minutesRaw == null) return "Official MoM document attached.";
+    final str = minutesRaw.toString().trim();
+    if (str.isEmpty) return "Official MoM document attached.";
+    if (str.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(str);
+        if (decoded is Map<String, dynamic>) {
+          final topics = decoded['topics']?.toString().trim();
+          final decisions = decoded['decisions']?.toString().trim();
+          if (topics != null && topics.isNotEmpty) return topics;
+          if (decisions != null && decisions.isNotEmpty) return decisions;
+        }
+      } catch (_) {}
+    }
+    return str;
+  }
 
   String _getFilterTitle() => ["ALL MEETINGS", "REQUIRED MEETINGS", "MY ATTENDANCE", "DECLINED MEETINGS", "UPCOMING MEETINGS"][_activeFilterIndex];
 }
