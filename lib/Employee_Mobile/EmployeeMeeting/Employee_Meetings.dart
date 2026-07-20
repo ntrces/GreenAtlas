@@ -7,7 +7,7 @@ import '../../theme_provider.dart';
 import '../../UserProfile/user_profile.dart';
 import '../EmployeeNotification/employeenotif.dart';
 import '../../components/notification_badge.dart';
-import '../EmployeeMeeting/required_meetingview.dart'; // Ensure this matches your actual file name
+import '../EmployeeMeeting/required_meetingview.dart';
 import '../Field_Diary/Employee_FieldDiary.dart';
 
 class MeetingsScreen extends StatefulWidget {
@@ -18,7 +18,7 @@ class MeetingsScreen extends StatefulWidget {
 
 class _MeetingsScreenState extends State<MeetingsScreen> {
   final _supabase = Supabase.instance.client;
-  int _activeFilterIndex = 0; 
+  int _activeFilterIndex = 4; // Default to Upcoming (Index 4) so upcoming meetings display first
   String _searchQuery = ""; 
 
   final Color darkGreen = const Color(0xFF2D3E2D);
@@ -28,6 +28,20 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   final Color accentOrange = const Color(0xFFF2994A);
 
   String? get _userId => _supabase.auth.currentUser?.id;
+
+  bool _isMeetingDone(Map<String, dynamic> m) {
+    if (m['is_completed'] == true) return true;
+    final String status = (m['status'] ?? '').toString().toUpperCase();
+    if (status == 'COMPLETED' || status == 'DONE') return true;
+
+    try {
+      final mDate = DateTime.parse(m['meeting_date']);
+      final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      return mDate.isBefore(startOfToday);
+    } catch (_) {}
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,68 +67,61 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
                   final userRSVPs = rsvpSnapshot.data ?? [];
                   final meetings = meetingSnapshot.data!;
 
-                  // Logic: Joining Meeting details with User's RSVP status (attending/declined)
+                  // Consolidated Meetings
                   final consolidated = meetings.where((m) {
                     // Role Filtering
                     String rolesString = (m['target_roles'] ?? '').toString().toLowerCase().replaceAll(' ', '');
-                    bool matchesRole = rolesString.contains('fieldofficer');
+                    bool matchesRole = rolesString.contains('fieldofficer') || rolesString.contains('all') || rolesString.isEmpty;
 
                     // Search Filtering
                     bool matchesSearch = _searchQuery == "" || (m['title'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase());
 
-                    // Date Filtering: Removed to show all meetings as requested
                     return matchesRole && matchesSearch;
                   }).map((m) {
                     final rsvp = userRSVPs.firstWhere((r) => r['meeting_id'] == m['id'], orElse: () => <String, dynamic>{});
                     return { ...m, 'user_status': rsvp['status'] };
                   }).toList();
 
-                  // KPI Logic: Only count FUTURE meetings for the top cards to avoid redundancy
-                  final now = DateTime.now();
-                  final startOfToday = DateTime(now.year, now.month, now.day);
-                  
-                  final futureMeetings = consolidated.where((m) {
-                    try {
-                      final mDate = DateTime.parse(m['meeting_date']);
-                      return mDate.isAtSameMomentAs(startOfToday) || mDate.isAfter(startOfToday);
-                    } catch (_) { return true; }
-                  }).toList();
-
-                  final allCount = consolidated.length;
-                  final reCount = futureMeetings.where((m) => m['is_mandatory'] == true).length;
-
-                  // Tab Logic: Filtering the list based on the declared status
-                  final filtered = consolidated.where((m) {
-                    if (_activeFilterIndex == 0) return true; // All Meetings (Blue Card) - Full History
-
-                    // Date check for other specific filters
-                    bool isUpcoming = false;
-                    try {
-                      final mDate = DateTime.parse(m['meeting_date']);
-                      isUpcoming = mDate.isAtSameMomentAs(startOfToday) || mDate.isAfter(startOfToday);
-                    } catch (_) { isUpcoming = true; }
-
-                    if (_activeFilterIndex == 1) return m['is_mandatory'] == true && isUpcoming; // Upcoming Required
-                    if (_activeFilterIndex == 2) return m['user_status'] == 'attending' && isUpcoming; // Upcoming Attending
-                    if (_activeFilterIndex == 3) return m['user_status'] == 'declined' && isUpcoming; // Upcoming Declined
-                    if (_activeFilterIndex == 4) return isUpcoming; // All Upcoming (Small Filter)
-                    
-                    return true;
-                  }).toList();
+                  // Separate Upcoming vs Completed
+                  final futureMeetings = consolidated.where((m) => !_isMeetingDone(m)).toList();
+                  final completedMeetings = consolidated.where((m) => _isMeetingDone(m)).toList();
 
                   final upCount = futureMeetings.length;
+                  final reCount = futureMeetings.where((m) => m['is_mandatory'] == true).length;
+
+                  // Tab Logic: Filtering the list
+                  final filtered = consolidated.where((m) {
+                    final bool isDone = _isMeetingDone(m);
+
+                    if (_activeFilterIndex == 0) return true; // All Meetings
+                    if (_activeFilterIndex == 4) return !isDone; // Upcoming Meetings (Default)
+                    if (_activeFilterIndex == 1) return !isDone && m['is_mandatory'] == true; // Upcoming Required
+                    if (_activeFilterIndex == 2) return !isDone && m['user_status'] == 'attending'; // Upcoming Attending
+                    if (_activeFilterIndex == 3) return !isDone && m['user_status'] == 'declined'; // Upcoming Declined
+                    if (_activeFilterIndex == 5) return isDone; // Completed / Done Meetings
+
+                    return true;
+                  }).toList();
 
                   return SliverPadding(
                     padding: const EdgeInsets.all(20),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
-                        _buildKPIRow(allCount, upCount, reCount, isDark),
-                        const SizedBox(height: 25),
+                        _buildKPIRow(upCount, reCount, isDark),
+                        const SizedBox(height: 20),
                         _buildFilterRow(isDark),
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 20),
                         _buildSectionHeader(_getFilterTitle(), isDark, textTheme),
                         if (filtered.isEmpty)
-                          const Padding(padding: EdgeInsets.symmetric(vertical: 40), child: Center(child: Text("No entries found for this category.")))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 40), 
+                            child: Center(
+                              child: Text(
+                                _activeFilterIndex == 5 ? "No completed meetings." : "No upcoming meetings found.",
+                                style: const TextStyle(color: Colors.black45),
+                              ),
+                            ),
+                          )
                         else
                           ...filtered.map((m) => _buildMeetingCard(m, isDark)).toList(),
                       ]),
@@ -176,17 +183,13 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     ),
   );
 
-  Widget _buildKPIRow(int total, int up, int rs, bool d) => Row(children: [
-    Expanded(child: _statCard("$total", "All Meetings", d, Colors.blue, 0)),
-    const SizedBox(width: 10),
+  Widget _buildKPIRow(int up, int rs, bool d) => Row(children: [
     Expanded(child: _statCard("$up", "Upcoming", d, forestGreen, 4)),
-    const SizedBox(width: 10),
+    const SizedBox(width: 12),
     Expanded(child: _statCard("$rs", "Required", d, accentOrange, 1)),
   ]);
 
   Widget _statCard(String val, String lbl, bool d, Color c, int index) {
-    // Upcoming card (index 0) is active if index 0 is selected
-    // Required card (index 1) is active if index 1 is selected
     bool isActive = _activeFilterIndex == index;
     return InkWell(
       onTap: () => setState(() => _activeFilterIndex = index),
@@ -219,7 +222,8 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
       _filtBtn("Upcoming", 4, d), const SizedBox(width: 8),
       _filtBtn("Required", 1, d), const SizedBox(width: 8),
       _filtBtn("Attending", 2, d), const SizedBox(width: 8),
-      _filtBtn("Not Attending", 3, d),
+      _filtBtn("Not Attending", 3, d), const SizedBox(width: 8),
+      _filtBtn("Completed", 5, d),
     ]),
   );
 
@@ -251,21 +255,12 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     final bool hasMom = (m['minutes'] != null && m['minutes'].toString().trim().isNotEmpty) ||
         (m['mom_attachment_url'] != null && m['mom_attachment_url'].toString().trim().isNotEmpty);
 
-    // Badge Logic: Declaring text and colors based on RSVP status and date
-    bool hasPassed = false;
-    try {
-      final mDate = DateTime.parse(m['meeting_date']);
-      final today = DateTime.now();
-      final startOfToday = DateTime(today.year, today.month, today.day);
-      hasPassed = mDate.isBefore(startOfToday);
-    } catch (_) {}
-
-    final bool isCompleted = m['is_completed'] == true || m['status']?.toString().toUpperCase() == 'COMPLETED';
+    final bool isDone = _isMeetingDone(m);
 
     String badgeTxt = status == 'attending' ? "Attending" : (status == 'declined' ? "Declined" : "RSVP Required");
     Color badgeCol = status == 'attending' ? forestGreen : (status == 'declined' ? errorRed : accentOrange);
 
-    if (hasPassed || isCompleted) {
+    if (isDone) {
       badgeTxt = "Meeting Done";
       badgeCol = Colors.grey;
     }
@@ -374,5 +369,22 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     return str;
   }
 
-  String _getFilterTitle() => ["ALL MEETINGS", "REQUIRED MEETINGS", "MY ATTENDANCE", "DECLINED MEETINGS", "UPCOMING MEETINGS"][_activeFilterIndex];
+  String _getFilterTitle() {
+    switch (_activeFilterIndex) {
+      case 0:
+        return "ALL MEETINGS";
+      case 1:
+        return "UPCOMING REQUIRED MEETINGS";
+      case 2:
+        return "UPCOMING ATTENDING MEETINGS";
+      case 3:
+        return "UPCOMING DECLINED MEETINGS";
+      case 4:
+        return "UPCOMING MEETINGS";
+      case 5:
+        return "COMPLETED MEETINGS";
+      default:
+        return "UPCOMING MEETINGS";
+    }
+  }
 }

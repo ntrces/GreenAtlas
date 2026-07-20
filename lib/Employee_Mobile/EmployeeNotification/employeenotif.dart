@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../theme_provider.dart';
+import '../../components/notification_badge.dart';
 import '../Field_Diary/Employee_FieldDiary.dart';
 import '../Field_Diary/Sent/sent0.dart';
 import '../EmployeeMeeting/Employee_Meetings.dart';
@@ -29,6 +30,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
     setState(() {
       EmployeeNotifications.globalClearedAt = now;
     });
+    NotificationStateNotifier.instance.clearAll();
 
     if (_userId != null) {
       try {
@@ -47,6 +49,7 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
     setState(() {
       EmployeeNotifications.globalDismissedIds.add(notifId);
     });
+    NotificationStateNotifier.instance.dismissSingle(notifId);
 
     if (_userId != null) {
       try {
@@ -93,195 +96,201 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
       ),
       body: _userId == null
           ? const Center(child: Text("Please login to see notifications."))
-          : StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _supabase
-                  .from('meetings')
-                  .stream(primaryKey: ['id'])
-                  .order('created_at', ascending: false),
-              builder: (context, meetingSnapshot) {
+          : AnimatedBuilder(
+              animation: NotificationStateNotifier.instance,
+              builder: (context, _) {
                 return StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _supabase
-                      .from('field_entries')
+                      .from('meetings')
                       .stream(primaryKey: ['id'])
-                      .eq('user_id', _userId!)
                       .order('created_at', ascending: false),
-                  builder: (context, entrySnapshot) {
+                  builder: (context, meetingSnapshot) {
                     return StreamBuilder<List<Map<String, dynamic>>>(
                       stream: _supabase
-                          .from('audit_logs_with_roles')
+                          .from('field_entries')
                           .stream(primaryKey: ['id'])
+                          .eq('user_id', _userId!)
                           .order('created_at', ascending: false),
-                      builder: (context, auditSnapshot) {
-                        if (meetingSnapshot.connectionState == ConnectionState.waiting &&
-                            entrySnapshot.connectionState == ConnectionState.waiting &&
-                            auditSnapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
-                        }
-
-                        final List<Map<String, dynamic>> notifications = [];
-                        final Set<String> addedKeys = {};
-
-                        // 1. MEETINGS TABLE: Minutes of Meeting Posted Only
-                        final rawMeetings = meetingSnapshot.data ?? [];
-                        for (final m in rawMeetings) {
-                          final String mId = m['id'].toString();
-                          final String mTitle = m['title'] ?? 'Meeting';
-                          final String mCreatedAt = m['created_at'] ?? DateTime.now().toIso8601String();
-                          final DateTime itemDt = DateTime.tryParse(mCreatedAt) ?? DateTime.now();
-                          final String? minutes = m['minutes']?.toString().trim();
-                          final String? momUrl = m['mom_attachment_url']?.toString().trim();
-
-                          if ((minutes != null && minutes.isNotEmpty) || (momUrl != null && momUrl.isNotEmpty)) {
-                            final momKey = 'mtg_mom_$mId';
-                            if (!addedKeys.contains(momKey) && 
-                                !EmployeeNotifications.globalDismissedIds.contains(momKey) &&
-                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
-                              addedKeys.add(momKey);
-                              notifications.add({
-                                'id': momKey,
-                                'title': 'Minutes of Meeting Posted',
-                                'message': 'Official Minutes of Meeting (MoM) have been posted for "$mTitle". Tap to view details.',
-                                'type': 'meeting_mom',
-                                'created_at': mCreatedAt,
-                                'is_read': false,
-                                'target': 'meeting',
-                                'meeting_data': m,
-                              });
+                      builder: (context, entrySnapshot) {
+                        return StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: _supabase
+                              .from('audit_logs_with_roles')
+                              .stream(primaryKey: ['id'])
+                              .order('created_at', ascending: false),
+                          builder: (context, auditSnapshot) {
+                            if (meetingSnapshot.connectionState == ConnectionState.waiting &&
+                                entrySnapshot.connectionState == ConnectionState.waiting &&
+                                auditSnapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
                             }
-                          }
-                        }
 
-                        // 2. FIELD ENTRIES: Entry Approved, Entry Rejected, Entry Flagged for Review (Current User)
-                        final rawEntries = entrySnapshot.data ?? [];
-                        for (final e in rawEntries) {
-                          final String eId = e['id'].toString();
-                          final String species = e['species_name'] ?? e['plant_type'] ?? 'Observation Entry';
-                          final String status = (e['status'] ?? '').toString().toUpperCase();
-                          final String updatedAt = e['updated_at'] ?? e['created_at'] ?? DateTime.now().toIso8601String();
-                          final DateTime itemDt = DateTime.tryParse(updatedAt) ?? DateTime.now();
+                            final notifier = NotificationStateNotifier.instance;
 
-                          // Entry Approved
-                          if (status == 'VALIDATED' || status == 'APPROVED' || status == 'ACCEPTED') {
-                            final appKey = 'entry_app_$eId';
-                            if (!addedKeys.contains(appKey) && 
-                                !EmployeeNotifications.globalDismissedIds.contains(appKey) &&
-                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
-                              addedKeys.add(appKey);
-                              notifications.add({
-                                'id': appKey,
-                                'title': 'Observation Entry Approved',
-                                'message': 'Your field entry for "$species" has been validated and approved.',
-                                'type': 'entry_validated',
-                                'created_at': updatedAt,
-                                'is_read': false,
-                                'target': 'entry',
-                                'entry_id': eId,
-                                'entry_data': e,
-                              });
+                            final List<Map<String, dynamic>> notifications = [];
+                            final Set<String> addedKeys = {};
+
+                            // Helper check function
+                            bool isItemValid(String key, DateTime dt) {
+                              if (addedKeys.contains(key)) return false;
+                              if (EmployeeNotifications.globalDismissedIds.contains(key) || notifier.dismissedIds.contains(key)) return false;
+                              if (EmployeeNotifications.globalClearedAt != null && !dt.isAfter(EmployeeNotifications.globalClearedAt!)) return false;
+                              if (notifier.clearedAt != null && !dt.isAfter(notifier.clearedAt!)) return false;
+                              return true;
                             }
-                          } 
-                          // Entry Rejected
-                          else if (status == 'REJECTED') {
-                            final String reason = (e['rejection_reason'] ?? e['rejection_remarks'] ?? e['admin_feedback'] ?? e['remarks'] ?? 'Needs correction').toString();
-                            final rejKey = 'entry_rej_$eId';
-                            if (!addedKeys.contains(rejKey) && 
-                                !EmployeeNotifications.globalDismissedIds.contains(rejKey) &&
-                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
-                              addedKeys.add(rejKey);
-                              notifications.add({
-                                'id': rejKey,
-                                'title': 'Observation Entry Rejected',
-                                'message': 'Your field entry for "$species" was rejected. Reason: $reason',
-                                'type': 'entry_rejected',
-                                'created_at': updatedAt,
-                                'is_read': false,
-                                'target': 'entry',
-                                'entry_id': eId,
-                                'entry_data': e,
-                              });
+
+                            // 1. MEETINGS TABLE: Minutes of Meeting Posted Only
+                            final rawMeetings = meetingSnapshot.data ?? [];
+                            for (final m in rawMeetings) {
+                              final String mId = m['id'].toString();
+                              final String mTitle = m['title'] ?? 'Meeting';
+                              final String mCreatedAt = m['created_at'] ?? DateTime.now().toIso8601String();
+                              final DateTime itemDt = DateTime.tryParse(mCreatedAt) ?? DateTime.now();
+                              final String? minutes = m['minutes']?.toString().trim();
+                              final String? momUrl = m['mom_attachment_url']?.toString().trim();
+
+                              if ((minutes != null && minutes.isNotEmpty) || (momUrl != null && momUrl.isNotEmpty)) {
+                                final momKey = 'mtg_mom_$mId';
+                                if (isItemValid(momKey, itemDt)) {
+                                  addedKeys.add(momKey);
+                                  notifications.add({
+                                    'id': momKey,
+                                    'title': 'Minutes of Meeting Posted',
+                                    'message': 'Official Minutes of Meeting (MoM) have been posted for "$mTitle". Tap to view details.',
+                                    'type': 'meeting_mom',
+                                    'created_at': mCreatedAt,
+                                    'is_read': false,
+                                    'target': 'meeting',
+                                    'meeting_data': m,
+                                  });
+                                }
+                              }
                             }
-                          } 
-                          // Entry Flagged for Review
-                          else if (status == 'FLAGGED' || status == 'PENDING' || status == 'UNDER REVIEW' || status == 'NEEDS_REVIEW') {
-                            final revKey = 'entry_rev_$eId';
-                            if (!addedKeys.contains(revKey) && 
-                                !EmployeeNotifications.globalDismissedIds.contains(revKey) &&
-                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
-                              addedKeys.add(revKey);
-                              notifications.add({
-                                'id': revKey,
-                                'title': 'Observation Flagged for Review',
-                                'message': 'Your field entry for "$species" has been flagged for administrative review.',
-                                'type': 'entry_review',
-                                'created_at': updatedAt,
-                                'is_read': false,
-                                'target': 'entry',
-                                'entry_id': eId,
-                                'entry_data': e,
-                              });
+
+                            // 2. FIELD ENTRIES: Entry Approved, Entry Rejected, Entry Flagged for Review (Current User)
+                            final rawEntries = entrySnapshot.data ?? [];
+                            for (final e in rawEntries) {
+                              final String eId = e['id'].toString();
+                              final String species = e['species_name'] ?? e['plant_type'] ?? 'Observation Entry';
+                              final String status = (e['status'] ?? '').toString().toUpperCase();
+                              final String updatedAt = e['updated_at'] ?? e['created_at'] ?? DateTime.now().toIso8601String();
+                              final DateTime itemDt = DateTime.tryParse(updatedAt) ?? DateTime.now();
+
+                              // Entry Approved
+                              if (status == 'VALIDATED' || status == 'APPROVED' || status == 'ACCEPTED') {
+                                final appKey = 'entry_app_$eId';
+                                if (isItemValid(appKey, itemDt)) {
+                                  addedKeys.add(appKey);
+                                  notifications.add({
+                                    'id': appKey,
+                                    'title': 'Observation Entry Approved',
+                                    'message': 'Your field entry for "$species" has been validated and approved.',
+                                    'type': 'entry_validated',
+                                    'created_at': updatedAt,
+                                    'is_read': false,
+                                    'target': 'entry',
+                                    'entry_id': eId,
+                                    'entry_data': e,
+                                  });
+                                }
+                              } 
+                              // Entry Rejected
+                              else if (status == 'REJECTED') {
+                                final String reason = (e['rejection_reason'] ?? e['rejection_remarks'] ?? e['admin_feedback'] ?? e['remarks'] ?? 'Needs correction').toString();
+                                final rejKey = 'entry_rej_$eId';
+                                if (isItemValid(rejKey, itemDt)) {
+                                  addedKeys.add(rejKey);
+                                  notifications.add({
+                                    'id': rejKey,
+                                    'title': 'Observation Entry Rejected',
+                                    'message': 'Your field entry for "$species" was rejected. Reason: $reason',
+                                    'type': 'entry_rejected',
+                                    'created_at': updatedAt,
+                                    'is_read': false,
+                                    'target': 'entry',
+                                    'entry_id': eId,
+                                    'entry_data': e,
+                                  });
+                                }
+                              } 
+                              // Entry Flagged for Review
+                              else if (status == 'FLAGGED' || status == 'PENDING' || status == 'UNDER REVIEW' || status == 'NEEDS_REVIEW') {
+                                final revKey = 'entry_rev_$eId';
+                                if (isItemValid(revKey, itemDt)) {
+                                  addedKeys.add(revKey);
+                                  notifications.add({
+                                    'id': revKey,
+                                    'title': 'Observation Flagged for Review',
+                                    'message': 'Your field entry for "$species" has been flagged for administrative review.',
+                                    'type': 'entry_review',
+                                    'created_at': updatedAt,
+                                    'is_read': false,
+                                    'target': 'entry',
+                                    'entry_id': eId,
+                                    'entry_data': e,
+                                  });
+                                }
+                              }
                             }
-                          }
-                        }
 
-                        // 3. AUDIT LOGS: MoM / Minutes Updates Only
-                        final rawAudits = auditSnapshot.data ?? [];
-                        for (final log in rawAudits) {
-                          final String logId = log['id']?.toString() ?? UniqueKey().toString();
-                          final String title = (log['title'] ?? '').toString();
-                          final String msg = (log['message'] ?? log['description'] ?? log['action'] ?? '').toString();
-                          final String text = '$title $msg'.toLowerCase();
-                          final String createdAt = log['created_at'] ?? DateTime.now().toIso8601String();
-                          final DateTime itemDt = DateTime.tryParse(createdAt) ?? DateTime.now();
+                            // 3. AUDIT LOGS: MoM / Minutes Updates Only
+                            final rawAudits = auditSnapshot.data ?? [];
+                            for (final log in rawAudits) {
+                              final String logId = log['id']?.toString() ?? UniqueKey().toString();
+                              final String title = (log['title'] ?? '').toString();
+                              final String msg = (log['message'] ?? log['description'] ?? log['action'] ?? '').toString();
+                              final String text = '$title $msg'.toLowerCase();
+                              final String createdAt = log['created_at'] ?? DateTime.now().toIso8601String();
+                              final DateTime itemDt = DateTime.tryParse(createdAt) ?? DateTime.now();
 
-                          if (text.contains('meeting minutes') || text.contains('mom updated') || text.contains('minutes updated')) {
-                            final logKey = 'audit_mom_$logId';
-                            if (!addedKeys.contains(logKey) && 
-                                !EmployeeNotifications.globalDismissedIds.contains(logKey) &&
-                                (EmployeeNotifications.globalClearedAt == null || itemDt.isAfter(EmployeeNotifications.globalClearedAt!))) {
-                              addedKeys.add(logKey);
-                              notifications.add({
-                                'id': logKey,
-                                'title': 'Minutes of Meeting Posted',
-                                'message': msg.isNotEmpty ? msg : 'New Minutes of Meeting have been posted by admin.',
-                                'type': 'meeting_mom',
-                                'created_at': createdAt,
-                                'is_read': false,
-                                'target': 'meeting',
-                              });
+                              if (text.contains('meeting minutes') || text.contains('mom updated') || text.contains('minutes updated')) {
+                                final logKey = 'audit_mom_$logId';
+                                if (isItemValid(logKey, itemDt)) {
+                                  addedKeys.add(logKey);
+                                  notifications.add({
+                                    'id': logKey,
+                                    'title': 'Minutes of Meeting Posted',
+                                    'message': msg.isNotEmpty ? msg : 'New Minutes of Meeting have been posted by admin.',
+                                    'type': 'meeting_mom',
+                                    'created_at': createdAt,
+                                    'is_read': false,
+                                    'target': 'meeting',
+                                  });
+                                }
+                              }
                             }
-                          }
-                        }
 
-                        // Sort newest first
-                        notifications.sort((a, b) {
-                          final dtA = DateTime.tryParse(a['created_at']) ?? DateTime.now();
-                          final dtB = DateTime.tryParse(b['created_at']) ?? DateTime.now();
-                          return dtB.compareTo(dtA);
-                        });
+                            // Sort newest first
+                            notifications.sort((a, b) {
+                              final dtA = DateTime.tryParse(a['created_at']) ?? DateTime.now();
+                              final dtB = DateTime.tryParse(b['created_at']) ?? DateTime.now();
+                              return dtB.compareTo(dtA);
+                            });
 
-                        if (notifications.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
-                                const SizedBox(height: 16),
-                                Text(
-                                  "No notifications yet", 
-                                  style: textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                            if (notifications.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      "No notifications yet", 
+                                      style: textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
-                        }
+                              );
+                            }
 
-                        return ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: notifications.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
-                          itemBuilder: (context, index) {
-                            final notif = notifications[index];
-                            return _buildNotificationItem(notif, isDark, textTheme);
+                            return ListView.separated(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              itemCount: notifications.length,
+                              separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
+                              itemBuilder: (context, index) {
+                                final notif = notifications[index];
+                                return _buildNotificationItem(notif, isDark, textTheme);
+                              },
+                            );
                           },
                         );
                       },
