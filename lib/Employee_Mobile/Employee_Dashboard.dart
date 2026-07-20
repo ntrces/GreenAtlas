@@ -205,9 +205,29 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return _buildEmptyState(isDark, "No recent entries", textTheme);
         return Column(children: snapshot.data!.map((e) {
-            final status = e['status'] ?? 'Pending';
+            final status = e['status']?.toString() ?? 'Pending';
+            final statusUpper = status.toUpperCase();
             final date = DateTime.parse(e['created_at']);
-            return _buildStatusRow(e['taxon'] ?? 'Observation', "${e['location'] ?? 'Area'} • ${DateFormat('jm').format(date)}", status, status == 'Validated' ? Colors.green : Colors.orange, isDark, true, textTheme, onTap: () => widget.onNavigate(1));
+            
+            Color statusColor = Colors.orange;
+            if (statusUpper == 'VALIDATED') {
+              statusColor = Colors.green;
+            } else if (statusUpper == 'REJECTED') {
+              statusColor = Colors.red;
+            } else if (statusUpper == 'FLAGGED') {
+              statusColor = Colors.orange;
+            }
+
+            return _buildStatusRow(
+              e['taxon'] ?? 'Observation', 
+              "${e['location'] ?? 'Area'} • ${DateFormat('jm').format(date)}", 
+              status, 
+              statusColor, 
+              isDark, 
+              true, 
+              textTheme, 
+              onTap: () => widget.onNavigate(1)
+            );
         }).toList());
       },
     );
@@ -356,7 +376,19 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
     child: ListTile(
       onTap: onTap, 
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), 
-      leading: Icon(isEntry ? (status == "Validated" ? Icons.check_circle_outline : Icons.access_time) : Icons.calendar_month_outlined, color: isEntry ? color : (isDark ? Colors.white24 : Colors.black26), size: 24), 
+      leading: Icon(
+        isEntry 
+          ? (status.toUpperCase() == "VALIDATED" 
+              ? Icons.check_circle_outline 
+              : (status.toUpperCase() == "REJECTED" 
+                  ? Icons.cancel_outlined 
+                  : (status.toUpperCase() == "FLAGGED" 
+                      ? Icons.warning_amber_outlined 
+                      : Icons.access_time))) 
+          : Icons.calendar_month_outlined, 
+        color: isEntry ? color : (isDark ? Colors.white24 : Colors.black26), 
+        size: 24
+      ), 
       title: Text(
         title, 
         style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black87, fontSize: 15),

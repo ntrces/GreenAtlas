@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart'; // For kIsWeb
 import 'dart:io' show File;
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Model & Components
 import '../Collect/observation_model.dart';
@@ -30,6 +35,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   bool _isSaving = false;
   late OfflineDraftService _offlineService;
   Key _formKey = UniqueKey();
+  final Map<String, Position> _imageLocations = {};
 
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
@@ -102,18 +108,130 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     'Other'
   ];
 
-  final List<String> _speciesChoices = [
-    'Scientific Name',
-    'Not Applicable'
-  ];
+  final List<String> _speciesChoices = ['Scientific Name', 'Not Applicable'];
+
+  Future<String> _watermarkImage(String path, Position? position, ObservationModel model) async {
+    if (kIsWeb) {
+      return path;
+    }
+    try {
+      final File file = File(path);
+      final Uint8List bytes = await file.readAsBytes();
+      final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final ui.Image image = frameInfo.image;
+
+      final ui.PictureRecorder recorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(recorder);
+
+      final Paint paint = Paint();
+      canvas.drawImage(image, Offset.zero, paint);
+
+      final String timestampStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+      
+      String locationStr = "";
+      String addressStr = "";
+      if (position != null) {
+        locationStr = "GPS: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}";
+        try {
+          List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+          if (placemarks.isNotEmpty) {
+            final Placemark place = placemarks.first;
+            final String city = place.locality ?? "";
+            final String subAdmin = place.subAdministrativeArea ?? "";
+            
+            final List<String> addressParts = [];
+            if (city.isNotEmpty) addressParts.add(city);
+            if (subAdmin.isNotEmpty && subAdmin != city) addressParts.add(subAdmin);
+            
+            addressStr = addressParts.join(', ');
+          }
+        } catch (e) {
+          debugPrint("Error reverse geocoding: $e");
+        }
+      }
+
+      final List<String> watermarkLines = [
+        timestampStr,
+        if (addressStr.isNotEmpty) addressStr,
+        locationStr.isNotEmpty ? locationStr : "GPS: Unavailable",
+      ];
+      final String watermarkText = watermarkLines.join('\n');
+
+      final double fontSize = image.height * 0.035; 
+      
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: watermarkText,
+          style: TextStyle(
+            color: Colors.orangeAccent,
+            fontSize: fontSize > 12 ? fontSize : 12,
+            fontWeight: FontWeight.bold,
+            height: 1.2,
+            shadows: const [
+              Shadow(
+                blurRadius: 4.0,
+                color: Colors.black,
+                offset: Offset(2.0, 2.0),
+              ),
+            ],
+          ),
+        ),
+        textAlign: TextAlign.right,
+        textDirection: ui.TextDirection.ltr,
+      );
+      textPainter.layout();
+
+      final double padding = image.height * 0.02;
+      final double x = image.width - textPainter.width - padding;
+      final double y = image.height - textPainter.height - padding;
+
+      textPainter.paint(canvas, Offset(x, y));
+
+      final ui.Picture picture = recorder.endRecording();
+      final ui.Image watermarkedUiImage = await picture.toImage(image.width, image.height);
+      final ByteData? byteData = await watermarkedUiImage.toByteData(format: ui.ImageByteFormat.png);
+      
+      if (byteData != null) {
+        final Uint8List watermarkedBytes = byteData.buffer.asUint8List();
+        await file.writeAsBytes(watermarkedBytes);
+      }
+    } catch (e) {
+      debugPrint("Error watermarking image: $e");
+    }
+    return path;
+  }
 
   Future<void> _pickImages(ObservationModel model) async {
     try {
-      final List<XFile> pickedImages =
-          await _picker.pickMultiImage(imageQuality: 70);
-      if (pickedImages.isNotEmpty) {
+      final XFile? pickedImage =
+          await _picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+      if (pickedImage != null) {
+        Position? position;
+        try {
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+          if (serviceEnabled) {
+            LocationPermission permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.denied) {
+              permission = await Geolocator.requestPermission();
+            }
+            if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+              position = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.high,
+                timeLimit: const Duration(seconds: 5),
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint("Error getting GPS location: $e");
+        }
+
+        final String watermarkedPath = await _watermarkImage(pickedImage.path, position, model);
         setState(() {
-          model.imagePaths.addAll(pickedImages.map((img) => img.path));
+          if (position != null) {
+            _imageLocations[watermarkedPath] = position;
+          }
+          model.imagePaths.add(watermarkedPath);
           model.updateData();
         });
       }
@@ -123,7 +241,9 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   }
 
   void _removeImage(int index, ObservationModel model) {
+    final String path = model.imagePaths[index];
     setState(() {
+      _imageLocations.remove(path);
       model.imagePaths.removeAt(index);
       model.updateData();
     });
@@ -154,6 +274,25 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Taxon group is required")));
       return;
+    }
+
+    if (model.isResubmit && !isDraft) {
+      final hasChanges = model.hasTextChanges(
+        commonName: _commonNameController.text,
+        taxonGroup: _taxonController.text,
+        count: int.tryParse(_countController.text) ?? 0,
+        notes: model.observationNotes,
+      );
+      if (!hasChanges) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("You must edit at least one text field to resubmit (e.g., name, notes, quantity, or location details)."),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -199,7 +338,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           draftData['discovery_method'] = methods.join(', ');
 
           final draftId = await _offlineService.saveDraftOffline(draftData);
-          await _offlineService.saveImagePathsOffline(draftId, model.imagePaths);
+          await _offlineService.saveImagePathsOffline(
+              draftId, model.imagePaths);
 
           if (mounted) {
             model.reset();
@@ -233,6 +373,10 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       // Online flow - original implementation
       List<String> uploadedUrls = [];
       for (String path in model.imagePaths) {
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+          uploadedUrls.add(path);
+          continue;
+        }
         final fileName =
             '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
         final storagePath = '$userId/$fileName';
@@ -294,10 +438,23 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         'status': isDraft ? 'DRAFT' : 'PENDING',
       };
 
-      await _supabase.from('field_entries').insert(dbData);
+      if (model.isResubmit) {
+        dbData['resubmit_count'] = model.resubmitCount + 1;
+        dbData['confidence_score'] = null;
+        dbData['auto_validation_reason'] = null;
+        dbData['admin_feedback'] = null;
+        dbData['modified_at'] = DateTime.now().toIso8601String();
+
+        await _supabase
+            .from('field_entries')
+            .update(dbData)
+            .eq('id', model.originalDraftId!);
+      } else {
+        await _supabase.from('field_entries').insert(dbData);
+      }
 
       // If this was an edited draft, delete the original draft
-      if (model.originalDraftId != null && !isDraft) {
+      if (model.originalDraftId != null && !isDraft && !model.isResubmit) {
         try {
           // Delete online draft from database
           await _supabase
@@ -407,10 +564,13 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                   _buildLabel("Observation *", textTheme),
                   const SizedBox(height: 8),
                   _buildDropdownField(
-                      _observations.contains(model.observationCategory) ? model.observationCategory : null,
+                      _observations.contains(model.observationCategory)
+                          ? model.observationCategory
+                          : null,
                       _observations,
                       "Select category",
-                      (v) => setState(() => model.observationCategory = v ?? ''),
+                      (v) =>
+                          setState(() => model.observationCategory = v ?? ''),
                       textTheme),
                 ]),
                 const SizedBox(height: 24),
@@ -418,19 +578,18 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                 _whiteCard(isDark, [
                   _buildLabel("Species Name *", textTheme),
                   _buildDropdownField(
-                    (_speciesChoices?.contains(model.taxon ?? '') ?? false)
-                        ? model.taxon
-                        : null,
-                    _speciesChoices ?? [],
-                    "Select option",
-                    (v) => setState(() {
-                      model.taxon = v ?? '';
-                      if (v == 'Not Applicable') {
-                        _taxonController.text = 'N/A';
-                      }
-                    }),
-                    textTheme
-                  ),
+                      (_speciesChoices?.contains(model.taxon ?? '') ?? false)
+                          ? model.taxon
+                          : null,
+                      _speciesChoices ?? [],
+                      "Select option",
+                      (v) => setState(() {
+                            model.taxon = v ?? '';
+                            if (v == 'Not Applicable') {
+                              _taxonController.text = 'N/A';
+                            }
+                          }),
+                      textTheme),
                   if (model.taxon == 'Scientific Name') ...[
                     const SizedBox(height: 12),
                     _buildTextField(
@@ -492,33 +651,33 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   // --- UI HELPERS ---
 
-  Widget _buildTopNavBar(BuildContext context, bool isDark, TextTheme textTheme) => Container(
-      padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 10,
-          bottom: 10,
-          left: 16,
-          right: 16),
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-      child: Row(children: [
-        Image.asset('assets/logo2.png', height: 32),
-        const SizedBox(width: 12),
-        Text(
-          "Field Observation", 
-          style: textTheme.titleLarge?.copyWith(
-            color: isDark ? Colors.white : darkGreen,
-            fontWeight: FontWeight.bold,
-          )
-        ),
-        const Spacer(),
-        IconButton(
-            icon: Icon(Icons.notifications_none_outlined,
-                color: isDark ? Colors.white : Colors.black),
-            onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const EmployeeNotifications()))),
-        _buildProfileIcon(context, isDark)
-      ]));
+  Widget _buildTopNavBar(
+          BuildContext context, bool isDark, TextTheme textTheme) =>
+      Container(
+          padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 10,
+              bottom: 10,
+              left: 16,
+              right: 16),
+          color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          child: Row(children: [
+            Image.asset('assets/logo2.png', height: 32),
+            const SizedBox(width: 12),
+            Text("Field Observation",
+                style: textTheme.titleLarge?.copyWith(
+                  color: isDark ? Colors.white : darkGreen,
+                  fontWeight: FontWeight.bold,
+                )),
+            const Spacer(),
+            IconButton(
+                icon: Icon(Icons.notifications_none_outlined,
+                    color: isDark ? Colors.white : Colors.black),
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const EmployeeNotifications()))),
+            _buildProfileIcon(context, isDark)
+          ]));
 
   Widget _buildSecondaryHeader(
           BuildContext context, ObservationModel model, TextTheme textTheme) =>
@@ -544,6 +703,47 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                         textTheme.bodySmall?.copyWith(color: Colors.white70)))
           ]));
 
+  void _showImagePreview(BuildContext context, String path) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.black,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: kIsWeb
+                    ? Image.network(path, fit: BoxFit.contain)
+                    : Image.file(File(path), fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black45,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMultiPhotoBox(
       bool d, ObservationModel model, TextTheme textTheme) {
     return Column(
@@ -559,16 +759,19 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                 final String path = model.imagePaths[index];
                 return Stack(
                   children: [
-                    Container(
-                        width: 100,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            image: DecorationImage(
-                                image: kIsWeb
-                                    ? NetworkImage(path) as ImageProvider
-                                    : FileImage(File(path)),
-                                fit: BoxFit.cover))),
+                    GestureDetector(
+                      onTap: () => _showImagePreview(context, path),
+                      child: Container(
+                          width: 100,
+                          margin: const EdgeInsets.only(right: 10),
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              image: DecorationImage(
+                                  image: kIsWeb
+                                      ? NetworkImage(path) as ImageProvider
+                                      : FileImage(File(path)),
+                                  fit: BoxFit.cover))),
+                    ),
                     Positioned(
                         top: 4,
                         right: 14,
@@ -644,22 +847,24 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                  onPressed: _isSaving
-                      ? null
-                      : () => _submitForm(model, isDraft: true),
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text("Save as Draft",
-                      style:
-                          textTheme.labelLarge?.copyWith(color: forestGreen)),
-                  style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white.withOpacity(0.5),
-                      side: BorderSide(color: forestGreen.withOpacity(0.3)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))))),
+          if (!model.isResubmit) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                    onPressed: _isSaving
+                        ? null
+                        : () => _submitForm(model, isDraft: true),
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text("Save as Draft",
+                        style:
+                            textTheme.labelLarge?.copyWith(color: forestGreen)),
+                    style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.5),
+                        side: BorderSide(color: forestGreen.withOpacity(0.3)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))))),
+          ],
         ],
       ),
     );
@@ -718,22 +923,27 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           decoration: BoxDecoration(
               color: const Color(0xFFF9F9F9),
               borderRadius: BorderRadius.circular(12)),
-          child: isLoading 
-            ? Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: forestGreen))),
-              )
-            : DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                  value: (v == null || v.isEmpty) ? null : v,
-                  isExpanded: true,
-                  hint: Text(h, style: textTheme.bodyMedium),
-                  items: i
-                      .map((e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(e, style: textTheme.bodyMedium)))
-                      .toList(),
-                  onChanged: o)));
+          child: isLoading
+              ? Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Center(
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: forestGreen))),
+                )
+              : DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                      value: (v == null || v.isEmpty) ? null : v,
+                      isExpanded: true,
+                      hint: Text(h, style: textTheme.bodyMedium),
+                      items: i
+                          .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e, style: textTheme.bodyMedium)))
+                          .toList(),
+                      onChanged: o)));
   Widget _buildCheckbox(
           String l, bool v, Function(bool?) o, TextTheme textTheme) =>
       CheckboxListTile(
