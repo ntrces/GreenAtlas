@@ -24,6 +24,9 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   final _supabase = Supabase.instance.client;
   String? get _userId => _supabase.auth.currentUser?.id;
 
+  final Color darkGreen = const Color(0xFF2D3E2D);
+  final Color forestGreen = const Color(0xFF5D7A5D);
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -39,17 +42,17 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         slivers: [
           _buildHeader(context, isDark, textTheme),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _buildInfoCard(isDark, textTheme),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 _buildDescriptionText(isDark, textTheme),
                 const SizedBox(height: 24),
                 _buildActionButtons(context, isDark, textTheme), 
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 _buildSectionHeader("Recent Entries (Max 5)", isDark, textTheme),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 _buildRecentEntriesList(isDark, textTheme),
                 const SizedBox(height: 40),
               ]),
@@ -65,19 +68,20 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   Widget _buildHeader(BuildContext context, bool isDark, TextTheme textTheme) => SliverAppBar(
     pinned: true,
     backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-    elevation: 0,
+    elevation: 0.5,
     toolbarHeight: 70,
     leadingWidth: 70,
     leading: Padding(
       padding: const EdgeInsets.only(left: 16.0),
-      child: Image.asset('assets/logo2.png', fit: BoxFit.contain), 
+      child: Image.asset('assets/logo2.png', fit: BoxFit.contain, errorBuilder: (c,e,s) => Icon(Icons.eco, color: forestGreen, size: 32)), 
     ),
     title: Text(
       "Field Observation", 
       style: textTheme.titleLarge?.copyWith(
-        color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
+        color: isDark ? Colors.white : darkGreen, 
         fontSize: 20,
         fontWeight: FontWeight.bold,
+        letterSpacing: 0.3,
       )
     ),
     actions: [
@@ -97,13 +101,13 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   Widget _buildProfileIcon(BuildContext context, bool isDark) => InkWell(
     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
     child: Container(
-      height: 36, width: 36,
+      height: 38, width: 38,
       decoration: BoxDecoration(
         color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), 
-        borderRadius: BorderRadius.circular(8), 
-        border: Border.all(color: Colors.black12)
+        borderRadius: BorderRadius.circular(10), 
+        border: Border.all(color: isDark ? Colors.white12 : Colors.black12, width: 1)
       ),
-      child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+      child: Icon(Icons.person_outline_rounded, color: isDark ? Colors.white70 : Colors.black54, size: 22),
     ),
   );
 
@@ -112,17 +116,34 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   Widget _buildInfoCard(bool isDark, TextTheme textTheme) => Container(
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+      gradient: LinearGradient(
+        colors: isDark 
+            ? [const Color(0xFF1F1F1F), const Color(0xFF2A2A2A)]
+            : [Colors.white, const Color(0xFFF5FAF5)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+      border: Border.all(color: isDark ? Colors.white10 : forestGreen.withOpacity(0.15)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        )
+      ],
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.menu_book, color: Color(0xFF5D7A5D), size: 32),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: forestGreen.withOpacity(0.12), 
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: forestGreen.withOpacity(0.2)),
+          ),
+          child: Icon(Icons.menu_book_rounded, color: forestGreen, size: 30),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -130,12 +151,22 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Digital logbook for recording observations in GreenAtlas",
-                style: textTheme.titleSmall?.copyWith(fontSize: 15, height: 1.4)
+                "Digital Logbook for GreenAtlas Observations",
+                style: textTheme.titleSmall?.copyWith(
+                  fontSize: 15, 
+                  fontWeight: FontWeight.bold, 
+                  color: isDark ? Colors.white : darkGreen,
+                  height: 1.3,
+                )
               ),
-              const SizedBox(height: 12),
-              _metaText("Version: v.1.1.25", textTheme),
-              _metaText("Owner: BMB_CM", textTheme),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _metaBadge("v1.1.25", Icons.build_circle_outlined, isDark),
+                  const SizedBox(width: 8),
+                  _metaBadge("BMB_CM", Icons.verified_user_outlined, isDark),
+                ],
+              ),
             ],
           ),
         ),
@@ -143,20 +174,48 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     ),
   );
 
-  Widget _metaText(String text, TextTheme textTheme) => Padding(
-    padding: const EdgeInsets.only(bottom: 2),
-    child: Text(
-      text, 
-      style: textTheme.labelSmall?.copyWith(fontSize: 11, color: Colors.black38)
+  Widget _metaBadge(String text, IconData icon, bool isDark) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: isDark ? Colors.white10 : const Color(0xFFE8F2E8),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: forestGreen),
+        const SizedBox(width: 4),
+        Text(
+          text, 
+          style: TextStyle(fontSize: 10, color: isDark ? Colors.white70 : darkGreen, fontWeight: FontWeight.bold),
+        ),
+      ],
     ),
   );
 
-  Widget _buildDescriptionText(bool isDark, TextTheme textTheme) => Text(
-    "Document daily patrols and species observations to enhance ecological monitoring efforts in the Cavite Protected Area.",
-    style: textTheme.bodySmall?.copyWith(
-      fontSize: 13, 
-      height: 1.5, 
-      color: isDark ? Colors.white70 : const Color(0xFF5D7A5D).withOpacity(0.8)
+  Widget _buildDescriptionText(bool isDark, TextTheme textTheme) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: forestGreen.withOpacity(isDark ? 0.12 : 0.06),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: forestGreen.withOpacity(0.15)),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.info_outline_rounded, size: 18, color: forestGreen),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            "Document daily patrols and species observations to enhance ecological monitoring in Cavite Protected Area.",
+            style: textTheme.bodySmall?.copyWith(
+              fontSize: 12, 
+              height: 1.4, 
+              color: isDark ? Colors.white70 : darkGreen.withOpacity(0.85),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -165,11 +224,13 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   Widget _buildActionButtons(BuildContext context, bool isDark, TextTheme textTheme) => Column(
     children: [
       _actionRow(
-        icon: Icons.add_box_rounded, 
-        label: "Collect", 
+        icon: Icons.add_circle_rounded, 
+        label: "Collect New Observation", 
+        subLabel: "Record new species & patrol data",
         color: const Color(0xFF4285F4), 
         isDark: isDark, 
         textTheme: textTheme,
+        badgeText: "+ New",
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep1Screen())),
       ),
       // Drafts with dynamic count
@@ -183,12 +244,13 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         builder: (context, snapshot) {
           final draftCount = snapshot.data?.length ?? 0;
           return _actionRow(
-            icon: Icons.insert_drive_file_rounded, 
+            icon: Icons.drafts_rounded, 
             label: "Drafts", 
+            subLabel: "Saved observations pending submission",
             color: const Color(0xFFFF9800), 
             isDark: isDark, 
             textTheme: textTheme,
-            badge: draftCount > 0 ? draftCount.toString() : null,
+            badge: draftCount > 0 ? "$draftCount draft(s)" : null,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DraftsListScreen())),
           );
         },
@@ -205,11 +267,12 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           final sentCount = snapshot.data?.length ?? 0;
           return _actionRow(
             icon: Icons.cloud_done_rounded, 
-            label: "Sent", 
-            color: const Color(0xFF78909C), 
+            label: "Sent Submissions", 
+            subLabel: "View status of submitted observations",
+            color: forestGreen, 
             isDark: isDark, 
             textTheme: textTheme,
-            badge: sentCount > 0 ? sentCount.toString() : null,
+            badge: sentCount > 0 ? "$sentCount sent" : null,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SentListScreen())),
           );
         },
@@ -220,46 +283,95 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   Widget _actionRow({
     required IconData icon, 
     required String label, 
+    String? subLabel,
     required Color color, 
     required bool isDark, 
     required TextTheme textTheme,
     String? badge, 
+    String? badgeText,
     VoidCallback? onTap
   }) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
       color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), 
+          blurRadius: 10, 
+          offset: const Offset(0, 3)
+        ),
+      ],
     ),
-    child: ListTile(
+    child: InkWell(
       onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      leading: CircleAvatar(backgroundColor: color, radius: 18, child: Icon(icon, color: Colors.white, size: 18)),
-      title: Text(
-        label, 
-        style: textTheme.titleSmall?.copyWith(fontSize: 15)
-      ),
-      trailing: SizedBox(
-        width: badge != null ? 90 : 30,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            if (badge != null)
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                  child: Text(
-                    badge, 
-                    style: textTheme.labelSmall?.copyWith(color: color, fontSize: 10),
-                    overflow: TextOverflow.ellipsis,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label, 
+                    style: textTheme.titleMedium?.copyWith(
+                      fontSize: 15, 
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : darkGreen,
+                    ),
                   ),
+                  if (subLabel != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subLabel,
+                      style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.black45),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (badgeText != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12), 
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: color.withOpacity(0.3)),
+                ),
+                child: Text(
+                  badgeText, 
+                  style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right, color: Colors.black26, size: 20),
+              const SizedBox(width: 6),
+            ] else if (badge != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1), 
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: color.withOpacity(0.2)),
+                ),
+                child: Text(
+                  badge, 
+                  style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Icon(Icons.chevron_right_rounded, color: isDark ? Colors.white38 : Colors.black26, size: 22),
           ],
         ),
       ),
@@ -278,7 +390,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           .asStream(), 
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
         }
 
         final entries = snapshot.data ?? [];
@@ -286,12 +398,18 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         if (entries.isEmpty) {
           return Center(
             child: Padding(
-              padding: const EdgeInsets.all(20), 
-              child: Text(
-                "No observations yet.", 
-                style: textTheme.bodySmall?.copyWith(fontSize: 12, color: Colors.grey)
-              )
-            )
+              padding: const EdgeInsets.all(24), 
+              child: Column(
+                children: [
+                  Icon(Icons.assignment_outlined, size: 48, color: isDark ? Colors.white30 : Colors.black26),
+                  const SizedBox(height: 8),
+                  Text(
+                    "No observation entries recorded yet.", 
+                    style: textTheme.bodySmall?.copyWith(fontSize: 12, color: isDark ? Colors.white38 : Colors.black45),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
@@ -301,7 +419,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           children: entries.take(5).map((e) => _buildEntryCard(
             e['id'].toString(), 
             DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(e['created_at'])),
-            e['protected_area'] ?? "Unknown Area", 
+            e['protected_area'] ?? e['species_name'] ?? "Observation Entry", 
             e['status'] ?? "Sent",
             isDark,
             textTheme,
@@ -311,69 +429,141 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     );
   }
 
-  Widget _buildEntryCard(String id, String date, String area, String status, bool isDark, TextTheme textTheme) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.02)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Text(
-                "BMS-${id.padLeft(3, '0')}", 
-                style: textTheme.titleSmall?.copyWith(fontSize: 15, color: isDark ? Colors.white : Colors.black),
-                overflow: TextOverflow.ellipsis,
+  Widget _buildEntryCard(String id, String date, String area, String status, bool isDark, TextTheme textTheme) {
+    final String st = status.toUpperCase();
+    Color statusColor = forestGreen;
+    IconData statusIcon = Icons.send_rounded;
+
+    if (st == 'VALIDATED' || st == 'APPROVED') {
+      statusColor = const Color(0xFF4CAF50);
+      statusIcon = Icons.check_circle_rounded;
+    } else if (st == 'REJECTED') {
+      statusColor = const Color(0xFFF44336);
+      statusIcon = Icons.cancel_rounded;
+    } else if (st == 'FLAGGED' || st == 'NEEDS_REVIEW') {
+      statusColor = Colors.orange;
+      statusIcon = Icons.rate_review_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(width: 4, color: statusColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              "BMS-${id.padLeft(3, '0')}", 
+                              style: textTheme.titleSmall?.copyWith(
+                                fontSize: 15, 
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : darkGreen,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStatusBadge(status, statusColor, statusIcon, textTheme),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time_rounded, size: 12, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            date, 
+                            style: textTheme.labelSmall?.copyWith(fontSize: 11, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.place_outlined, size: 12, color: forestGreen),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              area, 
+                              style: textTheme.labelSmall?.copyWith(fontSize: 11, color: forestGreen, fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            _buildStatusBadge(status, textTheme),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status, Color color, IconData icon, TextTheme textTheme) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: color.withOpacity(0.2)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 10, color: color),
+        const SizedBox(width: 3),
         Text(
-          date, 
-          style: textTheme.labelSmall?.copyWith(fontSize: 12, color: Colors.black45)
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "$area • 1 observation(s)", 
-          style: textTheme.labelSmall?.copyWith(fontSize: 12, color: const Color(0xFF5D7A5D))
+          status, 
+          style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
         ),
       ],
     ),
   );
 
-  Widget _buildStatusBadge(String status, TextTheme textTheme) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(
-      color: status.toUpperCase() == "SENT" ? const Color(0xFF5D7A5D).withOpacity(0.1) : Colors.black12,
-      borderRadius: BorderRadius.circular(6)
-    ),
-    child: Text(
-      status, 
-      style: textTheme.labelSmall?.copyWith(
-        color: status.toUpperCase() == "SENT" ? const Color(0xFF5D7A5D) : Colors.black54, 
-        fontSize: 10
-      )
-    ),
-  );
-
   Widget _buildSectionHeader(String title, bool isDark, TextTheme textTheme) => Padding(
     padding: const EdgeInsets.only(left: 4),
-    child: Text(
-      title, 
-      style: textTheme.titleSmall?.copyWith( 
-        fontSize: 14, 
-        color: isDark ? Colors.white : Colors.black87,
-        fontWeight: FontWeight.bold,
-      ),
+    child: Row(
+      children: [
+        Container(
+          width: 4, height: 14,
+          decoration: BoxDecoration(color: forestGreen, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title, 
+          style: textTheme.titleSmall?.copyWith( 
+            fontSize: 14, 
+            color: isDark ? Colors.white : darkGreen,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     ),
   );
 }

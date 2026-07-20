@@ -344,12 +344,29 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
     }
 
     return Container(
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        leading: CircleAvatar(
-          backgroundColor: iconColor.withOpacity(0.12),
-          child: Icon(icon, color: iconColor, size: 22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
         ),
         title: Row(
           children: [
@@ -357,8 +374,9 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
               child: Text(
                 notif['title'] ?? 'Notification',
                 style: textTheme.titleMedium?.copyWith(
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: isDark ? Colors.white : const Color(0xFF2D3E2D),
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -366,8 +384,9 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: badgeColor.withOpacity(0.1),
+                color: badgeColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: badgeColor.withOpacity(0.2)),
               ),
               child: Text(
                 badgeLabel,
