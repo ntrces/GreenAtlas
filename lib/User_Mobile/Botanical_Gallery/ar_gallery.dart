@@ -444,7 +444,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.black12),
           ),
-          const Divider(height: 1, indent: 85, color: Color(0xFFF0F0F0)),
+          const Divider(height: 1, indent: 85, color: Color(0xFFF0F4F0)),
         ],
       ),
     );
