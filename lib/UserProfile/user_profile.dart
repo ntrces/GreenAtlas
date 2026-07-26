@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_constants.dart';
+import '../services/notification_service.dart';
 import 'change_password.dart'; 
 import '../UserProfile/edit_profile.dart';
 
@@ -24,7 +25,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String? _avatarUrl; 
   bool _isLoading = true;
 
-  bool _emailNotif = true;
   bool _pushNotif = true;
 
   @override
@@ -33,27 +33,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _fetchUserData();
   }
 
-  Future<void> _updateNotificationPreference(String column, bool value) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
+  Future<void> _togglePushNotifications(bool value) async {
     try {
-      await _supabase
-          .from('profiles')
-          .update({column: value})
-          .eq('id', user.id);
-      
+      final success = await NotificationService.instance.setPushNotificationsEnabled(context, value);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("${column.split('_')[0].toUpperCase()} preference updated!"),
-            duration: const Duration(milliseconds: 800),
-            backgroundColor: const Color(0xFF5D7A5D),
-          ),
-        );
+        setState(() => _pushNotif = success);
       }
     } catch (e) {
-      debugPrint("Update Error: $e");
+      debugPrint("Error toggling notifications: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error setting notifications: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
@@ -73,7 +65,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _email = user.email ?? _email;
             _phone = (data['phone'] != null && data['phone'].isNotEmpty) ? data['phone'] : "Add phone number";
             
-            _emailNotif = data['email_notifications_enabled'] ?? true;
             _pushNotif = data['push_notifications_enabled'] ?? true;
 
             String muni = data['municipality'] ?? "";
@@ -190,20 +181,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     Icons.notifications_active_outlined, 
                     "Push Notifications (Mobile)", 
                     _pushNotif, 
-                    (v) {
-                      setState(() => _pushNotif = v);
-                      _updateNotificationPreference('push_notifications_enabled', v);
-                    },
-                    isDark,
-                  ),
-                  _buildSwitchRow(
-                    Icons.email_outlined, 
-                    "Email Alerts", 
-                    _emailNotif, 
-                    (v) {
-                      setState(() => _emailNotif = v);
-                      _updateNotificationPreference('email_notifications_enabled', v);
-                    },
+                    (v) => _togglePushNotifications(v),
                     isDark,
                   ),
                 ],

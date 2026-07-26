@@ -384,18 +384,18 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase
           .from('field_entries')
-          .select()
+          .stream(primaryKey: ['id'])
           .eq('user_id', _userId!)
-          .limit(5)
-          .asStream(), 
+          .order('created_at', ascending: false)
+          .limit(5),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
         }
 
-        final entries = snapshot.data ?? [];
+        final rawEntries = snapshot.data ?? [];
         
-        if (entries.isEmpty) {
+        if (rawEntries.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24), 
@@ -413,13 +413,18 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           );
         }
 
-        entries.sort((a, b) => b['created_at'].compareTo(a['created_at']));
+        final entries = List<Map<String, dynamic>>.from(rawEntries);
+        entries.sort((a, b) {
+          final dtA = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+          final dtB = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+          return dtB.compareTo(dtA);
+        });
         
         return Column(
           children: entries.take(5).map((e) => _buildEntryCard(
             e['id'].toString(), 
-            DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.parse(e['created_at'])),
-            e['protected_area'] ?? e['species_name'] ?? "Observation Entry", 
+            DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.tryParse(e['created_at']?.toString() ?? '') ?? DateTime.now()),
+            e['protected_area'] ?? e['species_name'] ?? e['taxon'] ?? "Observation Entry", 
             e['status'] ?? "Sent",
             isDark,
             textTheme,

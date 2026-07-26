@@ -205,10 +205,16 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
       stream: _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!).order('created_at', ascending: false).limit(3),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return _buildEmptyState(isDark, "No recent entries", textTheme);
-        return Column(children: snapshot.data!.map((e) {
+        final entries = List<Map<String, dynamic>>.from(snapshot.data!);
+        entries.sort((a, b) {
+          final dtA = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+          final dtB = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+          return dtB.compareTo(dtA);
+        });
+        return Column(children: entries.take(3).map((e) {
             final status = e['status']?.toString() ?? 'Pending';
             final statusUpper = status.toUpperCase();
-            final date = DateTime.parse(e['created_at']);
+            final date = DateTime.tryParse(e['created_at']?.toString() ?? '') ?? DateTime.now();
             
             Color statusColor = Colors.orange;
             if (statusUpper == 'VALIDATED') {
@@ -220,7 +226,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
             }
 
             return _buildStatusRow(
-              e['taxon'] ?? 'Observation', 
+              e['taxon'] ?? e['species_name'] ?? e['protected_area'] ?? 'Observation', 
               "${e['location'] ?? 'Area'} • ${DateFormat('jm').format(date)}", 
               status, 
               statusColor, 

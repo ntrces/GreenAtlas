@@ -146,19 +146,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   final String type = notif['type'] ?? notif['category'] ?? 'general';
                   final bool isUnread = !(notif['is_read'] ?? false);
                   
-                  final DateTime createdAt = DateTime.parse(notif['created_at']);
+                  final DateTime createdAt = DateTime.tryParse(notif['created_at']?.toString() ?? '') ?? DateTime.now();
                   final String timeLabel = DateFormat.jm().format(createdAt); 
 
                   return InkWell(
                     onTap: () {
-                      if (isUnread) {
-                        _updateReadStatus(notif['id']);
-                      }
-                      final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-                      if (text.contains('plant')) {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
-                      } else if (text.contains('profile')) {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+                      try {
+                        if (isUnread) {
+                          _updateReadStatus(notif['id']);
+                        }
+                        final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+                        if (text.contains('plant')) {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
+                        } else if (text.contains('profile')) {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+                        }
+                      } catch (e) {
+                        debugPrint("Error handling notification tap: $e");
                       }
                     },
                     child: _buildNotifTile(
