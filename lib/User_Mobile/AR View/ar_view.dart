@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import 'dart:ui';
+import '../../theme_provider.dart';
+import '../../theme_constants.dart';
 import '../user_dashboard.dart';
 import '../Botanical_Gallery/ar_gallery.dart';
 import '../../UserProfile/user_profile.dart';
@@ -85,25 +88,25 @@ const List<TreeModel> threatenedTrees = [
   ),
   TreeModel(
     name: 'Dila-dila',
-    scientificName: 'Cynometra inaequifolia',
+    scientificName: 'Cynometra ramiflora',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
   ),
   TreeModel(
     name: 'Haikan',
-    scientificName: 'Camellia lanceolata',
+    scientificName: 'Koilodepas bantamense',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
   ),
   TreeModel(
     name: 'Malachio',
-    scientificName: 'Glenniea philippinensis',
+    scientificName: 'Aglaia rimosa',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
   ),
   TreeModel(
     name: 'Bagarilau',
-    scientificName: 'Cryptocarya ampla',
+    scientificName: 'Cryptocarya edanoii',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
   ),
@@ -178,29 +181,30 @@ class _Ar_ViewState extends State<Ar_View> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
     // Permission not yet resolved
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0A0A0A),
-        body:
-            Center(child: CircularProgressIndicator(color: Color(0xFF517156))),
+      return Scaffold(
+        backgroundColor: getScaffoldBg(isDark),
+        body: Center(child: CircularProgressIndicator(color: isDark ? leafAccent : const Color(0xFF517156))),
       );
     }
 
     // If viewing a plant in AR, show the AR viewer
     if (_viewingArTree != null) {
-      return _buildARViewerScreen();
+      return _buildARViewerScreen(isDark);
     }
 
     // Show plant shelf with overlay buttons
-    return _buildPlantShelfScreen();
+    return _buildPlantShelfScreen(isDark);
   }
 
-  Widget _buildARViewerScreen() {
+  Widget _buildARViewerScreen(bool isDark) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: getCardBg(isDark),
         elevation: 0,
         toolbarHeight: 80,
         leadingWidth: 70,
@@ -208,13 +212,13 @@ class _Ar_ViewState extends State<Ar_View> {
           padding: const EdgeInsets.only(left: 16.0),
           child: CircleAvatar(
             radius: 30,
-            backgroundColor: Colors.white,
+            backgroundColor: isDark ? const Color(0xFF253326) : Colors.white,
             child: Transform.scale(
               scale: 1.3,
               child: Image.asset('assets/logo2.png',
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.eco, color: Color(0xFF2D3E2D))),
+                      Icon(Icons.eco, color: isDark ? leafAccent : const Color(0xFF2D3E2D))),
             ),
           ),
         ),
@@ -223,27 +227,22 @@ class _Ar_ViewState extends State<Ar_View> {
           children: [
             Text(
               _viewingArTree!.name,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Poppins-Bold',
                 fontSize: 18,
-                color: Color(0xFF303D32),
+                color: getTextColor(isDark),
                 height: 1.2,
               ),
             ),
             Text(
               _viewingArTree!.scientificName,
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
+              style: TextStyle(color: getSubtextColor(isDark), fontSize: 12),
             ),
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none,
-                color: Color(0xFF303D32), size: 28),
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const NotificationScreen())),
-          ),
-          _buildProfileIcon(),
+          UserNotificationBadge(iconColor: isDark ? Colors.white : const Color(0xFF303D32)),
+          _buildProfileIcon(isDark),
           const SizedBox(width: 8),
         ],
       ),
@@ -301,13 +300,13 @@ class _Ar_ViewState extends State<Ar_View> {
             child: ElevatedButton(
               onPressed: _closeARViewer,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF517156),
+                backgroundColor: isDark ? leafAccent : const Color(0xFF517156),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text(
+              child: Text(
                 'Close AR Viewer',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: isDark ? Colors.black : Colors.white,
                   fontFamily: 'Poppins-Bold',
                   fontSize: 14,
                 ),
@@ -316,49 +315,15 @@ class _Ar_ViewState extends State<Ar_View> {
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0x1A000000), width: 0.5)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          selectedItemColor: const Color(0xFF517156),
-          unselectedItemColor: Colors.black38,
-          backgroundColor: Colors.white,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          selectedLabelStyle:
-              const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 12),
-          unselectedLabelStyle:
-              const TextStyle(fontFamily: 'Poppins', fontSize: 12),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home_rounded),
-              label: "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.auto_stories_outlined),
-              activeIcon: Icon(Icons.auto_stories),
-              label: "Plants",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.view_in_ar_outlined),
-              activeIcon: Icon(Icons.view_in_ar_rounded),
-              label: "AR View",
-            ),
-          ],
-        ),
-      ),
+      bottomNavigationBar: _buildBottomNav(isDark),
     );
   }
 
-  Widget _buildPlantShelfScreen() {
+  Widget _buildPlantShelfScreen(bool isDark) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: getCardBg(isDark),
         elevation: 0,
         toolbarHeight: 80,
         leadingWidth: 70,
@@ -366,17 +331,17 @@ class _Ar_ViewState extends State<Ar_View> {
           padding: const EdgeInsets.only(left: 16.0),
           child: CircleAvatar(
             radius: 30,
-            backgroundColor: Colors.white,
+            backgroundColor: isDark ? const Color(0xFF253326) : Colors.white,
             child: Transform.scale(
               scale: 1.3,
               child: Image.asset('assets/logo2.png',
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.eco, color: Color(0xFF2D3E2D))),
+                      Icon(Icons.eco, color: isDark ? leafAccent : const Color(0xFF2D3E2D))),
             ),
           ),
         ),
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -384,19 +349,19 @@ class _Ar_ViewState extends State<Ar_View> {
               style: TextStyle(
                 fontFamily: 'Poppins-Bold',
                 fontSize: 18,
-                color: Color(0xFF303D32),
+                color: getTextColor(isDark),
                 height: 1.2,
               ),
             ),
             Text(
               "Explore the Cavite Protected Area",
-              style: TextStyle(color: Colors.black54, fontSize: 12),
+              style: TextStyle(color: getSubtextColor(isDark), fontSize: 12),
             ),
           ],
         ),
         actions: [
-          const UserNotificationBadge(iconColor: Color(0xFF303D32)),
-          _buildProfileIcon(),
+          UserNotificationBadge(iconColor: isDark ? Colors.white : const Color(0xFF303D32)),
+          _buildProfileIcon(isDark),
           const SizedBox(width: 8),
         ],
       ),
@@ -423,7 +388,7 @@ class _Ar_ViewState extends State<Ar_View> {
                     fit: BoxFit.cover,
                     onError: (exception, stackTrace) {},
                   ),
-                  color: Colors.grey[300],
+                  color: isDark ? const Color(0xFF1E261F) : Colors.grey[300],
                 ),
                 child: Stack(
                   children: [
@@ -431,10 +396,10 @@ class _Ar_ViewState extends State<Ar_View> {
                     Container(
                       width: width,
                       height: height,
-                      color: Colors.black.withOpacity(0.1),
+                      color: isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.1),
                     ),
                     // Overlay buttons positioned on plants
-                    _buildPlantOverlays(width, height),
+                    _buildPlantOverlays(width, height, isDark),
                   ],
                 ),
               );
@@ -442,45 +407,11 @@ class _Ar_ViewState extends State<Ar_View> {
           ),
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0x1A000000), width: 0.5)),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          selectedItemColor: const Color(0xFF517156),
-          unselectedItemColor: Colors.black38,
-          backgroundColor: Colors.white,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          selectedLabelStyle:
-              const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 12),
-          unselectedLabelStyle:
-              const TextStyle(fontFamily: 'Poppins', fontSize: 12),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home_rounded),
-              label: "Home",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.auto_stories_outlined),
-              activeIcon: Icon(Icons.auto_stories),
-              label: "Plants",
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.view_in_ar_outlined),
-              activeIcon: Icon(Icons.view_in_ar_rounded),
-              label: "AR View",
-            ),
-          ],
-        ),
-      ),
+      bottomNavigationBar: _buildBottomNav(isDark),
     );
   }
 
-  Widget _buildPlantOverlays(double containerWidth, double containerHeight) {
+  Widget _buildPlantOverlays(double containerWidth, double containerHeight, bool isDark) {
     // Scale factors based on responsive dimensions
     const double baseWidth = 412;
     const double baseHeight = 803;
@@ -523,7 +454,7 @@ class _Ar_ViewState extends State<Ar_View> {
                 top: pos.top * scaleY,
                 child: Transform.translate(
                   offset: const Offset(-55, -35),
-                  child: _buildPlantButton(pos.plant),
+                  child: _buildPlantButton(pos.plant, isDark),
                 ),
               ),
             )
@@ -532,7 +463,7 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
-  Widget _buildPlantButton(TreeModel plant) {
+  Widget _buildPlantButton(TreeModel plant, bool isDark) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -545,7 +476,7 @@ class _Ar_ViewState extends State<Ar_View> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: isDark ? Colors.black87 : Colors.black54,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -555,9 +486,9 @@ class _Ar_ViewState extends State<Ar_View> {
                   fontFamily: 'Poppins-Bold',
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  shadows: [
+                  shadows: const [
                     Shadow(
-                      offset: const Offset(1, 1),
+                      offset: Offset(1, 1),
                       blurRadius: 3,
                       color: Colors.black54,
                     ),
@@ -572,14 +503,14 @@ class _Ar_ViewState extends State<Ar_View> {
         ElevatedButton(
           onPressed: () => _viewPlantInAR(plant),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF517156),
+            backgroundColor: isDark ? leafAccent : const Color(0xFF517156),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             minimumSize: const Size(60, 24),
           ),
-          child: const Text(
+          child: Text(
             'View in AR',
             style: TextStyle(
-              color: Colors.white,
+              color: isDark ? Colors.black : Colors.white,
               fontFamily: 'Poppins-Bold',
               fontSize: 8,
             ),
@@ -589,7 +520,7 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
-  Widget _buildProfileIcon() => Padding(
+  Widget _buildProfileIcon(bool isDark) => Padding(
         padding: const EdgeInsets.only(right: 16.0, left: 8),
         child: InkWell(
           onTap: () => Navigator.push(context,
@@ -598,12 +529,48 @@ class _Ar_ViewState extends State<Ar_View> {
             height: 40,
             width: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F0),
+              color: isDark ? const Color(0xFF2B3A2C) : const Color(0xFFF0F4F0),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.black12),
+              border: Border.all(color: isDark ? Colors.white24 : Colors.black12),
             ),
-            child: const Icon(Icons.person_outline, color: Color(0xFF303D32)),
+            child: Icon(Icons.person_outline, color: getTextColor(isDark)),
           ),
+        ),
+      );
+
+  Widget _buildBottomNav(bool isDark) => Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: isDark ? Colors.white12 : const Color(0x1A000000), width: 0.5)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          selectedItemColor: isDark ? leafAccent : const Color(0xFF517156),
+          unselectedItemColor: isDark ? Colors.white38 : Colors.black38,
+          backgroundColor: getCardBg(isDark),
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          selectedLabelStyle:
+              const TextStyle(fontFamily: 'Poppins-Bold', fontSize: 12),
+          unselectedLabelStyle:
+              const TextStyle(fontFamily: 'Poppins', fontSize: 12),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home_rounded),
+              label: "Home",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.auto_stories_outlined),
+              activeIcon: Icon(Icons.auto_stories),
+              label: "Plants",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.view_in_ar_outlined),
+              activeIcon: Icon(Icons.view_in_ar_rounded),
+              label: "AR View",
+            ),
+          ],
         ),
       );
 }
