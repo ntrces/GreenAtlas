@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import '../../theme_provider.dart';
+import '../../theme_constants.dart';
 import '../user_dashboard.dart';
 import '../AR View/ar_view.dart';
 import 'ar_camera.dart';
@@ -44,7 +47,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     super.dispose();
   }
 
-  // Helper to get the color based on conservation status
   Color _getConservationColor(String? status) {
     if (status == null) return Colors.grey;
     switch (status) {
@@ -71,54 +73,31 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     }
   }
 
-  // Helper to get the icon based on conservation status for LIST VIEW
-  Widget _getConservationIcon(String? status) {
-    if (status == null) return const SizedBox.shrink();
-    switch (status) {
-      case 'Critically Endangered':
-        return const Icon(Icons.warning_amber_rounded,
-            color: Colors.red, size: 14);
-      case 'Endangered':
-        return const Icon(Icons.warning_amber_rounded,
-            color: Colors.orange, size: 14);
-      case 'Vulnerable':
-        return const Icon(Icons.warning_amber_rounded,
-            color: Colors.amber, size: 14);
-      case 'Threatened':
-        return const Icon(Icons.circle, color: Colors.orange, size: 10);
-      case 'Other Threatened Status':
-        return const Icon(Icons.circle, color: Colors.amber, size: 10);
-      case 'Near Threatened':
-        return const Icon(Icons.circle, color: Colors.lightGreen, size: 10);
-      case 'Not Threatened':
-        return const Icon(Icons.circle, color: Colors.teal, size: 10);
-      case 'Least Concern (LC)':
-        return const Icon(Icons.circle, color: Colors.green, size: 10);
-      case 'Data Deficient':
-        return const Icon(Icons.circle, color: Colors.blueGrey, size: 10);
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
   Map<String, int> _calculateCounts() {
-    Map<String, int> counts = {
-      'Total': _allPlantsRaw.length,
-      'Orchid': _allPlantsRaw.where((p) => p['category'] == 'Orchid').length,
-      'Fern': _allPlantsRaw.where((p) => p['category'] == 'Fern').length,
-      'Tree': _allPlantsRaw.where((p) => p['category'] == 'Tree').length,
-      'Shrub': _allPlantsRaw.where((p) => p['category'] == 'Shrub').length,
+    final publishedPlants = _allPlantsRaw
+        .where((p) => p['status']?.toString().toLowerCase() == 'published')
+        .toList();
+
+    int totalSpecies = publishedPlants.length;
+
+    int threatened = publishedPlants.where((p) {
+      final s = p['conservation_status']?.toString().toLowerCase() ?? '';
+      return s.contains('endangered') ||
+          s.contains('vulnerable') ||
+          s.contains('threatened');
+    }).length;
+
+    int arModels = publishedPlants.where((p) => p['ar_model_url'] != null).length;
+
+    return {
+      'totalSpecies': totalSpecies,
+      'threatened': threatened,
+      'arModels': arModels,
     };
-    for (var p in _allPlantsRaw) {
-      String status = p['conservation_status'] ?? 'Unknown';
-      if (status.isNotEmpty) {
-        counts[status] = (counts[status] ?? 0) + 1;
-      }
-    }
-    return counts;
   }
 
   void _openFilterSheet() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -151,29 +130,31 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFEAF7EA),
-      appBar: _buildFixedAppBar(),
+      backgroundColor: getScaffoldBg(isDark),
+      appBar: _buildFixedAppBar(isDark),
       body: Column(
         children: [
-          _buildFixedSearchAndFilterSection(),
+          _buildFixedSearchAndFilterSection(isDark),
           Expanded(
             child: CustomScrollView(
               slivers: [
-                _buildPlantDataStream(),
+                _buildPlantDataStream(isDark),
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: _buildBottomNav(isDark),
     );
   }
 
-  PreferredSizeWidget _buildFixedAppBar() {
+  PreferredSizeWidget _buildFixedAppBar(bool isDark) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: getCardBg(isDark),
       elevation: 0,
       toolbarHeight: 80,
       automaticallyImplyLeading: false,
@@ -184,14 +165,15 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: Colors.white,
+              backgroundColor: isDark ? const Color(0xFF253326) : Colors.white,
               child: Transform.scale(
                 scale: 1.3,
-                child: Image.asset('assets/logo2.png', fit: BoxFit.contain),
+                child: Image.asset('assets/logo2.png', fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(Icons.eco, color: isDark ? leafAccent : const Color(0xFF2D3E2D))),
               ),
             ),
             const SizedBox(width: 12),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -200,13 +182,13 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                   style: TextStyle(
                     fontFamily: 'Poppins-Bold',
                     fontSize: 18,
-                    color: Color(0xFF303D32),
+                    color: getTextColor(isDark),
                     height: 1.2,
                   ),
                 ),
                 Text(
                   "Explore the Cavite Protected Area",
-                  style: TextStyle(color: Colors.black54, fontSize: 12),
+                  style: TextStyle(color: getSubtextColor(isDark), fontSize: 12),
                 ),
               ],
             ),
@@ -214,15 +196,15 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
         ),
       ),
       actions: [
-        const UserNotificationBadge(iconColor: Color(0xFF303D32)),
-        _buildProfileIcon(),
+        UserNotificationBadge(iconColor: isDark ? Colors.white : const Color(0xFF303D32)),
+        _buildProfileIcon(isDark),
         const SizedBox(width: 16),
       ],
     );
   }
 
-  Widget _buildFixedSearchAndFilterSection() => Container(
-        color: const Color(0xFFEAF7EA),
+  Widget _buildFixedSearchAndFilterSection(bool isDark) => Container(
+        color: getScaffoldBg(isDark),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -233,14 +215,16 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                   Expanded(
                     child: TextField(
                       controller: _searchController,
+                      style: TextStyle(color: getTextColor(isDark)),
                       decoration: InputDecoration(
                         hintText: "Search plants...",
+                        hintStyle: TextStyle(color: getSubtextColor(isDark)),
                         prefixIcon:
-                            const Icon(Icons.search, color: Colors.black38),
+                            Icon(Icons.search, color: getSubtextColor(isDark)),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.close,
-                                    color: Colors.black38, size: 20),
+                                icon: Icon(Icons.close,
+                                    color: getSubtextColor(isDark), size: 20),
                                 onPressed: () {
                                   _searchController.clear();
                                   setState(() => _searchQuery = "");
@@ -248,11 +232,11 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                               )
                             : null,
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: getCardBg(isDark),
                         contentPadding: EdgeInsets.zero,
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.transparent)),
                       ),
                     ),
                   ),
@@ -262,20 +246,21 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                           ? Icons.format_list_bulleted
                           : Icons.grid_view_rounded,
                       onPressed: () =>
-                          setState(() => _isGridView = !_isGridView)),
+                          setState(() => _isGridView = !_isGridView),
+                      isDark: isDark),
                   const SizedBox(width: 10),
                   _buildIconButton(
-                      icon: Icons.tune, onPressed: _openFilterSheet),
+                      icon: Icons.tune, onPressed: _openFilterSheet, isDark: isDark),
                 ],
               ),
             ),
-            _buildActiveFilters(),
+            _buildActiveFilters(isDark),
             const SizedBox(height: 16),
           ],
         ),
       );
 
-  Widget _buildActiveFilters() {
+  Widget _buildActiveFilters(bool isDark) {
     List<Widget> chips = [];
     for (var type in _activeTypes) {
       if (type != "All Plants") {
@@ -284,7 +269,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             _activeTypes.remove(type);
             if (_activeTypes.isEmpty) _activeTypes.add("All Plants");
           });
-        }));
+        }, isDark));
       }
     }
     for (var status in _activeStatuses) {
@@ -294,7 +279,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             _activeStatuses.remove(status);
             if (_activeStatuses.isEmpty) _activeStatuses.add("All Statuses");
           });
-        }));
+        }, isDark));
       }
     }
     if (chips.isEmpty) return const SizedBox.shrink();
@@ -304,9 +289,9 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
+          Text(
             "Filter : ",
-            style: TextStyle(fontSize: 14, color: Color(0xFF2D3E2D)),
+            style: TextStyle(fontSize: 14, color: getTextColor(isDark)),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -319,42 +304,42 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, VoidCallback onDeleted) {
+  Widget _buildFilterChip(String label, VoidCallback onDeleted, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: getCardBg(isDark),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2D3E2D).withOpacity(0.1)),
+        border: Border.all(color: isDark ? Colors.white12 : const Color(0xFF2D3E2D).withOpacity(0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
-            style: const TextStyle(color: Color(0xFF2D3E2D), fontSize: 13),
+            style: TextStyle(color: getTextColor(isDark), fontSize: 13),
           ),
           const SizedBox(width: 8),
           GestureDetector(
             onTap: onDeleted,
-            child: const Icon(Icons.close, size: 16, color: Colors.black38),
+            child: Icon(Icons.close, size: 16, color: getSubtextColor(isDark)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPlantDataStream() => StreamBuilder<List<Map<String, dynamic>>>(
+  Widget _buildPlantDataStream(bool isDark) => StreamBuilder<List<Map<String, dynamic>>>(
         stream: _supabase.from('plants').stream(primaryKey: ['id']),
         builder: (context, snapshot) {
           if (!snapshot.hasData)
-            return const SliverToBoxAdapter(
+            return SliverToBoxAdapter(
                 child: Center(
                     child: Padding(
-                        padding: EdgeInsets.all(50),
+                        padding: const EdgeInsets.all(50),
                         child: CircularProgressIndicator(
-                            color: Color(0xFF2D3E2D)))));
+                            color: isDark ? leafAccent : const Color(0xFF2D3E2D)))));
 
           _allPlantsRaw = snapshot.data!
               .where(
@@ -388,23 +373,23 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
           });
 
           if (plants.isEmpty)
-            return const SliverToBoxAdapter(
+            return SliverToBoxAdapter(
                 child: Center(
                     child: Padding(
-                        padding: EdgeInsets.all(40),
-                        child: Text("No species match your criteria."))));
+                        padding: const EdgeInsets.all(40),
+                        child: Text("No species match your criteria.", style: TextStyle(color: getSubtextColor(isDark))))));
 
-          return _isGridView ? _buildGrid(plants) : _buildList(plants);
+          return _isGridView ? _buildGrid(plants, isDark) : _buildList(plants, isDark);
         },
       );
 
-  Widget _buildList(List<Map<String, dynamic>> plants) => SliverList(
+  Widget _buildList(List<Map<String, dynamic>> plants, bool isDark) => SliverList(
         delegate: SliverChildBuilderDelegate(
-            (context, i) => _buildListItem(plants[i]),
+            (context, i) => _buildListItem(plants[i], isDark),
             childCount: plants.length),
       );
 
-  Widget _buildGrid(List<Map<String, dynamic>> plants) => SliverPadding(
+  Widget _buildGrid(List<Map<String, dynamic>> plants, bool isDark) => SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverGrid(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -413,14 +398,14 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
               crossAxisSpacing: 16,
               childAspectRatio: 0.82),
           delegate: SliverChildBuilderDelegate(
-              (context, i) => _buildGridItem(plants[i]),
+              (context, i) => _buildGridItem(plants[i], isDark),
               childCount: plants.length),
         ),
       );
 
-  Widget _buildListItem(Map<String, dynamic> plant) {
+  Widget _buildListItem(Map<String, dynamic> plant, bool isDark) {
     return Container(
-      color: Colors.white,
+      color: getCardBg(isDark),
       child: Column(
         children: [
           ListTile(
@@ -428,30 +413,29 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                 context,
                 MaterialPageRoute(
                     builder: (_) => ARCameraScreen(plantData: plant))),
-            leading: _buildImageThumb(plant['image_url'], 55),
+            leading: _buildImageThumb(plant['image_url'], 55, isDark),
             title: Text(
               plant['common_name'] ?? "Unknown",
-              style: const TextStyle(
+              style: TextStyle(
                   fontFamily: 'Poppins-Bold',
                   fontSize: 15,
-                  color: Color(0xFF303D32)),
+                  color: getTextColor(isDark)),
             ),
             subtitle: Text(
               plant['scientific_name'] ?? "",
-              style: const TextStyle(color: Colors.black45, fontSize: 11),
+              style: TextStyle(color: getSubtextColor(isDark), fontSize: 11),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            trailing: const Icon(Icons.chevron_right, color: Colors.black12),
+            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white38 : Colors.black12),
           ),
-          const Divider(height: 1, indent: 85, color: Color(0xFFF0F0F0)),
+          Divider(height: 1, indent: 85, color: isDark ? Colors.white12 : const Color(0xFFF0F4F0)),
         ],
       ),
     );
   }
 
-  // UPDATED GRID VIEW DESIGN
-  Widget _buildGridItem(Map<String, dynamic> plant) {
+  Widget _buildGridItem(Map<String, dynamic> plant, bool isDark) {
     bool isHovered = false;
     return StatefulBuilder(builder: (context, setState) {
       return MouseRegion(
@@ -465,13 +449,13 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                   builder: (_) => ARCameraScreen(plantData: plant))),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: getCardBg(isDark),
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
                 color: isHovered
                     ? _getConservationColor(plant['conservation_status'])
-                        .withOpacity(0.3)
-                    : Colors.black.withOpacity(0.05),
+                        .withOpacity(0.5)
+                    : (isDark ? Colors.white12 : Colors.black.withOpacity(0.05)),
                 width: isHovered ? 2 : 1,
               ),
               boxShadow: isHovered
@@ -479,7 +463,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                       BoxShadow(
                         color:
                             _getConservationColor(plant['conservation_status'])
-                                .withOpacity(0.1),
+                                .withOpacity(0.2),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       )
@@ -495,7 +479,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                           const BorderRadius.vertical(top: Radius.circular(15)),
                       child: Stack(
                         children: [
-                          _buildImageThumb(plant['image_url'], double.infinity),
+                          _buildImageThumb(plant['image_url'], double.infinity, isDark),
                           if (isHovered)
                             Positioned(
                               bottom: 8,
@@ -527,18 +511,18 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                     children: [
                       Text(
                         plant['common_name'] ?? "Unknown",
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontFamily: 'Poppins-Bold',
                             fontSize: 13,
-                            color: Color(0xFF303D32)),
+                            color: getTextColor(isDark)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         plant['scientific_name'] ?? "",
-                        style: const TextStyle(
-                          color: Colors.black45,
+                        style: TextStyle(
+                          color: getSubtextColor(isDark),
                           fontSize: 11,
                           fontWeight: FontWeight.normal,
                         ),
@@ -556,7 +540,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     });
   }
 
-  Widget _buildImageThumb(dynamic imageRaw, double size) {
+  Widget _buildImageThumb(dynamic imageRaw, double size, bool isDark) {
     String? url;
     if (imageRaw is List && imageRaw.isNotEmpty) {
       url = imageRaw.first?.toString();
@@ -578,27 +562,27 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
     return Container(
       width: size,
       height: size,
-      color: Colors.grey[100],
+      color: isDark ? const Color(0xFF2B3A2C) : Colors.grey[100],
       child: (url != null && url.isNotEmpty)
           ? Image.network(url,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.park_outlined, color: Colors.black12))
-          : const Icon(Icons.park_outlined, color: Colors.black12),
+                  Icon(Icons.park_outlined, color: isDark ? Colors.white24 : Colors.black12))
+          : Icon(Icons.park_outlined, color: isDark ? Colors.white24 : Colors.black12),
     );
   }
 
   Widget _buildIconButton(
-          {required IconData icon, required VoidCallback onPressed}) =>
+          {required IconData icon, required VoidCallback onPressed, required bool isDark}) =>
       Container(
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            color: getCardBg(isDark), borderRadius: BorderRadius.circular(12)),
         child: IconButton(
-            icon: Icon(icon, color: const Color(0xFF2D3E2D), size: 22),
+            icon: Icon(icon, color: getTextColor(isDark), size: 22),
             onPressed: onPressed),
       );
 
-  Widget _buildProfileIcon() => Padding(
+  Widget _buildProfileIcon(bool isDark) => Padding(
       padding: const EdgeInsets.only(right: 16.0, left: 8),
       child: InkWell(
           onTap: () => Navigator.push(context,
@@ -607,22 +591,22 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
               height: 40,
               width: 40,
               decoration: BoxDecoration(
-                  color: const Color(0xFFF0F4F0),
+                  color: isDark ? const Color(0xFF2B3A2C) : const Color(0xFFF0F4F0),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.black12)),
+                  border: Border.all(color: isDark ? Colors.white24 : Colors.black12)),
               child:
-                  const Icon(Icons.person_outline, color: Color(0xFF303D32)))));
+                  Icon(Icons.person_outline, color: getTextColor(isDark)))));
 
-  Widget _buildBottomNav() => Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0x1A000000), width: 0.5)),
+  Widget _buildBottomNav(bool isDark) => Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: isDark ? Colors.white12 : const Color(0x1A000000), width: 0.5)),
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          selectedItemColor: const Color(0xFF517156),
-          unselectedItemColor: Colors.black38,
-          backgroundColor: Colors.white,
+          selectedItemColor: isDark ? leafAccent : const Color(0xFF517156),
+          unselectedItemColor: isDark ? Colors.white38 : Colors.black38,
+          backgroundColor: getCardBg(isDark),
           type: BottomNavigationBarType.fixed,
           elevation: 0,
           selectedLabelStyle:

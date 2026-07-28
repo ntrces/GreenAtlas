@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../theme_provider.dart';
+import '../../theme_constants.dart';
 import '../../UserProfile/user_profile.dart';
 import '../Employee_Mobile/Field_Diary/Employee_FieldDiary.dart';
 import '../Employee_Mobile/EmployeeMeeting/Employee_Meetings.dart';
@@ -43,7 +44,7 @@ class _EmployeePortalState extends State<EmployeePortal> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
+      backgroundColor: getScaffoldBg(isDark),
       body: IndexedStack(
         index: _selectedIndex,
         children: _pages,
@@ -55,9 +56,9 @@ class _EmployeePortalState extends State<EmployeePortal> {
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          selectedItemColor: const Color(0xFF5D7A5D),
+          selectedItemColor: isDark ? leafAccent : const Color(0xFF5D7A5D),
           unselectedItemColor: isDark ? Colors.white38 : Colors.black38,
-          backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          backgroundColor: getCardBg(isDark),
           type: BottomNavigationBarType.fixed,
           selectedFontSize: 12,
           unselectedFontSize: 12,
@@ -176,24 +177,24 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F1F1F) : Colors.white, 
+        color: getCardBg(isDark), 
         borderRadius: BorderRadius.circular(12), 
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))]
       ),
       child: Column(children: [
           Container(
             padding: const EdgeInsets.all(10), 
-            decoration: BoxDecoration(color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), shape: BoxShape.circle), 
-            child: Icon(icon, color: isDark ? Colors.white70 : Colors.black45, size: 24)
+            decoration: BoxDecoration(color: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0), shape: BoxShape.circle), 
+            child: Icon(icon, color: isDark ? leafAccent : Colors.black45, size: 24)
           ),
           const SizedBox(height: 12),
           Text(
             value, 
-            style: textTheme.displaySmall?.copyWith(color: isDark ? Colors.white : Colors.black),
+            style: textTheme.displaySmall?.copyWith(color: getTextColor(isDark)),
           ),
           Text(
             label, 
-            style: textTheme.bodySmall?.copyWith(color: isDark ? Colors.white38 : Colors.black54),
+            style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
           ),
       ]),
     ),
@@ -204,10 +205,16 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
       stream: _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!).order('created_at', ascending: false).limit(3),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return _buildEmptyState(isDark, "No recent entries", textTheme);
-        return Column(children: snapshot.data!.map((e) {
+        final entries = List<Map<String, dynamic>>.from(snapshot.data!);
+        entries.sort((a, b) {
+          final dtA = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+          final dtB = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+          return dtB.compareTo(dtA);
+        });
+        return Column(children: entries.take(3).map((e) {
             final status = e['status']?.toString() ?? 'Pending';
             final statusUpper = status.toUpperCase();
-            final date = DateTime.parse(e['created_at']);
+            final date = DateTime.tryParse(e['created_at']?.toString() ?? '') ?? DateTime.now();
             
             Color statusColor = Colors.orange;
             if (statusUpper == 'VALIDATED') {
@@ -219,7 +226,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
             }
 
             return _buildStatusRow(
-              e['taxon'] ?? 'Observation', 
+              e['taxon'] ?? e['species_name'] ?? e['protected_area'] ?? 'Observation', 
               "${e['location'] ?? 'Area'} • ${DateFormat('jm').format(date)}", 
               status, 
               statusColor, 
@@ -240,7 +247,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return _buildEmptyState(isDark, "No meetings found", textTheme);
         return Column(children: snapshot.data!.map((m) {
             final date = DateTime.parse(m['meeting_date']);
-            return _buildStatusRow(m['title'] ?? 'Meeting', DateFormat('MMM d, yyyy').format(date), m['status'] ?? 'Scheduled', const Color(0xFF5D7A5D), isDark, false, textTheme, onTap: () => widget.onNavigate(2));
+            return _buildStatusRow(m['title'] ?? 'Meeting', DateFormat('MMM d, yyyy').format(date), m['status'] ?? 'Scheduled', isDark ? leafAccent : const Color(0xFF5D7A5D), isDark, false, textTheme, onTap: () => widget.onNavigate(2));
         }).toList());
       },
     );
@@ -261,7 +268,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
       stream: _supabase.from('meetings').stream(primaryKey: ['id']),
       builder: (context, snapshot) {
         final count = snapshot.data?.length ?? 0;
-        return _buildDetailedAction(icon: Icons.calendar_today_outlined, title: "Meetings", subtitle: "View schedule & RSVP", badge: count > 0 ? "$count New" : null, badgeColor: const Color(0xFF5D7A5D), isDark: isDark, textTheme: textTheme, onTap: () => widget.onNavigate(2));
+        return _buildDetailedAction(icon: Icons.calendar_today_outlined, title: "Meetings", subtitle: "View schedule & RSVP", badge: count > 0 ? "$count New" : null, badgeColor: isDark ? leafAccent : const Color(0xFF5D7A5D), isDark: isDark, textTheme: textTheme, onTap: () => widget.onNavigate(2));
       }
     );
   }
@@ -269,16 +276,16 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
   Widget _buildEmptyState(bool isDark, String msg, TextTheme textTheme) => Container(
     width: double.infinity, 
     padding: const EdgeInsets.all(20), 
-    color: isDark ? const Color(0xFF1F1F1F) : Colors.white, 
+    color: getCardBg(isDark), 
     child: Text(
       msg, 
-      style: textTheme.bodySmall?.copyWith(color: Colors.grey),
+      style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
     )
   );
 
   Widget _buildResponsiveHeader(BuildContext context, bool isDark, TextTheme textTheme) => SliverAppBar(
     pinned: true,
-    backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+    backgroundColor: getCardBg(isDark),
     elevation: 0,
     toolbarHeight: 70,
     leadingWidth: 70,
@@ -286,7 +293,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
     title: Text(
       "Dashboard", 
       style: textTheme.titleLarge?.copyWith(
-        color: isDark ? Colors.white : const Color(0xFF2D3E2D), 
+        color: getTextColor(isDark), 
         fontSize: 22,
         fontWeight: FontWeight.bold,
       ),
@@ -297,7 +304,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
   Widget _buildNotificationIcon(BuildContext context, bool isDark, TextTheme textTheme) {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
-      child: EmployeeNotificationBadge(iconColor: isDark ? Colors.white70 : Colors.black87),
+      child: EmployeeNotificationBadge(iconColor: isDark ? Colors.white : Colors.black87),
     );
   }
       
@@ -307,11 +314,11 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
     child: Container(
       height: 36, width: 36,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), 
+        color: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0), 
         borderRadius: BorderRadius.circular(8), 
-        border: Border.all(color: Colors.black12)
+        border: Border.all(color: isDark ? Colors.white24 : Colors.black12)
       ),
-      child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+      child: Icon(Icons.person_outline, color: getTextColor(isDark), size: 20),
     ),
   );
   Widget _buildSectionHeader(String title, bool isDark, TextTheme textTheme, {String? trailing, VoidCallback? onTrailingTap, bool hasDropdown = false, bool isExpanded = true, VoidCallback? onDropdownTap}) => Padding(
@@ -320,7 +327,7 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
       Text(
         title, 
         style: textTheme.labelSmall?.copyWith(
-          color: isDark ? Colors.white38 : Colors.black54, 
+          color: getSubtextColor(isDark), 
           letterSpacing: 0.5,
           fontWeight: FontWeight.bold,
         ),
@@ -330,10 +337,10 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
           onTap: onTrailingTap, 
           child: Text(
             trailing, 
-            style: textTheme.labelLarge?.copyWith(color: const Color(0xFF5D7A5D)),
+            style: textTheme.labelLarge?.copyWith(color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
           )
         ),
-      if (hasDropdown) IconButton(onPressed: onDropdownTap, constraints: const BoxConstraints(), padding: EdgeInsets.zero, icon: Icon(isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20, color: Colors.black45)),
+      if (hasDropdown) IconButton(onPressed: onDropdownTap, constraints: const BoxConstraints(), padding: EdgeInsets.zero, icon: Icon(isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20, color: getSubtextColor(isDark))),
     ]),
   );
 
@@ -341,18 +348,18 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
 
   Widget _buildDetailedAction({required IconData icon, required String title, required String subtitle, required bool isDark, required TextTheme textTheme, required VoidCallback onTap, String? badge, Color? badgeColor}) => Container(
     margin: const EdgeInsets.only(bottom: 1), width: double.infinity,
-    decoration: BoxDecoration(color: isDark ? const Color(0xFF1F1F1F) : Colors.white),
+    decoration: BoxDecoration(color: getCardBg(isDark)),
     child: ListTile(
       onTap: onTap, 
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), 
-      leading: Icon(icon, color: isDark ? Colors.white70 : Colors.black45, size: 22), 
+      leading: Icon(icon, color: isDark ? leafAccent : Colors.black45, size: 22), 
       title: Text(
         title, 
-        style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
+        style: textTheme.titleSmall?.copyWith(color: getTextColor(isDark), fontSize: 15),
       ), 
       subtitle: subtitle.isEmpty ? null : Text(
         subtitle, 
-        style: textTheme.bodySmall?.copyWith(color: isDark ? Colors.white38 : Colors.black38),
+        style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
       ), 
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         if (badge != null) 
@@ -365,14 +372,14 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
             )
           ), 
         const SizedBox(width: 8), 
-        const Icon(Icons.chevron_right, size: 20, color: Colors.black26)
+        Icon(Icons.chevron_right, size: 20, color: getSubtextColor(isDark))
       ])
     ),
   );
 
   Widget _buildStatusRow(String title, String subtitle, String status, Color color, bool isDark, bool isEntry, TextTheme textTheme, {VoidCallback? onTap}) => Container(
     margin: const EdgeInsets.only(bottom: 1), width: double.infinity,
-    decoration: BoxDecoration(color: isDark ? const Color(0xFF1F1F1F) : Colors.white),
+    decoration: BoxDecoration(color: getCardBg(isDark)),
     child: ListTile(
       onTap: onTap, 
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4), 
@@ -386,16 +393,16 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
                       ? Icons.warning_amber_outlined 
                       : Icons.access_time))) 
           : Icons.calendar_month_outlined, 
-        color: isEntry ? color : (isDark ? Colors.white24 : Colors.black26), 
+        color: isEntry ? color : (isDark ? Colors.white38 : Colors.black26), 
         size: 24
       ), 
       title: Text(
         title, 
-        style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
+        style: textTheme.titleSmall?.copyWith(color: getTextColor(isDark), fontSize: 15),
       ), 
       subtitle: Text(
         subtitle, 
-        style: textTheme.bodySmall?.copyWith(color: isDark ? Colors.white38 : Colors.black38),
+        style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
       ), 
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(
@@ -407,7 +414,7 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
           )
         ), 
         const SizedBox(width: 8), 
-        const Icon(Icons.chevron_right, size: 20, color: Colors.black12)
+        Icon(Icons.chevron_right, size: 20, color: getSubtextColor(isDark))
       ])
     ),
   );

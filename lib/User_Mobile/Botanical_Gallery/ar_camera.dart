@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:model_viewer_plus/model_viewer_plus.dart';
 
 class ARCameraScreen extends StatefulWidget {
   final Map<String, dynamic> plantData;
@@ -45,6 +44,8 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start, 
                     children: [
                       _buildConservationStatus(d['conservation_status'], d['source_text'], textTheme),
+                      _buildSectionHeader("CLIMATE COMPATIBILITY", textTheme),
+                      _buildClimateCompatibility(d['temp_min'], d['temp_max'], textTheme),
                       _buildSectionHeader("ABOUT THIS PLANT", textTheme),
                       Text(
                         d['description'] ?? "", 
@@ -73,6 +74,51 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
   }
 
   // --- UI HELPERS ---
+  Widget _buildClimateCompatibility(dynamic tempMin, dynamic tempMax, TextTheme textTheme) {
+    final String minVal = tempMin != null ? "$tempMin°C" : "20°C";
+    final String maxVal = tempMax != null ? "$tempMax°C" : "32°C";
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("MIN TEMP", style: textTheme.labelSmall?.copyWith(fontSize: 9, color: Colors.black38, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(minVal, style: textTheme.titleSmall?.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF303D32))),
+              ],
+            ),
+          ),
+          Container(
+            height: 30,
+            width: 1,
+            color: Colors.black12,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("MAX TEMP", style: textTheme.labelSmall?.copyWith(fontSize: 9, color: Colors.black38, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(maxVal, style: textTheme.titleSmall?.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF303D32))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSmallHeader(String? n, String? s, String? c, TextTheme textTheme) => Container(
     padding: const EdgeInsets.only(top: 45, bottom: 12, left: 16, right: 16), color: Colors.white,
     child: Row(children: [

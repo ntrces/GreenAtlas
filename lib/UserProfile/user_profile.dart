@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
-import '../../theme_provider.dart';
+import '../theme_provider.dart';
+import '../theme_constants.dart';
+import '../services/notification_service.dart';
 import 'change_password.dart'; 
 import '../UserProfile/edit_profile.dart';
 
@@ -23,7 +25,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String? _avatarUrl; 
   bool _isLoading = true;
 
-  bool _emailNotif = true;
   bool _pushNotif = true;
 
   @override
@@ -32,27 +33,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _fetchUserData();
   }
 
-  Future<void> _updateNotificationPreference(String column, bool value) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
+  Future<void> _togglePushNotifications(bool value) async {
     try {
-      await _supabase
-          .from('profiles')
-          .update({column: value})
-          .eq('id', user.id);
-      
+      final success = await NotificationService.instance.setPushNotificationsEnabled(context, value);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("${column.split('_')[0].toUpperCase()} preference updated!"),
-            duration: const Duration(milliseconds: 800),
-            backgroundColor: const Color(0xFF5D7A5D),
-          ),
-        );
+        setState(() => _pushNotif = success);
       }
     } catch (e) {
-      debugPrint("Update Error: $e");
+      debugPrint("Error toggling notifications: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error setting notifications: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
@@ -72,7 +65,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _email = user.email ?? _email;
             _phone = (data['phone'] != null && data['phone'].isNotEmpty) ? data['phone'] : "Add phone number";
             
-            _emailNotif = data['email_notifications_enabled'] ?? true;
             _pushNotif = data['push_notifications_enabled'] ?? true;
 
             String muni = data['municipality'] ?? "";
@@ -173,10 +165,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 title: "PERSONAL INFORMATION",
                 isDark: isDark,
                 children: [
-                  _buildInfoRow(Icons.email_outlined, _email),
-                  _buildInfoRow(Icons.phone_android_outlined, _phone),
-                  _buildInfoRow(Icons.map_outlined, _location),
-                  _buildInfoRow(Icons.calendar_month_outlined, _joinedDate),
+                  _buildInfoRow(Icons.email_outlined, _email, isDark),
+                  _buildInfoRow(Icons.phone_android_outlined, _phone, isDark),
+                  _buildInfoRow(Icons.map_outlined, _location, isDark),
+                  _buildInfoRow(Icons.calendar_month_outlined, _joinedDate, isDark),
                 ],
               ),
               const SizedBox(height: 16),
@@ -189,19 +181,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     Icons.notifications_active_outlined, 
                     "Push Notifications (Mobile)", 
                     _pushNotif, 
-                    (v) {
-                      setState(() => _pushNotif = v);
-                      _updateNotificationPreference('push_notifications_enabled', v);
-                    }
-                  ),
-                  _buildSwitchRow(
-                    Icons.email_outlined, 
-                    "Email Alerts", 
-                    _emailNotif, 
-                    (v) {
-                      setState(() => _emailNotif = v);
-                      _updateNotificationPreference('email_notifications_enabled', v);
-                    }
+                    (v) => _togglePushNotifications(v),
+                    isDark,
                   ),
                 ],
               ),
@@ -215,7 +196,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     Icons.dark_mode_outlined, 
                     "Dark Mode", 
                     isDark, 
-                    (v) => Provider.of<ThemeProvider>(context, listen: false).toggleTheme(v)
+                    (v) => Provider.of<ThemeProvider>(context, listen: false).toggleTheme(v),
+                    isDark,
                   ),
                 ],
               ),
@@ -224,7 +206,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               _buildSecurityButton(
                 icon: Icons.lock_reset, 
                 label: "CHANGE PASSWORD", 
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChangePasswordScreen()))
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChangePasswordScreen())),
+                isDark: isDark,
               ),
               const SizedBox(height: 12),
               _buildLogoutButton(context),
@@ -298,37 +281,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) => Padding(
+  Widget _buildInfoRow(IconData icon, String text, bool isDark) => Padding(
     padding: const EdgeInsets.only(bottom: 15),
     child: Row(
       children: [
-        Icon(icon, size: 18, color: const Color(0xFF5D7A5D)),
+        Icon(icon, size: 18, color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
         const SizedBox(width: 12),
-        Text(text, style: Theme.of(context).textTheme.bodyMedium),
+        Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: getTextColor(isDark))),
       ],
     ),
   );
 
-  Widget _buildSwitchRow(IconData icon, String label, bool value, Function(bool) onChanged) => Row(
+  Widget _buildSwitchRow(IconData icon, String label, bool value, Function(bool) onChanged, bool isDark) => Row(
     children: [
-      Icon(icon, size: 18, color: const Color(0xFF5D7A5D)),
+      Icon(icon, size: 18, color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
       const SizedBox(width: 12),
-      Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
-      Switch(value: value, onChanged: onChanged, activeTrackColor: const Color(0xFF5D7A5D)),
+      Expanded(child: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: getTextColor(isDark)))),
+      Switch(value: value, onChanged: onChanged, activeColor: isDark ? leafAccent : const Color(0xFF5D7A5D)),
     ],
   );
 
-  Widget _buildSecurityButton({required IconData icon, required String label, required VoidCallback onTap}) => 
+  Widget _buildSecurityButton({required IconData icon, required String label, required VoidCallback onTap, required bool isDark}) => 
     SizedBox(
       width: double.infinity, 
       height: 50, 
       child: OutlinedButton.icon(
         onPressed: onTap, 
-        icon: Icon(icon, size: 18), 
-        label: Text(label, style: Theme.of(context).textTheme.labelLarge), 
+        icon: Icon(icon, size: 18, color: isDark ? leafAccent : Colors.black), 
+        label: Text(label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: isDark ? Colors.white : Colors.black)), 
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.black, 
-          side: const BorderSide(color: Colors.black12), 
+          foregroundColor: isDark ? Colors.white : Colors.black, 
+          side: BorderSide(color: isDark ? Colors.white24 : Colors.black12), 
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
         )
       )

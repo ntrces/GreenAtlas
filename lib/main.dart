@@ -47,11 +47,28 @@ class EcoConservationApp extends StatelessWidget {
         brightness: Brightness.light,
         primaryColor: const Color(0xFF2D3E2D),
         scaffoldBackgroundColor: const Color(0xFFEAF7EA),
+        cardColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF2D3E2D),
+          foregroundColor: Colors.white,
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        primaryColor: const Color(0xFF81C784),
         scaffoldBackgroundColor: const Color(0xFF121212),
+        cardColor: const Color(0xFF1E261F),
+        dialogBackgroundColor: const Color(0xFF1E261F),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1A241B),
+          foregroundColor: Colors.white,
+        ),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF81C784),
+          surface: Color(0xFF1E261F),
+          background: Color(0xFF121212),
+        ),
       ),
       home: const SplashScreen(), 
       routes: {

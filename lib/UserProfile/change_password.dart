@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import '../theme_provider.dart';
+import '../theme_constants.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -88,21 +90,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAF7EA),
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: getCardBg(isDark),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
+          icon: Icon(Icons.arrow_back, color: getTextColor(isDark)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Security",
           style: textTheme.titleLarge?.copyWith(
-            color: const Color(0xFF2D3E2D),
+            color: getTextColor(isDark),
             fontSize: 18,
           ),
         ),
@@ -113,10 +116,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F8F1),
+              color: getCardBg(isDark),
               borderRadius: BorderRadius.circular(15),
               border:
-                  Border.all(color: const Color(0xFF5D7A5D).withOpacity(0.1)),
+                  Border.all(color: isDark ? Colors.white12 : const Color(0xFF5D7A5D).withOpacity(0.1)),
             ),
             child: Form(
               key: _formKey,
@@ -131,20 +134,20 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         "CHANGE PASSWORD",
                         style: textTheme.titleMedium?.copyWith(
                           fontSize: 16,
-                          color: const Color(0xFF2D3E2D),
+                          color: isDark ? leafAccent : const Color(0xFF2D3E2D),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close,
-                            size: 20, color: Colors.black26),
+                        icon: Icon(Icons.close,
+                            size: 20, color: getSubtextColor(isDark)),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                  const Center(
+                  Center(
                     child: Text(
                       "Enter your current password and choose a new one",
-                      style: TextStyle(fontSize: 12, color: Colors.black),
+                      style: TextStyle(fontSize: 12, color: getSubtextColor(isDark)),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -154,6 +157,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     obscure: _obscureCurrent,
                     onToggle: () =>
                         setState(() => _obscureCurrent = !_obscureCurrent),
+                    isDark: isDark,
                   ),
                   const SizedBox(height: 16),
                   _buildPasswordField(
@@ -161,6 +165,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     controller: _newPasswordController,
                     obscure: _obscureNew,
                     onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                    isDark: isDark,
                   ),
                   const SizedBox(height: 16),
                   _buildPasswordField(
@@ -168,6 +173,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     controller: _confirmPasswordController,
                     obscure: true,
                     showToggle: false,
+                    isDark: isDark,
                   ),
                   const SizedBox(height: 30),
                   SizedBox(
@@ -176,22 +182,23 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _isLoading ? null : _handleUpdatePassword,
                       icon: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.vpn_key_outlined,
-                              size: 18, color: Colors.white),
+                                  color: isDark ? Colors.black : Colors.white, strokeWidth: 2))
+                          : Icon(Icons.vpn_key_outlined,
+                              size: 18, color: isDark ? Colors.black : Colors.white),
                       label: Text(
                         "UPDATE PASSWORD",
                         style: textTheme.labelLarge?.copyWith(
-                          color: Colors.white,
+                          color: isDark ? Colors.black : Colors.white,
                           letterSpacing: 0.5,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5D7A5D),
+                        backgroundColor: isDark ? leafAccent : const Color(0xFF5D7A5D),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                         elevation: 0,
@@ -211,6 +218,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     required String label,
     required TextEditingController controller,
     required bool obscure,
+    required bool isDark,
     VoidCallback? onToggle,
     bool showToggle = true,
   }) {
@@ -222,25 +230,25 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         Text(
           label,
           style: textTheme.labelSmall
-              ?.copyWith(fontSize: 11, color: Colors.black54),
+              ?.copyWith(fontSize: 11, color: getSubtextColor(isDark)),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           obscureText: obscure,
-          style: const TextStyle(fontSize: 14),
+          style: TextStyle(fontSize: 14, color: getTextColor(isDark)),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white,
+            fillColor: isDark ? const Color(0xFF253326) : Colors.white,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFD6E8D6)),
+              borderSide: BorderSide(color: isDark ? Colors.white24 : const Color(0xFFD6E8D6)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF5D7A5D)),
+              borderSide: BorderSide(color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
             ),
             suffixIcon: showToggle
                 ? IconButton(
@@ -249,7 +257,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
                         size: 20,
-                        color: const Color(0xFF5D7A5D)),
+                        color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
                     onPressed: onToggle,
                   )
                 : null,

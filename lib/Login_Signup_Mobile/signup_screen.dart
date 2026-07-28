@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import '../theme_provider.dart';
 import '../theme_constants.dart';
 import 'login_screen.dart';
 
@@ -23,11 +25,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _obscureConfirmPassword = true;
   bool _isCapsLockOn = false;
 
-  // Theme Colors
   final Color darkGreen = const Color(0xFF303D32);
   final Color sageGreen = const Color(0xFF517156);
   final Color lightBgGreen = const Color(0xFFE5F5E8);
-  final Color softGreen = const Color(0xFFF1F8F2); // Added fallback for background
+  final Color softGreen = const Color(0xFFF1F8F2);
 
   @override
   void dispose() {
@@ -69,42 +70,53 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    // Password Validation Criteria:
+    // Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
+    final passwordRegExp = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+    if (!passwordRegExp.hasMatch(password)) {
+      _showError("Password must be at least 8 characters long and include an uppercase letter, lowercase letter, number, and special character.");
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
       final supabase = Supabase.instance.client;
 
       // 1. Create Auth User
-      final AuthResponse res = await supabase.auth.signUp(
+      final response = await supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'full_name': "$firstName $lastName"},
+        data: {
+          'first_name': firstName,
+          'last_name': lastName,
+          'full_name': '$firstName $lastName',
+        },
       );
 
-      if (res.user != null) {
-        // Sign out immediately to prevent auto-login
-        await supabase.auth.signOut();
-        
+      final user = response.user;
+
+      if (user != null) {
+        await supabase.from('audit_logs').insert({
+          'title': 'User Registration',
+          'description': 'New user account created ($email)',
+          'category': 'Authentication',
+          'ip_address': 'Mobile App',
+          'result': 'Success',
+          'severity': 'Low',
+          'user': email,
+          'user_id': user.id,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+
         if (mounted) {
-          _showSuccessDialog();
+          _showEmailConfirmationDialog();
         }
       }
+    } on AuthException catch (e) {
+      _showError(e.message);
     } catch (e) {
-      String errorMessage = "Sign up failed";
-      if (e is AuthException) {
-        if (e.message.toLowerCase().contains("already registered") || 
-            e.message.toLowerCase().contains("already used") ||
-            e.message.toLowerCase().contains("taken")) {
-          errorMessage = "This Gmail address is already in use. Please use a different one or sign in.";
-        } else {
-          errorMessage = e.message;
-        }
-      } else if (e is PostgrestException) {
-        errorMessage = "Database Error: ${e.message}";
-      } else {
-        errorMessage = e.toString();
-      }
-      _showError(errorMessage);
+      _showError("An unexpected error occurred: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -116,20 +128,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  void _showSuccessDialog() {
+  void _showEmailConfirmationDialog() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: getCardBg(isDark),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-        title: Text(
-          "Account Created",
-          style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 20, color: darkGreen),
+        title: Row(
+          children: [
+            Icon(Icons.mark_email_read_outlined, color: isDark ? leafAccent : sageGreen, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              "Email Confirmation Sent",
+              style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 16, color: getTextColor(isDark)),
+            ),
+          ],
         ),
-        content: const Text(
-          "Your account has been created successfully! You can now sign in with your credentials.",
-          style: TextStyle(fontFamily: 'Inter', fontSize: 14.5, color: Colors.black87),
+        content: Text(
+          "We have sent a verification link to ${_emailController.text.trim()}. Please check your inbox or Gmail app to verify your account before logging in.",
+          style: TextStyle(fontFamily: 'Inter', fontSize: 13, color: getSubtextColor(isDark), height: 1.4),
         ),
         actions: [
           Padding(
@@ -140,13 +159,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 Navigator.pop(context); // Go back to Login screen
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: sageGreen,
+                backgroundColor: isDark ? leafAccent : sageGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
                 elevation: 0,
               ),
-              child: const Text(
+              child: Text(
                 "Sign In Now",
-                style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white),
+                style: TextStyle(fontFamily: 'Poppins-Bold', color: isDark ? Colors.black : Colors.white),
               ),
             ),
           ),
@@ -157,6 +176,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
     return KeyboardListener(
       focusNode: FocusNode(),
       autofocus: true,
@@ -172,7 +193,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         });
       },
       child: Scaffold(
-        backgroundColor: softGreen,
+        backgroundColor: getScaffoldBg(isDark),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -181,26 +202,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
               children: [
                 Container(
                   width: 76, height: 76,
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                  child: Center(child: Image.asset('assets/logo2.png', width: 57)),
+                  decoration: BoxDecoration(color: isDark ? const Color(0xFF253326) : Colors.white, shape: BoxShape.circle),
+                  child: Center(child: Image.asset('assets/logo2.png', width: 57, errorBuilder: (_, __, ___) => Icon(Icons.eco, color: isDark ? leafAccent : darkGreen, size: 35))),
                 ),
                 const SizedBox(height: 11),
                 Text(
                   "Create Account",
-                  style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 28, color: darkGreen),
+                  style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 28, color: getTextColor(isDark)),
                 ),
                 Text(
                   "Join GreenAtlas to explore and protect our ecosystem",
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, color: sageGreen),
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, color: getSubtextColor(isDark)),
                 ),
                 const SizedBox(height: 25),
                 Container(
                   width: 364,
                   padding: const EdgeInsets.symmetric(horizontal: 23, vertical: 23),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: getCardBg(isDark),
                     borderRadius: BorderRadius.circular(11.4),
-                    border: Border.all(color: const Color(0x26303D32), width: 1.32),
+                    border: Border.all(color: isDark ? Colors.white12 : const Color(0x26303D32), width: 1.32),
                     boxShadow: const [BoxShadow(color: Color(0x40000000), offset: Offset(4, 4), blurRadius: 4)],
                   ),
                   child: Column(
@@ -208,24 +229,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Center(
-                        child: Text("Sign Up", style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 15.2, color: darkGreen)),
+                        child: Text("Sign Up", style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 15.2, color: getTextColor(isDark))),
                       ),
                       const SizedBox(height: 4),
                       Center(
-                        child: Text("Fill in your details to get started", style: TextStyle(fontFamily: 'Inter', fontSize: 15.2, color: sageGreen)),
+                        child: Text("Fill in your details to get started", style: TextStyle(fontFamily: 'Inter', fontSize: 15.2, color: getSubtextColor(isDark))),
                       ),
                       const SizedBox(height: 23),
                       Row(
                         children: [
-                          Expanded(child: _buildFieldColumn("First Name", _firstNameController, "First")),
+                          Expanded(child: _buildFieldColumn("First Name", _firstNameController, "First", isDark)),
                           const SizedBox(width: 11.4),
-                          Expanded(child: _buildFieldColumn("Last Name", _lastNameController, "Last")),
+                          Expanded(child: _buildFieldColumn("Last Name", _lastNameController, "Last", isDark)),
                         ],
                       ),
                       const SizedBox(height: 15.2),
-                      _buildFieldColumn("Email Address", _emailController, "your.email@example.com", icon: Icons.email_outlined),
+                      _buildFieldColumn("Email Address", _emailController, "your.email@example.com", isDark, icon: Icons.email_outlined),
                       const SizedBox(height: 15.2),
-                      _buildFieldColumn("Password", _passwordController, "••••••••", isPassword: true, obscure: _obscurePassword, toggle: () => setState(() => _obscurePassword = !_obscurePassword)),
+                      _buildFieldColumn("Password", _passwordController, "••••••••", isDark, isPassword: true, obscure: _obscurePassword, toggle: () => setState(() => _obscurePassword = !_obscurePassword)),
                       if (_isCapsLockOn)
                         const Padding(
                           padding: EdgeInsets.only(top: 4.0),
@@ -240,30 +261,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       const SizedBox(height: 4),
                       Text(
                         "Must be 8+ characters with uppercase, lowercase, numbers, and special characters.",
-                        style: TextStyle(fontFamily: 'Inter', fontSize: 12, height: 16 / 12, color: Colors.grey[600]),
+                        style: TextStyle(fontFamily: 'Inter', fontSize: 12, height: 16 / 12, color: getSubtextColor(isDark)),
                       ),
                       const SizedBox(height: 15.2),
-                      _buildFieldColumn("Confirm Password", _confirmPasswordController, "••••••••", isPassword: true, obscure: _obscureConfirmPassword, toggle: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword)),
+                      _buildFieldColumn("Confirm Password", _confirmPasswordController, "••••••••", isDark, isPassword: true, obscure: _obscureConfirmPassword, toggle: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword)),
                       const SizedBox(height: 30),
                       SizedBox(
                         width: double.infinity, height: 47.5,
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignUp,
-                          style: ElevatedButton.styleFrom(backgroundColor: sageGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7.6))),
+                          style: ElevatedButton.styleFrom(backgroundColor: isDark ? leafAccent : sageGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7.6))),
                           child: _isLoading
-                              ? const SizedBox(height: 19, width: 19, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Text("Create Account", style: TextStyle(fontFamily: 'Poppins-Bold', color: Colors.white, fontSize: 15.2)),
+                              ? SizedBox(height: 19, width: 19, child: CircularProgressIndicator(color: isDark ? Colors.black : Colors.white, strokeWidth: 2))
+                              : Text("Create Account", style: TextStyle(fontFamily: 'Poppins-Bold', color: isDark ? Colors.black : Colors.white, fontSize: 15.2)),
                         ),
                       ),
                       const SizedBox(height: 23),
                       Row(
                         children: [
-                          const Expanded(child: Divider(color: Colors.black12)),
+                          Expanded(child: Divider(color: isDark ? Colors.white24 : Colors.black12)),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 9.5),
-                            child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontFamily: 'Inter', fontSize: 9.5, color: sageGreen)),
+                            child: Text("ALREADY HAVE AN ACCOUNT?", style: TextStyle(fontFamily: 'Inter', fontSize: 9.5, color: getSubtextColor(isDark))),
                           ),
-                          const Expanded(child: Divider(color: Colors.black12)),
+                          Expanded(child: Divider(color: isDark ? Colors.white24 : Colors.black12)),
                         ],
                       ),
                       const SizedBox(height: 23),
@@ -273,12 +294,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(context),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: lightBgGreen,
+                              backgroundColor: isDark ? const Color(0xFF253326) : lightBgGreen,
                               elevation: 0,
-                              side: const BorderSide(color: Color(0x26303D32)),
+                              side: BorderSide(color: isDark ? Colors.white24 : const Color(0x26303D32)),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5.7)),
                             ),
-                            child: Text("Sign In", style: TextStyle(fontFamily: 'Inter-SemiBold', fontSize: 13.3, color: darkGreen)),
+                            child: Text("Sign In", style: TextStyle(fontFamily: 'Inter-SemiBold', fontSize: 13.3, color: isDark ? leafAccent : darkGreen)),
                           ),
                         ),
                       ),
@@ -293,7 +314,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  Widget _buildLabel(String text, TextEditingController controller) {
+  Widget _buildLabel(String text, TextEditingController controller, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: RichText(
@@ -301,7 +322,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           children: [
             TextSpan(
               text: text,
-              style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13.3, color: darkGreen),
+              style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13.3, color: getTextColor(isDark)),
             ),
             if (controller.text.isEmpty)
               const TextSpan(text: " *", style: TextStyle(color: Colors.red, fontSize: 13.3)),
@@ -311,27 +332,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  Widget _buildFieldColumn(String label, TextEditingController controller, String hint, {bool isPassword = false, bool? obscure, VoidCallback? toggle, IconData? icon}) {
+  Widget _buildFieldColumn(String label, TextEditingController controller, String hint, bool isDark, {bool isPassword = false, bool? obscure, VoidCallback? toggle, IconData? icon}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel(label, controller),
+        _buildLabel(label, controller, isDark),
         SizedBox(
           height: 45.6,
           child: TextField(
             controller: controller,
             obscureText: obscure ?? false,
+            style: TextStyle(fontSize: 13.3, color: getTextColor(isDark)),
             onChanged: (val) => setState(() {}),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(fontFamily: 'Inter', fontSize: 13.3, color: Colors.black26),
-              prefixIcon: icon != null ? Icon(icon, size: 17.1, color: sageGreen) : null,
+              hintStyle: TextStyle(fontFamily: 'Inter', fontSize: 13.3, color: getSubtextColor(isDark)),
+              prefixIcon: icon != null ? Icon(icon, size: 17.1, color: isDark ? leafAccent : sageGreen) : null,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: isDark ? const Color(0xFF253326) : Colors.white,
               contentPadding: const EdgeInsets.symmetric(horizontal: 11.4),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(7.6), borderSide: const BorderSide(color: Colors.black12)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(7.6), borderSide: BorderSide(color: sageGreen)),
-              suffixIcon: isPassword ? IconButton(icon: Icon(obscure! ? Icons.visibility_off : Icons.visibility, size: 17.1, color: sageGreen), onPressed: toggle) : null,
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(7.6), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(7.6), borderSide: BorderSide(color: isDark ? leafAccent : sageGreen)),
+              suffixIcon: isPassword ? IconButton(icon: Icon(obscure! ? Icons.visibility_off : Icons.visibility, size: 17.1, color: isDark ? leafAccent : sageGreen), onPressed: toggle) : null,
             ),
           ),
         ),

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart'; 
+import 'package:provider/provider.dart';
+import '../theme_provider.dart';
+import '../theme_constants.dart';
 import 'Botanical_Gallery/ar_gallery.dart';
 import '../UserProfile/user_profile.dart';
 
@@ -47,23 +50,25 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  Color _getIconColor(String type) {
+  Color _getIconColor(String type, bool isDark) {
     switch (type) {
-      case 'plant_added': return Colors.green;
-      case 'security': return Colors.redAccent;
-      case 'profile_update': return Colors.blueAccent;
-      default: return Colors.grey;
+      case 'plant_added': return isDark ? leafAccent : Colors.green;
+      case 'security': return isDark ? Colors.redAccent : Colors.redAccent;
+      case 'profile_update': return isDark ? Colors.lightBlueAccent : Colors.blueAccent;
+      default: return isDark ? Colors.white60 : Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
     if (_userId == null) {
-      return const Scaffold(
+      return Scaffold(
+        backgroundColor: getScaffoldBg(isDark),
         body: Center(
-          child: Text("Please log in.")
+          child: Text("Please log in.", style: TextStyle(color: getTextColor(isDark)))
         )
       );
     }
@@ -75,7 +80,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           .eq('user_id', _userId!)
           .order('created_at', ascending: false),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+        if (snapshot.hasError) return Scaffold(backgroundColor: getScaffoldBg(isDark), body: Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: getTextColor(isDark)))));
         
         final rawNotifs = snapshot.data?.where((n) => 
           n['user_id'] == _userId && 
@@ -90,12 +95,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
         final unreadCount = allNotifs.where((n) => !(n['is_read'] ?? false)).length;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFEAF7EA),
+          backgroundColor: getScaffoldBg(isDark),
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: getCardBg(isDark),
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
+              icon: Icon(Icons.arrow_back, color: getTextColor(isDark)),
               onPressed: () => Navigator.pop(context),
             ),
             title: Row(
@@ -103,13 +108,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 Text(
                   "Activity", 
                   style: textTheme.titleLarge?.copyWith(
-                    color: const Color(0xFF2D3E2D), 
+                    color: getTextColor(isDark), 
                     fontSize: 18,
                   ),
                 ),
                 if (unreadCount > 0) ...[
                   const SizedBox(width: 8),
-                  _buildBadge(unreadCount),
+                  _buildBadge(unreadCount, isDark),
                 ]
               ],
             ),
@@ -119,7 +124,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 child: Text(
                   "Mark all as read", 
                   style: textTheme.labelLarge?.copyWith(
-                    color: const Color(0xFF5D7A5D), 
+                    color: isDark ? leafAccent : const Color(0xFF5D7A5D), 
                     fontSize: 12,
                   ),
                 ),
@@ -127,10 +132,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ],
           ),
           body: allNotifs.isEmpty 
-            ? const Center(
+            ? Center(
                 child: Text(
                   "No new activity.", 
-                  style: TextStyle(color: Colors.black38),
+                  style: TextStyle(color: getSubtextColor(isDark)),
                 )
               )
             : ListView.builder(
@@ -138,32 +143,36 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 itemCount: allNotifs.length,
                 itemBuilder: (context, index) {
                   final notif = allNotifs[index];
-                  final String id = notif['id'].toString();
                   final String type = notif['type'] ?? notif['category'] ?? 'general';
                   final bool isUnread = !(notif['is_read'] ?? false);
                   
-                  final DateTime createdAt = DateTime.parse(notif['created_at']);
+                  final DateTime createdAt = DateTime.tryParse(notif['created_at']?.toString() ?? '') ?? DateTime.now();
                   final String timeLabel = DateFormat.jm().format(createdAt); 
 
                   return InkWell(
                     onTap: () {
-                      if (isUnread) {
-                        _updateReadStatus(notif['id']);
-                      }
-                      final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-                      if (text.contains('plant')) {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
-                      } else if (text.contains('profile')) {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+                      try {
+                        if (isUnread) {
+                          _updateReadStatus(notif['id']);
+                        }
+                        final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+                        if (text.contains('plant')) {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
+                        } else if (text.contains('profile')) {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+                        }
+                      } catch (e) {
+                        debugPrint("Error handling notification tap: $e");
                       }
                     },
                     child: _buildNotifTile(
                       icon: _getIcon(type),
-                      iconColor: _getIconColor(type),
+                      iconColor: _getIconColor(type, isDark),
                       title: notif['title'] ?? "Notification",
                       body: notif['message'] ?? notif['description'] ?? "",
                       time: timeLabel,
                       isUnread: isUnread,
+                      isDark: isDark,
                     ),
                   );
                 },
@@ -173,14 +182,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  Widget _buildBadge(int count) {
+  Widget _buildBadge(int count, bool isDark) {
     final textTheme = Theme.of(context).textTheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: isDark ? leafAccent : const Color(0xFF5D7A5D), borderRadius: BorderRadius.circular(10)),
       child: Text(
         count.toString(), 
-        style: textTheme.labelSmall?.copyWith(color: Colors.white, fontSize: 11),
+        style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.black : Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -192,6 +201,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     required String body,
     required String time,
     required bool isUnread,
+    required bool isDark,
   }) {
     final textTheme = Theme.of(context).textTheme;
     
@@ -199,10 +209,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isUnread ? const Color(0xFFD4E8D4) : Colors.white,
+        color: isUnread 
+          ? (isDark ? const Color(0xFF253326) : const Color(0xFFD4E8D4)) 
+          : getCardBg(isDark),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: isUnread ? const Color(0xFF5D7A5D).withOpacity(0.4) : const Color(0xFFEAEAEA),
+          color: isUnread 
+            ? (isDark ? leafAccent.withOpacity(0.5) : const Color(0xFF5D7A5D).withOpacity(0.4)) 
+            : (isDark ? Colors.white12 : const Color(0xFFEAEAEA)),
           width: isUnread ? 1.5 : 1,
         ),
       ),
@@ -212,7 +226,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1), 
+              color: iconColor.withOpacity(0.15), 
               shape: BoxShape.circle
             ),
             child: Icon(icon, color: iconColor, size: 22),
@@ -229,12 +243,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       title, 
                       style: (isUnread ? textTheme.titleSmall : textTheme.bodyMedium)?.copyWith(
                         fontSize: 14, 
-                        color: const Color(0xFF2D3E2D),
+                        color: getTextColor(isDark),
                       ),
                     ),
                     Text(
                       time, 
-                      style: textTheme.labelSmall?.copyWith(fontSize: 10, color: Colors.black38),
+                      style: textTheme.labelSmall?.copyWith(fontSize: 10, color: getSubtextColor(isDark)),
                     ),
                   ],
                 ),
@@ -243,7 +257,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   body, 
                   style: textTheme.bodySmall?.copyWith(
                     fontSize: 12, 
-                    color: isUnread ? Colors.black87 : Colors.black45, 
+                    color: isUnread ? getTextColor(isDark) : getSubtextColor(isDark), 
                     height: 1.4,
                   ),
                 ),
@@ -254,7 +268,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
              Container(
                margin: const EdgeInsets.only(left: 8, top: 4),
                height: 7, width: 7, 
-               decoration: const BoxDecoration(color: Color(0xFF5D7A5D), shape: BoxShape.circle)
+               decoration: BoxDecoration(color: isDark ? leafAccent : const Color(0xFF5D7A5D), shape: BoxShape.circle)
              ),
         ],
       ),

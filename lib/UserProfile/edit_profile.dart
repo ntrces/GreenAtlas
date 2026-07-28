@@ -2,6 +2,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../theme_provider.dart';
+import '../theme_constants.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -98,27 +101,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       // 3. NEW: Connect to audit_logs
       await _supabase.from('audit_logs').insert({
-        'title': 'Profile Updated',
-        'description': 'User updated their personal and location details.',
-        'category': 'Profile',
-        'ip_address': 'Mobile App',
-        'result': 'Success',
-        'severity': 'Low',
-        'user': user.email,
         'user_id': user.id,
-        'timestamp': DateTime.now().toIso8601String(),
+        'title': 'Profile Updated',
+        'description': 'User updated profile details.',
+        'action': 'profile_update',
+        'category': 'security',
+        'is_read': false,
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Profile successfully updated!"), backgroundColor: Color(0xFF5D7A5D))
+          const SnackBar(content: Text("Profile updated successfully!"), backgroundColor: Colors.green),
         );
-        Navigator.pop(context, true); 
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent)
+          SnackBar(content: Text("Failed to update: $e"), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -128,20 +128,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAF7EA),
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: getCardBg(isDark),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3E2D)),
+          icon: Icon(Icons.arrow_back, color: getTextColor(isDark)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Edit Profile", 
-          style: textTheme.titleLarge?.copyWith(color: const Color(0xFF2D3E2D), fontSize: 18),
+          style: textTheme.titleLarge?.copyWith(color: getTextColor(isDark), fontSize: 18),
         ),
       ),
       body: SingleChildScrollView(
@@ -151,44 +152,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: getCardBg(isDark),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildAvatarPicker(),
+                _buildAvatarPicker(isDark),
                 const SizedBox(height: 30),
                 Text(
                   "ACCOUNT DETAILS", 
-                  style: textTheme.labelSmall?.copyWith(color: const Color(0xFF5D7A5D), letterSpacing: 1.0),
+                  style: textTheme.labelSmall?.copyWith(color: isDark ? leafAccent : const Color(0xFF5D7A5D), letterSpacing: 1.0),
                 ),
                 const SizedBox(height: 20),
                 
                 Row(
                   children: [
-                    Expanded(child: _buildInputField("FIRST NAME", _firstNameController)),
+                    Expanded(child: _buildInputField("FIRST NAME", _firstNameController, isDark)),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildInputField("LAST NAME", _lastNameController)),
+                    Expanded(child: _buildInputField("LAST NAME", _lastNameController, isDark)),
                   ],
                 ),
                 
-                _buildInputField("EMAIL ADDRESS", _emailController, isEnabled: false, icon: Icons.email_outlined),
-                _buildInputField("PHONE NUMBER", _phoneController, icon: Icons.phone_android_outlined),
+                _buildInputField("EMAIL ADDRESS", _emailController, isDark, isEnabled: false, icon: Icons.email_outlined),
+                _buildInputField("PHONE NUMBER", _phoneController, isDark, icon: Icons.phone_android_outlined),
                 
-                const Divider(height: 40),
+                Divider(height: 40, color: isDark ? Colors.white12 : Colors.black12),
                 Text(
                   "LOCATION DETAILS", 
-                  style: textTheme.labelSmall?.copyWith(color: const Color(0xFF5D7A5D), letterSpacing: 1.0),
+                  style: textTheme.labelSmall?.copyWith(color: isDark ? leafAccent : const Color(0xFF5D7A5D), letterSpacing: 1.0),
                 ),
                 const SizedBox(height: 20),
                 
-                _buildInputField("MUNICIPALITY", _municipalityController, icon: Icons.location_city_outlined),
-                _buildInputField("CITY / PROVINCE", _cityController, icon: Icons.map_outlined),
+                _buildInputField("MUNICIPALITY", _municipalityController, isDark, icon: Icons.location_city_outlined),
+                _buildInputField("CITY / PROVINCE", _cityController, isDark, icon: Icons.map_outlined),
                 
                 const SizedBox(height: 30),
-                _buildActionButtons(),
+                _buildActionButtons(isDark),
               ],
             ),
           ),
@@ -197,27 +198,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildAvatarPicker() => Center(
+  Widget _buildAvatarPicker(bool isDark) => Center(
     child: GestureDetector(
       onTap: _pickImage,
       child: Stack(
         children: [
           CircleAvatar(
             radius: 55,
-            backgroundColor: const Color(0xFFF0F4F0),
+            backgroundColor: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0),
             backgroundImage: _imageBytes != null 
                 ? MemoryImage(_imageBytes!) 
                 : (_existingAvatarUrl != null ? NetworkImage(_existingAvatarUrl!) : null) as ImageProvider?,
             child: (_imageBytes == null && _existingAvatarUrl == null) 
-                ? const Icon(Icons.person_outline, size: 55, color: Colors.black12) 
+                ? Icon(Icons.person_outline, size: 55, color: isDark ? Colors.white24 : Colors.black12) 
                 : null,
           ),
           Positioned(
             bottom: 0, right: 4,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFF5D7A5D), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-              child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+              decoration: BoxDecoration(color: isDark ? leafAccent : const Color(0xFF5D7A5D), shape: BoxShape.circle, border: Border.all(color: isDark ? Colors.black : Colors.white, width: 2)),
+              child: Icon(Icons.camera_alt, color: isDark ? Colors.black : Colors.white, size: 18),
             ),
           ),
         ],
@@ -225,7 +226,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ),
   );
 
-  Widget _buildInputField(String label, TextEditingController controller, {bool isEnabled = true, IconData? icon}) {
+  Widget _buildInputField(String label, TextEditingController controller, bool isDark, {bool isEnabled = true, IconData? icon}) {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
@@ -234,22 +235,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         children: [
           Text(
             label, 
-            style: textTheme.labelSmall?.copyWith(color: Colors.black45),
+            style: textTheme.labelSmall?.copyWith(color: getSubtextColor(isDark)),
           ),
           const SizedBox(height: 8),
           TextFormField(
             controller: controller,
             enabled: isEnabled,
             keyboardType: label.contains("PHONE") ? TextInputType.phone : TextInputType.text,
-            style: textTheme.bodyMedium?.copyWith(fontSize: 14),
+            style: textTheme.bodyMedium?.copyWith(fontSize: 14, color: getTextColor(isDark)),
             decoration: InputDecoration(
-              prefixIcon: icon != null ? Icon(icon, size: 18, color: const Color(0xFF5D7A5D)) : null,
+              prefixIcon: icon != null ? Icon(icon, size: 18, color: isDark ? leafAccent : const Color(0xFF5D7A5D)) : null,
               filled: true,
-              fillColor: isEnabled ? Colors.white : const Color(0xFFF5F5F5),
+              fillColor: isEnabled 
+                ? (isDark ? const Color(0xFF253326) : Colors.white) 
+                : (isDark ? const Color(0xFF182219) : const Color(0xFFF5F5F5)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: const Color(0xFF5D7A5D))),
-              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.black12)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? leafAccent : const Color(0xFF5D7A5D))),
+              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12)),
               errorStyle: textTheme.labelSmall?.copyWith(fontSize: 10, color: Colors.redAccent),
             ),
             validator: (value) {
@@ -269,7 +272,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(bool isDark) {
     final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
@@ -279,15 +282,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: ElevatedButton(
             onPressed: _isLoading ? null : _handleSave,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5D7A5D),
+              backgroundColor: isDark ? leafAccent : const Color(0xFF5D7A5D),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
             child: _isLoading 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: isDark ? Colors.black : Colors.white, strokeWidth: 2)) 
                 : Text(
                     "SAVE CHANGES", 
-                    style: textTheme.labelLarge?.copyWith(color: Colors.white, letterSpacing: 1),
+                    style: textTheme.labelLarge?.copyWith(color: isDark ? Colors.black : Colors.white, letterSpacing: 1, fontWeight: FontWeight.bold),
                   ),
           ),
         ),
@@ -296,7 +299,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           onPressed: () => Navigator.pop(context),
           child: Text(
             "Discard changes", 
-            style: textTheme.bodySmall?.copyWith(color: Colors.black45, fontSize: 13),
+            style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark), fontSize: 13),
           ),
         ),
       ],

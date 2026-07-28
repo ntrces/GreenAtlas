@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../theme_provider.dart';
+import '../../theme_constants.dart';
+
+// Alias for compatibility
+typedef GalleryFilteringSheet = GalleryFilterSheet;
 
 class GalleryFilterSheet extends StatefulWidget {
   final Function(Set<String> types, Set<String> statuses, String sort) onApply;
@@ -52,30 +58,16 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
 
   String _getCount(String key) => widget.counts[key]?.toString() ?? "0";
 
-  Color _getConservationColorForFilter(String status) {
-    switch (status) {
-      case 'Critically Endangered': return Colors.red;
-      case 'Endangered': return Colors.orange;
-      case 'Vulnerable': return Colors.amber;
-      case 'Threatened': return Colors.orange;
-      case 'Other Threatened Status': return Colors.amber;
-      case 'Near Threatened': return Colors.lightGreen;
-      case 'Not Threatened': return Colors.teal;
-      case 'Least Concern (LC)': return Colors.green;
-      case 'Data Deficient': return Colors.blueGrey;
-      default: return Colors.grey;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      decoration: BoxDecoration(
+        color: getCardBg(isDark),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -90,11 +82,11 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 children: [
                   Text(
                     "Filters", 
-                    style: textTheme.headlineSmall?.copyWith(color: const Color(0xFF2D3E2D)),
+                    style: textTheme.headlineSmall?.copyWith(color: getTextColor(isDark)),
                   ),
                   Text(
-                    "${_getCount('Total')} plants available", 
-                    style: textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    "${_getCount('totalSpecies')} species available", 
+                    style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
                   ),
                 ],
               ),
@@ -105,7 +97,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 },
                 child: Text(
                   "Done", 
-                  style: textTheme.labelLarge?.copyWith(color: const Color(0xFF4A634A), fontSize: 16),
+                  style: textTheme.labelLarge?.copyWith(color: isDark ? leafAccent : const Color(0xFF4A634A), fontSize: 16),
                 ),
               ),
             ],
@@ -118,36 +110,36 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // --- PLANT TYPE ---
-                  _buildSectionHeader("Plant Type", textTheme, onClear: () => setState(() => selectedTypes = {"All Plants"})),
-                  _buildOption("All Plants", _getCount('Total'), textTheme, isSelected: selectedTypes.contains("All Plants"), onTap: () => _toggle(selectedTypes, "All Plants", "All Plants")),
-                  _buildOption("Orchid", _getCount('Orchid'), textTheme, isSelected: selectedTypes.contains("Orchid"), onTap: () => _toggle(selectedTypes, "Orchid", "All Plants"), icon: const Icon(Icons.filter_vintage_outlined, color: Color(0xFF4A634A), size: 20)),
-                  _buildOption("Fern", _getCount('Fern'), textTheme, isSelected: selectedTypes.contains("Fern"), onTap: () => _toggle(selectedTypes, "Fern", "All Plants"), icon: const Icon(Icons.eco_outlined, color: Color(0xFF4A634A), size: 20)),
-                  _buildOption("Tree", _getCount('Tree'), textTheme, isSelected: selectedTypes.contains("Tree"), onTap: () => _toggle(selectedTypes, "Tree", "All Plants"), icon: const Icon(Icons.park_outlined, color: Color(0xFF4A634A), size: 20)),
-                  _buildOption("Shrub", _getCount('Shrub'), textTheme, isSelected: selectedTypes.contains("Shrub"), onTap: () => _toggle(selectedTypes, "Shrub", "All Plants"), icon: const Icon(Icons.grass_outlined, color: Color(0xFF4A634A), size: 20)),
+                  _buildSectionHeader("Plant Type", textTheme, isDark, onClear: () => setState(() => selectedTypes = {"All Plants"})),
+                  _buildOption("All Plants", _getCount('totalSpecies'), textTheme, isDark, isSelected: selectedTypes.contains("All Plants"), onTap: () => _toggle(selectedTypes, "All Plants", "All Plants")),
+                  _buildOption("Orchid", _getCount('Orchid'), textTheme, isDark, isSelected: selectedTypes.contains("Orchid"), onTap: () => _toggle(selectedTypes, "Orchid", "All Plants"), icon: Icon(Icons.filter_vintage_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Fern", _getCount('Fern'), textTheme, isDark, isSelected: selectedTypes.contains("Fern"), onTap: () => _toggle(selectedTypes, "Fern", "All Plants"), icon: Icon(Icons.eco_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Tree", _getCount('Tree'), textTheme, isDark, isSelected: selectedTypes.contains("Tree"), onTap: () => _toggle(selectedTypes, "Tree", "All Plants"), icon: Icon(Icons.park_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Shrub", _getCount('Shrub'), textTheme, isDark, isSelected: selectedTypes.contains("Shrub"), onTap: () => _toggle(selectedTypes, "Shrub", "All Plants"), icon: Icon(Icons.grass_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
 
                   const SizedBox(height: 24),
 
                   // --- CONSERVATION STATUS ---
-                  Text("Conservation Status", style: textTheme.titleMedium),
+                  Text("Conservation Status", style: textTheme.titleMedium?.copyWith(color: getTextColor(isDark))),
                   const SizedBox(height: 12),
-                  _buildOption("All Statuses", _getCount('Total'), textTheme, isSelected: selectedStatuses.contains("All Statuses"), onTap: () => _toggle(selectedStatuses, "All Statuses", "All Statuses")),
-                  _buildOption("Critically Endangered", _getCount('Critically Endangered'), textTheme, isSelected: selectedStatuses.contains("Critically Endangered"), onTap: () => _toggle(selectedStatuses, "Critically Endangered", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20)),
-                  _buildOption("Endangered", _getCount('Endangered'), textTheme, isSelected: selectedStatuses.contains("Endangered"), onTap: () => _toggle(selectedStatuses, "Endangered", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20)),
-                  _buildOption("Vulnerable", _getCount('Vulnerable'), textTheme, isSelected: selectedStatuses.contains("Vulnerable"), onTap: () => _toggle(selectedStatuses, "Vulnerable", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20)),
-                  _buildOption("Threatened", _getCount('Threatened'), textTheme, isSelected: selectedStatuses.contains("Threatened"), onTap: () => _toggle(selectedStatuses, "Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.orange, size: 14)),
-                  _buildOption("Other Threatened Status", _getCount('Other Threatened Status'), textTheme, isSelected: selectedStatuses.contains("Other Threatened Status"), onTap: () => _toggle(selectedStatuses, "Other Threatened Status", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.amber, size: 14)),
-                  _buildOption("Near Threatened", _getCount('Near Threatened'), textTheme, isSelected: selectedStatuses.contains("Near Threatened"), onTap: () => _toggle(selectedStatuses, "Near Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.lightGreen, size: 14)),
-                  _buildOption("Not Threatened", _getCount('Not Threatened'), textTheme, isSelected: selectedStatuses.contains("Not Threatened"), onTap: () => _toggle(selectedStatuses, "Not Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.teal, size: 14)),
-                  _buildOption("Least Concern (LC)", _getCount('Least Concern (LC)'), textTheme, isSelected: selectedStatuses.contains("Least Concern (LC)"), onTap: () => _toggle(selectedStatuses, "Least Concern (LC)", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.green, size: 14)),
-                  _buildOption("Data Deficient", _getCount('Data Deficient'), textTheme, isSelected: selectedStatuses.contains("Data Deficient"), onTap: () => _toggle(selectedStatuses, "Data Deficient", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.blueGrey, size: 14)),
+                  _buildOption("All Statuses", _getCount('totalSpecies'), textTheme, isDark, isSelected: selectedStatuses.contains("All Statuses"), onTap: () => _toggle(selectedStatuses, "All Statuses", "All Statuses")),
+                  _buildOption("Critically Endangered", _getCount('Critically Endangered'), textTheme, isDark, isSelected: selectedStatuses.contains("Critically Endangered"), onTap: () => _toggle(selectedStatuses, "Critically Endangered", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20)),
+                  _buildOption("Endangered", _getCount('Endangered'), textTheme, isDark, isSelected: selectedStatuses.contains("Endangered"), onTap: () => _toggle(selectedStatuses, "Endangered", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20)),
+                  _buildOption("Vulnerable", _getCount('Vulnerable'), textTheme, isDark, isSelected: selectedStatuses.contains("Vulnerable"), onTap: () => _toggle(selectedStatuses, "Vulnerable", "All Statuses"), icon: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20)),
+                  _buildOption("Threatened", _getCount('Threatened'), textTheme, isDark, isSelected: selectedStatuses.contains("Threatened"), onTap: () => _toggle(selectedStatuses, "Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.orange, size: 14)),
+                  _buildOption("Other Threatened Status", _getCount('Other Threatened Status'), textTheme, isDark, isSelected: selectedStatuses.contains("Other Threatened Status"), onTap: () => _toggle(selectedStatuses, "Other Threatened Status", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.amber, size: 14)),
+                  _buildOption("Near Threatened", _getCount('Near Threatened'), textTheme, isDark, isSelected: selectedStatuses.contains("Near Threatened"), onTap: () => _toggle(selectedStatuses, "Near Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.lightGreen, size: 14)),
+                  _buildOption("Not Threatened", _getCount('Not Threatened'), textTheme, isDark, isSelected: selectedStatuses.contains("Not Threatened"), onTap: () => _toggle(selectedStatuses, "Not Threatened", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.teal, size: 14)),
+                  _buildOption("Least Concern (LC)", _getCount('Least Concern (LC)'), textTheme, isDark, isSelected: selectedStatuses.contains("Least Concern (LC)"), onTap: () => _toggle(selectedStatuses, "Least Concern (LC)", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.green, size: 14)),
+                  _buildOption("Data Deficient", _getCount('Data Deficient'), textTheme, isDark, isSelected: selectedStatuses.contains("Data Deficient"), onTap: () => _toggle(selectedStatuses, "Data Deficient", "All Statuses"), icon: const Icon(Icons.circle, color: Colors.blueGrey, size: 14)),
 
                   const SizedBox(height: 24),
 
                   // --- SORT BY ---
-                  Text("Sort By", style: textTheme.titleMedium),
+                  Text("Sort By", style: textTheme.titleMedium?.copyWith(color: getTextColor(isDark))),
                   const SizedBox(height: 12),
-                  _buildOption("Ascending (A-Z)", "", textTheme, isSelected: selectedSort == "Ascending (A-Z)", onTap: () => setState(() => selectedSort = "Ascending (A-Z)"), icon: const Icon(Icons.sort_by_alpha, color: Color(0xFF4A634A), size: 20)),
-                  _buildOption("Descending (Z-A)", "", textTheme, isSelected: selectedSort == "Descending (Z-A)", onTap: () => setState(() => selectedSort = "Descending (Z-A)"), icon: const Icon(Icons.sort_by_alpha, color: Color(0xFF4A634A), size: 20)),
+                  _buildOption("Ascending (A-Z)", "", textTheme, isDark, isSelected: selectedSort == "Ascending (A-Z)", onTap: () => setState(() => selectedSort = "Ascending (A-Z)"), icon: Icon(Icons.sort_by_alpha, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Descending (Z-A)", "", textTheme, isDark, isSelected: selectedSort == "Descending (Z-A)", onTap: () => setState(() => selectedSort = "Descending (Z-A)"), icon: Icon(Icons.sort_by_alpha, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
                 ],
               ),
             ),
@@ -164,13 +156,13 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                 selectedSort = "Ascending (A-Z)";
               }),
               style: OutlinedButton.styleFrom(
-                backgroundColor: const Color(0xFFEAF7EA), 
+                backgroundColor: isDark ? const Color(0xFF253326) : const Color(0xFFEAF7EA), 
                 side: BorderSide.none, 
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
               ),
               child: Text(
                 "Reset All Filters", 
-                style: textTheme.labelLarge?.copyWith(color: const Color(0xFF2D3E2D)),
+                style: textTheme.labelLarge?.copyWith(color: isDark ? leafAccent : const Color(0xFF2D3E2D)),
               ),
             ),
           ),
@@ -179,29 +171,31 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     );
   }
 
-  Widget _buildSectionHeader(String title, TextTheme textTheme, {required VoidCallback onClear}) => Row(
+  Widget _buildSectionHeader(String title, TextTheme textTheme, bool isDark, {required VoidCallback onClear}) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
-      Text(title, style: textTheme.titleMedium),
+      Text(title, style: textTheme.titleMedium?.copyWith(color: getTextColor(isDark))),
       TextButton(
         onPressed: onClear, 
         child: Text(
           "Clear", 
-          style: textTheme.bodySmall?.copyWith(color: Colors.grey),
+          style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
         ),
       ),
     ],
   );
 
-  Widget _buildOption(String label, String count, TextTheme textTheme, {required bool isSelected, required VoidCallback onTap, Widget? icon}) => GestureDetector(
+  Widget _buildOption(String label, String count, TextTheme textTheme, bool isDark, {required bool isSelected, required VoidCallback onTap, Widget? icon}) => GestureDetector(
     onTap: onTap,
     child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: isSelected ? Colors.transparent : const Color(0xFFEAF7EA).withOpacity(0.5),
+        color: isSelected 
+          ? (isDark ? const Color(0xFF253326) : Colors.transparent) 
+          : (isDark ? const Color(0xFF182219) : const Color(0xFFEAF7EA).withOpacity(0.5)),
         borderRadius: BorderRadius.circular(12),
-        border: isSelected ? Border.all(color: const Color(0xFF4A634A), width: 1.5) : null,
+        border: isSelected ? Border.all(color: isDark ? leafAccent : const Color(0xFF4A634A), width: 1.5) : null,
       ),
       child: Row(
         children: [
@@ -211,19 +205,19 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
           ],
           Text(
             label, 
-            style: textTheme.bodyMedium?.copyWith(color: const Color(0xFF2D3E2D)),
+            style: textTheme.bodyMedium?.copyWith(color: getTextColor(isDark)),
           ),
           const Spacer(),
           if (count.isNotEmpty) 
             Text(
               count, 
               style: textTheme.bodyMedium?.copyWith(
-                color: isSelected ? const Color(0xFF4A634A) : Colors.grey,
+                color: isSelected ? (isDark ? leafAccent : const Color(0xFF4A634A)) : getSubtextColor(isDark),
               ),
             ),
           if (isSelected) ...[
             const SizedBox(width: 10), 
-            const Icon(Icons.check_circle, size: 20, color: Color(0xFF4A634A))
+            Icon(Icons.check_circle, size: 20, color: isDark ? leafAccent : const Color(0xFF4A634A))
           ],
         ],
       ),
