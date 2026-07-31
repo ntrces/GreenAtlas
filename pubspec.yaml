@@ -19,12 +19,12 @@ dependencies:
   url_launcher: ^6.3.1
   geolocator: ^13.0.2
   geocoding: ^3.0.0
-  model_viewer_plus: ^1.7.0
   permission_handler: ^11.0.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   connectivity_plus: ^5.0.0
   path_provider: ^2.1.2
+  flutter_embed_unity: ^2.0.0
 
 dev_dependencies:
   flutter_test:
@@ -63,4 +63,3 @@ flutter_launcher_icons:
   min_sdk_android: 21
   remove_alpha_ios: true
 
-  
