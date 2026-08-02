@@ -27,11 +27,28 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.dart-appdata/
+.dart-localappdata/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
 /coverage/
+
+# Local installable builds (keep deliverable APKs outside Git history)
+*.apk
+
+# Regenerated Unity/Gradle output
+/android/unityLibrary/build/
+/android/unityLibrary/.cxx/
+/android/unityLibrary/symbols/
+/android/unityLibrary/*_BurstDebugInformation_DoNotShip/
+/android/unityLibrary/*_BackUpThisFolder_ButDontShipItWithYourGame/
+/android/unityLibrary/src/main/jniLibs/armeabi-v7a/
+/android/unityLibrary/src/main/Il2CppOutputProject/
+/android/unityLibrary/src/main/jniStaticLibs/
+*.dbg.so
+*.sym.so
 
 # Symbolication related
 app.*.symbols
