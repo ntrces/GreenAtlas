@@ -23,6 +23,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   bool _obscureCurrent = true;
   bool _obscureNew = true;
+  bool _obscureConfirm = true;
   bool _isLoading = false;
 
   Future<void> _handleUpdatePassword() async {
@@ -171,8 +172,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   _buildPasswordField(
                     label: "CONFIRM NEW PASSWORD",
                     controller: _confirmPasswordController,
-                    obscure: true,
-                    showToggle: false,
+                    obscure: _obscureConfirm,
+                    onToggle: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
                     isDark: isDark,
                   ),
                   const SizedBox(height: 30),
@@ -217,12 +219,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget _buildPasswordField({
     required String label,
     required TextEditingController controller,
-    required bool obscure,
+    bool obscure = true,
     required bool isDark,
     VoidCallback? onToggle,
     bool showToggle = true,
   }) {
     final textTheme = Theme.of(context).textTheme;
+    final bool isObscured = obscure == true;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,7 +238,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          obscureText: obscure,
+          obscureText: isObscured,
           style: TextStyle(fontSize: 14, color: getTextColor(isDark)),
           decoration: InputDecoration(
             filled: true,
@@ -253,9 +256,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             suffixIcon: showToggle
                 ? IconButton(
                     icon: Icon(
-                        obscure
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
+                        isObscured
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
                         size: 20,
                         color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
                     onPressed: onToggle,
