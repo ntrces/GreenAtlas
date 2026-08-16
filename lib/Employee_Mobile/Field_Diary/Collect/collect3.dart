@@ -305,69 +305,65 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         throw Exception("User not authenticated");
       }
 
+      // Build draft data for offline fallback or offline save
+      List<String> methods = [];
+      if (model.seen) methods.add("Seen");
+      if (model.heard) methods.add("Heard");
+      if (model.presence) methods.add("Presence Signs");
+
+      final draftData = {
+        'user_id': userId,
+        'team_members': model.members,
+        'region': model.region,
+        'province': model.province,
+        'protected_area': model.protectedArea,
+        'weather_condition': model.weatherConditions.join(', '),
+        'temperature': model.temperature,
+        'observation_date':
+            DateFormat('yyyy-MM-dd').format(model.observationDate),
+        'observation_time':
+            DateFormat('HH:mm:ss').format(model.observationDate),
+        'observation_category': model.observationCategory,
+        'habitat_type': model.habitat,
+        'taxon_group': _taxonController.text,
+        'common_name': _commonNameController.text,
+        'is_unlisted': model.isUnfamiliar,
+        'count': int.tryParse(_countController.text) ?? 0,
+        'discovery_method': methods.join(', '),
+        'notes': model.observationNotes,
+        'status': 'DRAFT',
+        'is_resubmit': model.isResubmit,
+        'original_draft_id': model.originalDraftId,
+        'resubmit_count': model.resubmitCount,
+      };
+
       // Check connectivity
       if (!_offlineService.isOnline) {
-        // Save offline
-        if (isDraft) {
-          final draftData = {
-            'user_id': userId,
-            'team_members': model.members,
-            'region': model.region,
-            'province': model.province,
-            'protected_area': model.protectedArea,
-            'weather_condition': model.weatherConditions.join(', '),
-            'temperature': model.temperature,
-            'observation_date':
-                DateFormat('yyyy-MM-dd').format(model.observationDate),
-            'observation_time':
-                DateFormat('HH:mm:ss').format(model.observationDate),
-            'observation_category': model.observationCategory,
-            'habitat_type': model.habitat,
-            'taxon_group': _taxonController.text,
-            'common_name': _commonNameController.text,
-            'is_unlisted': model.isUnfamiliar,
-            'count': int.tryParse(_countController.text) ?? 0,
-            'notes': model.observationNotes,
-            'status': 'DRAFT',
-          };
+        // Save offline regardless of whether user clicked 'Save Draft' or 'Submit'
+        final draftId = await _offlineService.saveDraftOffline(draftData);
+        await _offlineService.saveImagePathsOffline(
+            draftId, model.imagePaths);
 
-          List<String> methods = [];
-          if (model.seen) methods.add("Seen");
-          if (model.heard) methods.add("Heard");
-          if (model.presence) methods.add("Presence Signs");
-          draftData['discovery_method'] = methods.join(', ');
-
-          final draftId = await _offlineService.saveDraftOffline(draftData);
-          await _offlineService.saveImagePathsOffline(
-              draftId, model.imagePaths);
-
-          if (mounted) {
-            model.reset();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                    "Draft saved offline. Will sync when you're back online."),
-                duration: Duration(seconds: 3),
-              ),
-            );
-            Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const EmployeePortal(initialIndex: 1)),
-                (route) => false);
-          }
-          return;
-        } else {
+        if (mounted) {
+          model.reset();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                  "You are offline. Please save as draft or connect to internet."),
-              duration: Duration(seconds: 3),
+                isDraft
+                    ? "Draft saved offline. Will sync when you're back online."
+                    : "Connection offline. Your observation was saved as a draft and will sync automatically when back online.",
+              ),
+              duration: const Duration(seconds: 4),
+              backgroundColor: isDraft ? Colors.grey.shade800 : Colors.orange.shade800,
             ),
           );
-          setState(() => _isSaving = false);
-          return;
+          Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const EmployeePortal(initialIndex: 1)),
+              (route) => false);
         }
+        return;
       }
 
       // Online flow - original implementation
@@ -407,11 +403,6 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           .single();
 
       final String speciesId = speciesData['id'];
-
-      List<String> methods = [];
-      if (model.seen) methods.add("Seen");
-      if (model.heard) methods.add("Heard");
-      if (model.presence) methods.add("Presence Signs");
 
       final Map<String, dynamic> dbData = {
         'user_id': userId,
@@ -496,9 +487,67 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             (route) => false);
       }
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error: $e")));
+      debugPrint("Error saving observation online: $e");
+      // Fallback: save as offline draft on connection error or network failure
+      try {
+        List<String> methods = [];
+        if (model.seen) methods.add("Seen");
+        if (model.heard) methods.add("Heard");
+        if (model.presence) methods.add("Presence Signs");
+
+        final fallbackDraftData = {
+          'user_id': _supabase.auth.currentUser?.id,
+          'team_members': model.members,
+          'region': model.region,
+          'province': model.province,
+          'protected_area': model.protectedArea,
+          'weather_condition': model.weatherConditions.join(', '),
+          'temperature': model.temperature,
+          'observation_date':
+              DateFormat('yyyy-MM-dd').format(model.observationDate),
+          'observation_time':
+              DateFormat('HH:mm:ss').format(model.observationDate),
+          'observation_category': model.observationCategory,
+          'habitat_type': model.habitat,
+          'taxon_group': _taxonController.text,
+          'common_name': _commonNameController.text,
+          'is_unlisted': model.isUnfamiliar,
+          'count': int.tryParse(_countController.text) ?? 0,
+          'discovery_method': methods.join(', '),
+          'notes': model.observationNotes,
+          'status': 'DRAFT',
+          'is_resubmit': model.isResubmit,
+          'original_draft_id': model.originalDraftId,
+          'resubmit_count': model.resubmitCount,
+        };
+
+        final draftId = await _offlineService.saveDraftOffline(fallbackDraftData);
+        await _offlineService.saveImagePathsOffline(draftId, model.imagePaths);
+
+        if (mounted) {
+          model.reset();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Connection failed during submission. Your entry was saved as an offline draft.",
+              ),
+              duration: Duration(seconds: 4),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const EmployeePortal(initialIndex: 1)),
+              (route) => false);
+        }
+      } catch (fallbackError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error saving observation: $e")),
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
