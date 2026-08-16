@@ -167,7 +167,7 @@ const List<TreeModel> threatenedTrees = [
     scientificName: 'Toona calantas',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
-    remoteModelFile: 'kalantas.glb',
+    remoteModelFile: 'Toona_calantas.glb',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
     habitat:
         'Kalantas is native to Philippine lowland forests, including the remaining forest fragments and protected landscapes of Cavite. It grows best in warm, humid sites where deep soil and a healthy forest canopy support seedlings and mature trees.',

@@ -37,9 +37,6 @@ flutter:
   assets:
     - assets/logo1.png
     - assets/logo2.png
-    - assets/red_rose.glb
-    - assets/narra.glb
-    - assets/tree.glb
     - assets/plant_shelf.png
     - assets/paho.glb 
 
