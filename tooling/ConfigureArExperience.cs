@@ -6,6 +6,7 @@ using UnityEngine;
 
 public static class ConfigureArExperience
 {
+    [MenuItem("GreenAtlas/Configure External AR Models")]
     public static void Configure()
     {
         const string scenePath = "Assets/Scenes/GreenAtlasAR.unity";
@@ -35,11 +36,10 @@ public static class ConfigureArExperience
         serialized.FindProperty("planeManager").objectReferenceValue = planeManager;
         serialized.FindProperty("sproutPrefab").objectReferenceValue = sprout;
         var species = serialized.FindProperty("species");
-        for (var i = 0; i < species.arraySize; i++)
-            species.GetArrayElementAtIndex(i)
-                .FindPropertyRelative("prefab").objectReferenceValue = null;
-        serialized.FindProperty("growthDistanceMeters").floatValue = 2f;
+        species.arraySize = 0;
         serialized.FindProperty("growthAnimationSeconds").floatValue = 2.2f;
+        serialized.FindProperty("matureTreeHeightMeters").floatValue = 3.5f;
+        serialized.FindProperty("requiredWaterings").intValue = 3;
         serialized.ApplyModifiedPropertiesWithoutUndo();
 
         EditorUtility.SetDirty(experience);
@@ -53,6 +53,6 @@ public static class ConfigureArExperience
         EditorUtility.SetDirty(arCoreSettings);
         AssetDatabase.SaveAssets();
 
-        Debug.Log("Configured optional ARCore and downloadable mature-tree content.");
+        Debug.Log("Configured optional ARCore and external downloadable mature-tree content.");
     }
 }

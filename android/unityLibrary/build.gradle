@@ -14,7 +14,7 @@ dependencies {
 
 android {
     namespace "com.unity3d.player"
-	ndkPath "C:/Program Files/Unity/Hub/Editor/6000.3.21f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK"
+	// ndkPath was removed by flutter_embed_unity exporter
     ndkVersion "27.2.12479018"
     compileSdk 36
     buildToolsVersion "36.0.0"
@@ -30,7 +30,7 @@ android {
         targetSdk 36
 
         ndk {
-            abiFilters "arm64-v8a"
+            abiFilters "armeabi-v7a", "arm64-v8a"
             debugSymbolLevel "none"
         }
 
@@ -70,9 +70,58 @@ android.buildFeatures {
 }
 
 
-// The checked-in Unity export uses the already compiled ARM64 libraries in
-// src/main/jniLibs. Re-exporting from Unity regenerates the IL2CPP project;
-// that compiler output is intentionally excluded from source control.
+tasks.register('buildIl2Cpp') {
+    def workingDir = projectDir.toString().replaceAll('\\\\', '/');
+    def archs = [
+      'armv7' : 'armeabi-v7a',
+      'arm64' : 'arm64-v8a'
+    ]
+    def staticLibs = [
+      'armv7' : [  ],
+      'arm64' : [  ]
+    ]
+    inputs.files fileTree(dir: 'src/main/Il2CppOutputProject', include: ['**/*'])
+    inputs.files fileTree(dir: 'src/main/jniStaticLibs', include: ['**/*'])
+    archs.each { arch, abi ->
+        outputs.file getIl2CppOutputPath(workingDir, abi)
+        outputs.file getIl2CppSymbolPath(workingDir, abi)
+    }
+    doLast {
+        // skipIl2CppBuild used for testing purposes
+        if (project.hasProperty("skipIl2CppBuild")) {
+            println("Skipping il2cpp build, creating dummy files.")
+            archs.each { arch, abi ->
+                {
+                    file(getIl2CppOutputPath(workingDir, abi)).write("DummyBinary")
+                    file(getIl2CppSymbolPath(workingDir, abi)).write("DummySymbols")
+                }
+            }
+        } else {
+            archs.each { arch, abi ->
+                buildIl2CppImpl(workingDir, 'Release', arch, abi, staticLibs[arch] as String[]);
+            }
+        }
+    }
+}
+
+android {
+   sourceSets {
+       main {
+           jni.srcDirs = ["src/main/Il2CppOutputProject"]
+       }
+   }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        tasks.configureEach { task ->
+            def mergeTaskName = "merge${variant.name.capitalize()}JniLibFolders";
+            if (task.name == mergeTaskName) {
+                dependsOn buildIl2Cpp
+            }
+        }
+    }
+}
 
 def getSdkDir() {
     Properties local = new Properties()
@@ -160,4 +209,4 @@ def execCommand(String workDir, List<String> command, Map<String, String> env = 
         error.append("Command Line:\n${command.join(' ')}\n");
         throw new GradleException(error.toString())
     }
-}
+}

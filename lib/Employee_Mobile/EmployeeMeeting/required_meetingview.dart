@@ -753,8 +753,27 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
   );
 
   Widget _buildAgendaFile(String creator) {
-    final String? attachmentUrl = widget.meeting['attachment_url']?.toString().trim();
-    final bool hasUrl = attachmentUrl != null && attachmentUrl.isNotEmpty;
+    final String? rawUrl = (
+      widget.meeting['attachment_url'] ??
+      widget.meeting['agenda_url'] ??
+      widget.meeting['file_url'] ??
+      widget.meeting['mom_attachment_url'] ??
+      widget.meeting['pdf_url'] ??
+      widget.meeting['url'] ??
+      widget.meeting['document_url'] ??
+      widget.meeting['link'] ??
+      widget.meeting['attachment']
+    )?.toString().trim();
+
+    final bool hasUrl = rawUrl != null && rawUrl.isNotEmpty && rawUrl != "null";
+
+    String fileName = "Meeting_Agenda_Final.pdf";
+    if (hasUrl) {
+      final uriName = Uri.tryParse(rawUrl)?.pathSegments.last;
+      if (uriName != null && uriName.isNotEmpty) {
+        fileName = Uri.decodeComponent(uriName);
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -767,13 +786,18 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.description_outlined, color: forestGreen),
+              Icon(Icons.description_outlined, color: hasUrl ? forestGreen : Colors.grey),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Meeting_Agenda_Final.pdf", style: TextStyle(fontSize: 14, color: Colors.black87)),
+                    Text(
+                      hasUrl ? fileName : "No File Attached", 
+                      style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     Text("Uploaded by $creator", style: const TextStyle(fontSize: 10, color: Colors.black38)),
                   ],
                 ),
@@ -785,16 +809,30 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
             width: double.infinity, 
             child: OutlinedButton.icon(
               onPressed: hasUrl ? () async {
-                final uri = Uri.parse(attachmentUrl);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                try {
+                  final uri = Uri.parse(rawUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    await launchUrl(uri, mode: LaunchMode.platformDefault);
+                  }
+                } catch (e) {
+                  debugPrint("Error launching agenda URL: $e");
                 }
               } : null, 
-              icon: const Icon(Icons.download, size: 18), 
-              label: Text(hasUrl ? "Download Agenda" : "No Attachment Available"), 
+              icon: Icon(Icons.download, size: 18, color: hasUrl ? forestGreen : Colors.grey), 
+              label: Text(
+                hasUrl ? "Download Agenda" : "No Attachment Available", 
+                style: TextStyle(
+                  fontWeight: FontWeight.bold, 
+                  fontSize: 13,
+                  color: hasUrl ? forestGreen : Colors.black38,
+                ),
+              ), 
               style: OutlinedButton.styleFrom(
-                foregroundColor: forestGreen, 
-                side: BorderSide(color: forestGreen.withOpacity(0.5)),
+                side: BorderSide(color: hasUrl ? forestGreen : Colors.grey.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ),

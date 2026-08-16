@@ -56,7 +56,17 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
     });
   }
 
-  String _getCount(String key) => widget.counts[key]?.toString() ?? "0";
+  String _getCount(String key) {
+    if (widget.counts.containsKey(key)) {
+      return widget.counts[key].toString();
+    }
+    for (var entry in widget.counts.entries) {
+      if (entry.key.toLowerCase() == key.toLowerCase()) {
+        return entry.value.toString();
+      }
+    }
+    return "0";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,6 +126,8 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                   _buildOption("Fern", _getCount('Fern'), textTheme, isDark, isSelected: selectedTypes.contains("Fern"), onTap: () => _toggle(selectedTypes, "Fern", "All Plants"), icon: Icon(Icons.eco_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
                   _buildOption("Tree", _getCount('Tree'), textTheme, isDark, isSelected: selectedTypes.contains("Tree"), onTap: () => _toggle(selectedTypes, "Tree", "All Plants"), icon: Icon(Icons.park_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
                   _buildOption("Shrub", _getCount('Shrub'), textTheme, isDark, isSelected: selectedTypes.contains("Shrub"), onTap: () => _toggle(selectedTypes, "Shrub", "All Plants"), icon: Icon(Icons.grass_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Herb", _getCount('Herb'), textTheme, isDark, isSelected: selectedTypes.contains("Herb"), onTap: () => _toggle(selectedTypes, "Herb", "All Plants"), icon: Icon(Icons.local_florist_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Vine", _getCount('Vine'), textTheme, isDark, isSelected: selectedTypes.contains("Vine"), onTap: () => _toggle(selectedTypes, "Vine", "All Plants"), icon: Icon(Icons.spa_outlined, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
 
                   const SizedBox(height: 24),
 
@@ -138,8 +150,8 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
                   // --- SORT BY ---
                   Text("Sort By", style: textTheme.titleMedium?.copyWith(color: getTextColor(isDark))),
                   const SizedBox(height: 12),
-                  _buildOption("Ascending (A-Z)", "", textTheme, isDark, isSelected: selectedSort == "Ascending (A-Z)", onTap: () => setState(() => selectedSort = "Ascending (A-Z)"), icon: Icon(Icons.sort_by_alpha, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
-                  _buildOption("Descending (Z-A)", "", textTheme, isDark, isSelected: selectedSort == "Descending (Z-A)", onTap: () => setState(() => selectedSort = "Descending (Z-A)"), icon: Icon(Icons.sort_by_alpha, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Common Name (A-Z)", "", textTheme, isDark, isSelected: selectedSort == "Common Name (A-Z)" || selectedSort == "Ascending (A-Z)", onTap: () => setState(() => selectedSort = "Common Name (A-Z)"), icon: Icon(Icons.sort_by_alpha, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
+                  _buildOption("Common Name (Z-A)", "", textTheme, isDark, isSelected: selectedSort == "Common Name (Z-A)" || selectedSort == "Descending (Z-A)", onTap: () => setState(() => selectedSort = "Common Name (Z-A)"), icon: Icon(Icons.sort_by_alpha, color: isDark ? leafAccent : const Color(0xFF4A634A), size: 20)),
                 ],
               ),
             ),
@@ -153,7 +165,7 @@ class _GalleryFilterSheetState extends State<GalleryFilterSheet> {
               onPressed: () => setState(() {
                 selectedTypes = {"All Plants"};
                 selectedStatuses = {"All Statuses"};
-                selectedSort = "Ascending (A-Z)";
+                selectedSort = "Common Name (A-Z)";
               }),
               style: OutlinedButton.styleFrom(
                 backgroundColor: isDark ? const Color(0xFF253326) : const Color(0xFFEAF7EA), 
