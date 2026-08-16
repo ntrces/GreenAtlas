@@ -110,7 +110,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
   final List<String> _speciesChoices = ['Scientific Name', 'Not Applicable'];
 
-  Future<String> _watermarkImage(String path, Position? position, ObservationModel model) async {
+  Future<String> _watermarkImage(
+      String path, Position? position, ObservationModel model) async {
     if (kIsWeb) {
       return path;
     }
@@ -127,23 +128,27 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       final Paint paint = Paint();
       canvas.drawImage(image, Offset.zero, paint);
 
-      final String timestampStr = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-      
+      final String timestampStr =
+          DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+
       String locationStr = "";
       String addressStr = "";
       if (position != null) {
-        locationStr = "GPS: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}";
+        locationStr =
+            "GPS: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}";
         try {
-          List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+          List<Placemark> placemarks = await placemarkFromCoordinates(
+              position.latitude, position.longitude);
           if (placemarks.isNotEmpty) {
             final Placemark place = placemarks.first;
             final String city = place.locality ?? "";
             final String subAdmin = place.subAdministrativeArea ?? "";
-            
+
             final List<String> addressParts = [];
             if (city.isNotEmpty) addressParts.add(city);
-            if (subAdmin.isNotEmpty && subAdmin != city) addressParts.add(subAdmin);
-            
+            if (subAdmin.isNotEmpty && subAdmin != city)
+              addressParts.add(subAdmin);
+
             addressStr = addressParts.join(', ');
           }
         } catch (e) {
@@ -158,8 +163,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       ];
       final String watermarkText = watermarkLines.join('\n');
 
-      final double fontSize = image.height * 0.035; 
-      
+      final double fontSize = image.height * 0.035;
+
       final textPainter = TextPainter(
         text: TextSpan(
           text: watermarkText,
@@ -189,9 +194,11 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       textPainter.paint(canvas, Offset(x, y));
 
       final ui.Picture picture = recorder.endRecording();
-      final ui.Image watermarkedUiImage = await picture.toImage(image.width, image.height);
-      final ByteData? byteData = await watermarkedUiImage.toByteData(format: ui.ImageByteFormat.png);
-      
+      final ui.Image watermarkedUiImage =
+          await picture.toImage(image.width, image.height);
+      final ByteData? byteData =
+          await watermarkedUiImage.toByteData(format: ui.ImageByteFormat.png);
+
       if (byteData != null) {
         final Uint8List watermarkedBytes = byteData.buffer.asUint8List();
         await file.writeAsBytes(watermarkedBytes);
@@ -215,7 +222,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             if (permission == LocationPermission.denied) {
               permission = await Geolocator.requestPermission();
             }
-            if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+            if (permission == LocationPermission.always ||
+                permission == LocationPermission.whileInUse) {
               position = await Geolocator.getCurrentPosition(
                 desiredAccuracy: LocationAccuracy.high,
                 timeLimit: const Duration(seconds: 5),
@@ -226,7 +234,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           debugPrint("Error getting GPS location: $e");
         }
 
-        final String watermarkedPath = await _watermarkImage(pickedImage.path, position, model);
+        final String watermarkedPath =
+            await _watermarkImage(pickedImage.path, position, model);
         setState(() {
           if (position != null) {
             _imageLocations[watermarkedPath] = position;
@@ -286,7 +295,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
       if (!hasChanges) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("You must edit at least one text field to resubmit (e.g., name, notes, quantity, or location details)."),
+            content: Text(
+                "You must edit at least one text field to resubmit (e.g., name, notes, quantity, or location details)."),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 4),
           ),
@@ -332,6 +342,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         'discovery_method': methods.join(', '),
         'notes': model.observationNotes,
         'status': 'DRAFT',
+        'submission_intent': isDraft ? 'draft' : 'submit',
         'is_resubmit': model.isResubmit,
         'original_draft_id': model.originalDraftId,
         'resubmit_count': model.resubmitCount,
@@ -339,10 +350,20 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
 
       // Check connectivity
       if (!_offlineService.isOnline) {
-        // Save offline regardless of whether user clicked 'Save Draft' or 'Submit'
-        final draftId = await _offlineService.saveDraftOffline(draftData);
-        await _offlineService.saveImagePathsOffline(
-            draftId, model.imagePaths);
+        final existingLocalDraft = model.originalDraftId == null
+            ? null
+            : _offlineService.getOfflineDraft(model.originalDraftId!);
+        final String draftId;
+        if (existingLocalDraft != null) {
+          draftId = model.originalDraftId!;
+          await _offlineService.updateOfflineDraft(draftId, {
+            ...draftData,
+            'synced': false,
+          });
+        } else {
+          draftId = await _offlineService.saveDraftOffline(draftData);
+        }
+        await _offlineService.saveImagePathsOffline(draftId, model.imagePaths);
 
         if (mounted) {
           model.reset();
@@ -354,7 +375,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                     : "Connection offline. Your observation was saved as a draft and will sync automatically when back online.",
               ),
               duration: const Duration(seconds: 4),
-              backgroundColor: isDraft ? Colors.grey.shade800 : Colors.orange.shade800,
+              backgroundColor:
+                  isDraft ? Colors.grey.shade800 : Colors.orange.shade800,
             ),
           );
           Navigator.pushAndRemoveUntil(
@@ -429,6 +451,13 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         'status': isDraft ? 'DRAFT' : 'PENDING',
       };
 
+      final originalLocalDraft = model.originalDraftId == null
+          ? null
+          : _offlineService.getOfflineDraft(model.originalDraftId!);
+      final originalServerDraftId = originalLocalDraft == null
+          ? model.originalDraftId
+          : originalLocalDraft['server_draft_id']?.toString();
+
       if (model.isResubmit) {
         dbData['resubmit_count'] = model.resubmitCount + 1;
         dbData['confidence_score'] = null;
@@ -440,25 +469,27 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             .from('field_entries')
             .update(dbData)
             .eq('id', model.originalDraftId!);
+      } else if (originalServerDraftId != null &&
+          originalServerDraftId.isNotEmpty) {
+        // Editing a server-backed draft should update that same record. This
+        // prevents an old DRAFT copy from remaining after Submit.
+        await _supabase
+            .from('field_entries')
+            .update(dbData)
+            .eq('id', originalServerDraftId);
       } else {
         await _supabase.from('field_entries').insert(dbData);
       }
 
-      // If this was an edited draft, delete the original draft
-      if (model.originalDraftId != null && !isDraft && !model.isResubmit) {
+      // Once an offline draft has been saved successfully online, remove its
+      // local duplicate. Its server record remains as DRAFT or PENDING.
+      if (model.originalDraftId != null &&
+          originalLocalDraft != null &&
+          !model.isResubmit) {
         try {
-          // Delete online draft from database
-          await _supabase
-              .from('field_entries')
-              .delete()
-              .eq('id', model.originalDraftId!);
-          
-          // Also check if it was an offline draft and delete from local storage
-          if (_offlineService.getOfflineDraft(model.originalDraftId!) != null) {
-            await _offlineService.deleteOfflineDraft(model.originalDraftId!);
-          }
+          await _offlineService.deleteOfflineDraft(model.originalDraftId!);
         } catch (e) {
-          debugPrint('Error deleting original draft: $e');
+          debugPrint('Error deleting local draft copy: $e');
         }
       }
 
@@ -516,12 +547,25 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           'discovery_method': methods.join(', '),
           'notes': model.observationNotes,
           'status': 'DRAFT',
+          'submission_intent': isDraft ? 'draft' : 'submit',
           'is_resubmit': model.isResubmit,
           'original_draft_id': model.originalDraftId,
           'resubmit_count': model.resubmitCount,
         };
 
-        final draftId = await _offlineService.saveDraftOffline(fallbackDraftData);
+        final existingLocalDraft = model.originalDraftId == null
+            ? null
+            : _offlineService.getOfflineDraft(model.originalDraftId!);
+        final String draftId;
+        if (existingLocalDraft != null) {
+          draftId = model.originalDraftId!;
+          await _offlineService.updateOfflineDraft(draftId, {
+            ...fallbackDraftData,
+            'synced': false,
+          });
+        } else {
+          draftId = await _offlineService.saveDraftOffline(fallbackDraftData);
+        }
         await _offlineService.saveImagePathsOffline(draftId, model.imagePaths);
 
         if (mounted) {

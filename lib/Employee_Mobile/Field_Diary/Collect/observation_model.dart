@@ -5,7 +5,9 @@ class ObservationModel extends ChangeNotifier {
   String observerName = 'FO-12345';
 
   // DB Column: team_members (jsonb)
-  List<Map<String, String>> members = [{'firstname': '', 'lastname': '', 'role': ''}];
+  List<Map<String, String>> members = [
+    {'firstname': '', 'lastname': '', 'role': ''}
+  ];
 
   // Location & Environment
   DateTime observationDate = DateTime.now();
@@ -13,33 +15,33 @@ class ObservationModel extends ChangeNotifier {
   String province = "Cavite";
   String protectedArea = "Cavite Protected Landscape";
   List<String> weatherConditions = [];
-  int temperature = 28; 
+  int temperature = 28;
 
   // Wildlife Details
-  String habitat = ''; 
-  String? habitatOthers; 
-  
-  String observationCategory = ''; 
-  String? obsCategoryOthers; 
+  String habitat = '';
+  String? habitatOthers;
+
+  String observationCategory = '';
+  String? obsCategoryOthers;
 
   String taxon = '';
   String speciesName = ''; // This maps to "Common Name" in your UI
   bool isUnfamiliar = false;
-  int quantity = 0;               
+  int quantity = 0;
 
   bool seen = false;
   bool heard = false;
   bool presence = false;
 
   // Image Handling
-  List<String> imagePaths = [];  // Local Blob URLs (Step 3 UI)
-  List<String> imageUrls = [];   // Remote Supabase Storage URLs (Database)
-  
+  List<String> imagePaths = []; // Local Blob URLs (Step 3 UI)
+  List<String> imageUrls = []; // Remote Supabase Storage URLs (Database)
+
   String observationNotes = '';
-  
+
   // Default to PENDING to satisfy DB Constraint
   String status = 'PENDING';
-  
+
   // Track original draft ID when editing (used to delete old draft after submission)
   String? originalDraftId;
 
@@ -48,49 +50,112 @@ class ObservationModel extends ChangeNotifier {
   int resubmitCount = 0;
   Map<String, dynamic>? originalValues;
 
-  void populateForResubmit(Map<String, dynamic> data) {
-    reset(); // Clear state first
-    
-    isResubmit = true;
-    originalDraftId = data['id']?.toString();
-    resubmitCount = data['resubmit_count'] is int 
-        ? data['resubmit_count'] as int 
-        : int.tryParse(data['resubmit_count']?.toString() ?? '') ?? 0;
-    
-    originalValues = Map<String, dynamic>.from(data);
-    
+  void populateFromDraft(
+    Map<String, dynamic> data, {
+    List<String> localImagePaths = const [],
+    String? draftId,
+  }) {
+    reset();
+
     userId = data['user_id']?.toString();
+    originalDraftId =
+        draftId ?? data['draft_id']?.toString() ?? data['id']?.toString();
     region = data['region']?.toString() ?? region;
     province = data['province']?.toString() ?? province;
     protectedArea = data['protected_area']?.toString() ?? protectedArea;
-    
+
     final weather = data['weather_condition']?.toString() ?? '';
-    weatherConditions = weather.isNotEmpty ? weather.split(', ') : [];
-    temperature = data['temperature'] is int 
-        ? data['temperature'] as int 
-        : (int.tryParse(data['temperature']?.toString() ?? '') ?? 28);
-    
-    observationDate = DateTime.tryParse(data['observation_date']?.toString() ?? '') 
-        ?? DateTime.tryParse(data['created_at']?.toString() ?? '') 
-        ?? DateTime.now();
-    
+    weatherConditions = weather.isEmpty ? [] : weather.split(', ');
+    temperature = data['temperature'] is int
+        ? data['temperature'] as int
+        : int.tryParse(data['temperature']?.toString() ?? '') ?? 28;
+    observationDate =
+        DateTime.tryParse(data['observation_date']?.toString() ?? '') ??
+            DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+            DateTime.now();
     observationCategory = data['observation_category']?.toString() ?? '';
     habitat = data['habitat_type']?.toString() ?? '';
     taxon = data['taxon_group']?.toString() ?? '';
     speciesName = data['common_name']?.toString() ?? '';
     isUnfamiliar = data['is_unlisted'] == true;
-    quantity = data['count'] is int 
-        ? data['count'] as int 
+    quantity = data['count'] is int
+        ? data['count'] as int
+        : int.tryParse(data['count']?.toString() ?? '') ?? 0;
+
+    final methods = (data['discovery_method']?.toString() ?? '').split(', ');
+    seen = methods.contains('Seen');
+    heard = methods.contains('Heard');
+    presence = methods.contains('Presence Signs');
+    observationNotes = data['notes']?.toString() ?? '';
+
+    if (data['team_members'] is List) {
+      members = (data['team_members'] as List).map<Map<String, String>>((m) {
+        final member = Map<String, dynamic>.from(m as Map);
+        return {
+          'firstname': member['firstname']?.toString() ?? '',
+          'lastname': member['lastname']?.toString() ?? '',
+          'role': member['role']?.toString() ?? '',
+        };
+      }).toList();
+    }
+
+    final remoteImages = data['image_urls'] ?? data['image_url'];
+    if (remoteImages is List) {
+      imageUrls = remoteImages.map((value) => value.toString()).toList();
+    } else if (remoteImages is String && remoteImages.isNotEmpty) {
+      imageUrls = [remoteImages];
+    }
+    imagePaths = localImagePaths.isNotEmpty
+        ? List<String>.from(localImagePaths)
+        : List<String>.from(imageUrls);
+
+    notifyListeners();
+  }
+
+  void populateForResubmit(Map<String, dynamic> data) {
+    reset(); // Clear state first
+
+    isResubmit = true;
+    originalDraftId = data['id']?.toString();
+    resubmitCount = data['resubmit_count'] is int
+        ? data['resubmit_count'] as int
+        : int.tryParse(data['resubmit_count']?.toString() ?? '') ?? 0;
+
+    originalValues = Map<String, dynamic>.from(data);
+
+    userId = data['user_id']?.toString();
+    region = data['region']?.toString() ?? region;
+    province = data['province']?.toString() ?? province;
+    protectedArea = data['protected_area']?.toString() ?? protectedArea;
+
+    final weather = data['weather_condition']?.toString() ?? '';
+    weatherConditions = weather.isNotEmpty ? weather.split(', ') : [];
+    temperature = data['temperature'] is int
+        ? data['temperature'] as int
+        : (int.tryParse(data['temperature']?.toString() ?? '') ?? 28);
+
+    observationDate =
+        DateTime.tryParse(data['observation_date']?.toString() ?? '') ??
+            DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+            DateTime.now();
+
+    observationCategory = data['observation_category']?.toString() ?? '';
+    habitat = data['habitat_type']?.toString() ?? '';
+    taxon = data['taxon_group']?.toString() ?? '';
+    speciesName = data['common_name']?.toString() ?? '';
+    isUnfamiliar = data['is_unlisted'] == true;
+    quantity = data['count'] is int
+        ? data['count'] as int
         : (int.tryParse(data['count']?.toString() ?? '') ?? 0);
-    
+
     final discovery = data['discovery_method']?.toString() ?? '';
     final methods = discovery.split(', ');
     seen = methods.contains("Seen");
     heard = methods.contains("Heard");
     presence = methods.contains("Presence Signs");
-    
+
     observationNotes = data['notes']?.toString() ?? '';
-    
+
     final urls = data['image_urls'] ?? data['image_url'];
     if (urls is List) {
       imageUrls = List<String>.from(urls);
@@ -99,15 +164,17 @@ class ObservationModel extends ChangeNotifier {
       imageUrls = [urls];
       imagePaths = [urls];
     }
-    
+
     if (data['team_members'] is List) {
-      members = (data['team_members'] as List).map((m) => {
-        'firstname': m['firstname']?.toString() ?? '',
-        'lastname': m['lastname']?.toString() ?? '',
-        'role': m['role']?.toString() ?? '',
-      }).toList();
+      members = (data['team_members'] as List)
+          .map((m) => {
+                'firstname': m['firstname']?.toString() ?? '',
+                'lastname': m['lastname']?.toString() ?? '',
+                'role': m['role']?.toString() ?? '',
+              })
+          .toList();
     }
-    
+
     notifyListeners();
   }
 
@@ -118,26 +185,41 @@ class ObservationModel extends ChangeNotifier {
     required String notes,
   }) {
     if (originalValues == null) return true;
-    
+
     final Map<String, dynamic> orig = originalValues!;
-    
-    if (commonName.trim() != (orig['common_name']?.toString().trim() ?? '')) return true;
-    if (taxonGroup.trim() != (orig['taxon_group']?.toString().trim() ?? '')) return true;
-    if (count != (orig['count'] is int ? orig['count'] : int.tryParse(orig['count']?.toString() ?? '') ?? 0)) return true;
+
+    if (commonName.trim() != (orig['common_name']?.toString().trim() ?? ''))
+      return true;
+    if (taxonGroup.trim() != (orig['taxon_group']?.toString().trim() ?? ''))
+      return true;
+    if (count !=
+        (orig['count'] is int
+            ? orig['count']
+            : int.tryParse(orig['count']?.toString() ?? '') ?? 0)) return true;
     if (notes.trim() != (orig['notes']?.toString().trim() ?? '')) return true;
-    
+
     if (region.trim() != (orig['region']?.toString().trim() ?? '')) return true;
-    if (province.trim() != (orig['province']?.toString().trim() ?? '')) return true;
-    if (protectedArea.trim() != (orig['protected_area']?.toString().trim() ?? '')) return true;
-    if (observationCategory.trim() != (orig['observation_category']?.toString().trim() ?? '')) return true;
-    if (habitat.trim() != (orig['habitat_type']?.toString().trim() ?? '')) return true;
-    if (weatherConditions.join(', ').trim() != (orig['weather_condition']?.toString().trim() ?? '')) return true;
-    if (temperature != (orig['temperature'] is int ? orig['temperature'] : int.tryParse(orig['temperature']?.toString() ?? '') ?? 28)) return true;
-    
+    if (province.trim() != (orig['province']?.toString().trim() ?? ''))
+      return true;
+    if (protectedArea.trim() !=
+        (orig['protected_area']?.toString().trim() ?? '')) return true;
+    if (observationCategory.trim() !=
+        (orig['observation_category']?.toString().trim() ?? '')) return true;
+    if (habitat.trim() != (orig['habitat_type']?.toString().trim() ?? ''))
+      return true;
+    if (weatherConditions.join(', ').trim() !=
+        (orig['weather_condition']?.toString().trim() ?? '')) return true;
+    if (temperature !=
+        (orig['temperature'] is int
+            ? orig['temperature']
+            : int.tryParse(orig['temperature']?.toString() ?? '') ?? 28))
+      return true;
+
     return false;
   }
 
-  void updateLocationData({String? region, String? province, String? protectedArea}) {
+  void updateLocationData(
+      {String? region, String? province, String? protectedArea}) {
     this.region = region ?? this.region;
     this.province = province ?? this.province;
     this.protectedArea = protectedArea ?? this.protectedArea;
@@ -147,7 +229,9 @@ class ObservationModel extends ChangeNotifier {
   void updateData() => notifyListeners();
 
   void reset() {
-    members = [{'firstname': '', 'lastname': '', 'role': ''}];
+    members = [
+      {'firstname': '', 'lastname': '', 'role': ''}
+    ];
     observationDate = DateTime.now();
     weatherConditions = [];
     temperature = 28;
@@ -159,14 +243,14 @@ class ObservationModel extends ChangeNotifier {
     speciesName = '';
     isUnfamiliar = false;
     quantity = 0;
-    seen = false; 
-    heard = false; 
+    seen = false;
+    heard = false;
     presence = false;
     imagePaths = [];
-    imageUrls = []; 
+    imageUrls = [];
     observationNotes = '';
     status = 'PENDING';
-    originalDraftId = null; 
+    originalDraftId = null;
     isResubmit = false;
     resubmitCount = 0;
     originalValues = null;

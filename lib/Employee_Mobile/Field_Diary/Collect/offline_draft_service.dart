@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File;
+import 'dart:io' show Directory, File, Platform;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OfflineDraftService extends ChangeNotifier {
@@ -15,7 +16,10 @@ class OfflineDraftService extends ChangeNotifier {
 
   bool get isOnline => _isOnline;
   bool get hasOfflineDrafts => _draftsBox.isOpen && _draftsBox.isNotEmpty;
-  
+  bool get hasPendingOfflineDrafts =>
+      _draftsBox.isOpen &&
+      _draftsBox.values.any((draft) => draft['synced'] != true);
+
   // Stream to notify when online status changes
   Stream<bool> get onOnlineStatusChanged => _connectivity.onConnectivityChanged
       .map((result) => result != ConnectivityResult.none)
@@ -26,12 +30,16 @@ class OfflineDraftService extends ChangeNotifier {
     await Hive.initFlutter();
     _draftsBox = await Hive.openBox<Map>('offline_drafts');
     _imagesBox = await Hive.openBox<String>('offline_images');
-    
+
     // Check initial connectivity
     await _checkConnectivity();
-    
+    if (_isOnline) {
+      unawaited(_syncPendingDrafts());
+    }
+
     // Listen to connectivity changes
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((result) {
+    _connectivitySubscription =
+        _connectivity.onConnectivityChanged.listen((result) {
       final wasOnline = _isOnline;
       _isOnline = result != ConnectivityResult.none;
       if (wasOnline != _isOnline) {
@@ -79,9 +87,10 @@ class OfflineDraftService extends ChangeNotifier {
   /// Save draft offline (no session check - purely local storage)
   Future<String> saveDraftOffline(Map<String, dynamic> draftData) async {
     if (!_draftsBox.isOpen) {
-      throw Exception('Offline storage service not initialized. Please restart the app.');
+      throw Exception(
+          'Offline storage service not initialized. Please restart the app.');
     }
-    
+
     final draftId = DateTime.now().millisecondsSinceEpoch.toString();
     final draftWithMetadata = {
       ...draftData,
@@ -90,20 +99,57 @@ class OfflineDraftService extends ChangeNotifier {
       'synced': false,
       'sync_attempts': 0,
     };
-    
+
     // Save to local Hive database - NO session check needed
     await _draftsBox.put(draftId, draftWithMetadata);
     notifyListeners();
     return draftId;
   }
 
-  /// Save image paths offline (stored as JSON string to avoid type issues)
-  Future<void> saveImagePathsOffline(String draftId, List<String> imagePaths) async {
+  /// Copy draft photos into durable app storage, then remember those paths.
+  Future<void> saveImagePathsOffline(
+      String draftId, List<String> imagePaths) async {
     if (!_imagesBox.isOpen) {
-      throw Exception('Offline storage service not initialized. Please restart the app.');
+      throw Exception(
+          'Offline storage service not initialized. Please restart the app.');
     }
+
     final imageKey = 'images_$draftId';
-    await _imagesBox.put(imageKey, jsonEncode(imagePaths));
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final draftImageDirectory = Directory(
+      '${documentsDirectory.path}${Platform.pathSeparator}'
+      'offline_draft_images${Platform.pathSeparator}$draftId',
+    );
+    await draftImageDirectory.create(recursive: true);
+
+    final durablePaths = <String>[];
+    for (var index = 0; index < imagePaths.length; index++) {
+      final sourcePath = imagePaths[index];
+      if (sourcePath.startsWith('http://') ||
+          sourcePath.startsWith('https://')) {
+        durablePaths.add(sourcePath);
+        continue;
+      }
+
+      final source = File(sourcePath);
+      if (!source.existsSync()) continue;
+      if (source.path.startsWith(draftImageDirectory.path)) {
+        durablePaths.add(source.path);
+        continue;
+      }
+
+      final sourceName = source.uri.pathSegments.isEmpty
+          ? 'photo.jpg'
+          : source.uri.pathSegments.last;
+      final destination = File(
+        '${draftImageDirectory.path}${Platform.pathSeparator}'
+        '${index}_$sourceName',
+      );
+      await source.copy(destination.path);
+      durablePaths.add(destination.path);
+    }
+
+    await _imagesBox.put(imageKey, jsonEncode(durablePaths));
   }
 
   /// Get all offline drafts
@@ -146,7 +192,11 @@ class OfflineDraftService extends ChangeNotifier {
   }
 
   /// Update draft sync status
-  Future<void> updateDraftSyncStatus(String draftId, bool synced) async {
+  Future<void> updateDraftSyncStatus(
+    String draftId,
+    bool synced, {
+    String? serverDraftId,
+  }) async {
     if (!_draftsBox.isOpen) {
       debugPrint('Offline draft service not initialized');
       return;
@@ -155,16 +205,30 @@ class OfflineDraftService extends ChangeNotifier {
     if (draft != null) {
       final updated = Map<String, dynamic>.from(draft as Map);
       updated['synced'] = synced;
+      if (serverDraftId != null) {
+        updated['server_draft_id'] = serverDraftId;
+      }
       updated['sync_attempts'] = (updated['sync_attempts'] ?? 0) + 1;
       await _draftsBox.put(draftId, updated);
       notifyListeners();
     }
   }
 
+  Map<String, dynamic>? getOfflineDraftByServerId(String serverDraftId) {
+    for (final draft in getAllOfflineDrafts()) {
+      if (draft['server_draft_id']?.toString() == serverDraftId) {
+        return draft;
+      }
+    }
+    return null;
+  }
+
   /// Update offline draft content
-  Future<void> updateOfflineDraft(String draftId, Map<String, dynamic> updatedData) async {
+  Future<void> updateOfflineDraft(
+      String draftId, Map<String, dynamic> updatedData) async {
     if (!_draftsBox.isOpen) {
-      throw Exception('Offline storage service not initialized. Please restart the app.');
+      throw Exception(
+          'Offline storage service not initialized. Please restart the app.');
     }
     final draft = _draftsBox.get(draftId);
     if (draft != null) {
@@ -172,7 +236,8 @@ class OfflineDraftService extends ChangeNotifier {
       // Merge updated data while preserving metadata
       updated.addAll(updatedData);
       updated['draft_id'] = draftId; // Preserve draft ID
-      updated['created_at'] = draft['created_at']; // Preserve creation timestamp
+      updated['created_at'] =
+          draft['created_at']; // Preserve creation timestamp
       await _draftsBox.put(draftId, updated);
       notifyListeners();
     }
@@ -184,11 +249,11 @@ class OfflineDraftService extends ChangeNotifier {
       debugPrint('Offline service not initialized');
       return;
     }
-    
+
     try {
       // Get image paths for cleanup
       final imagePaths = getImagePathsForDraft(draftId);
-      
+
       // Delete image files from device storage
       for (final imagePath in imagePaths) {
         try {
@@ -202,12 +267,12 @@ class OfflineDraftService extends ChangeNotifier {
           // Continue deleting other files even if one fails
         }
       }
-      
+
       // Delete from Hive storage
       await _draftsBox.delete(draftId);
       final imageKey = 'images_$draftId';
       await _imagesBox.delete(imageKey);
-      
+
       debugPrint('Offline draft deleted: $draftId');
       notifyListeners();
     } catch (e) {
@@ -230,7 +295,7 @@ class OfflineDraftService extends ChangeNotifier {
   /// Sync pending drafts when online
   Future<void> _syncPendingDrafts() async {
     if (!_isOnline) return;
-    
+
     final drafts = getAllOfflineDrafts();
     for (final draft in drafts) {
       if (draft['synced'] != true) {
@@ -244,7 +309,7 @@ class OfflineDraftService extends ChangeNotifier {
     try {
       final draftId = draft['draft_id'] as String;
       final imagePaths = getImagePathsForDraft(draftId);
-      
+
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
       final userId = user?.id;
@@ -261,7 +326,8 @@ class OfflineDraftService extends ChangeNotifier {
       for (final path in imagePaths) {
         try {
           if (File(path).existsSync()) {
-            final fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
+            final fileName =
+                '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
             final storagePath = '$userId/$fileName';
             final bytes = await File(path).readAsBytes();
 
@@ -294,8 +360,13 @@ class OfflineDraftService extends ChangeNotifier {
 
       draft['species_id'] = speciesData['id'];
 
+      final submissionIntent =
+          draft['submission_intent']?.toString() == 'submit'
+              ? 'submit'
+              : 'draft';
+
       // Prepare database record
-      final dbData = {
+      final Map<String, dynamic> dbData = {
         'user_id': userId,
         'species_id': draft['species_id'],
         'image_urls': uploadedUrls,
@@ -305,7 +376,8 @@ class OfflineDraftService extends ChangeNotifier {
         'protected_area': draft['protected_area'] ?? '',
         'weather_condition': draft['weather_condition'] ?? '',
         'temperature': draft['temperature'] ?? 0,
-        'observation_date': draft['observation_date'] ?? DateTime.now().toString().split(' ')[0],
+        'observation_date': draft['observation_date'] ??
+            DateTime.now().toString().split(' ')[0],
         'observation_time': draft['observation_time'] ?? '00:00:00',
         'observation_category': draft['observation_category'] ?? '',
         'habitat_type': draft['habitat_type'] ?? '',
@@ -315,16 +387,49 @@ class OfflineDraftService extends ChangeNotifier {
         'count': draft['count'] ?? 0,
         'discovery_method': draft['discovery_method'] ?? '',
         'notes': draft['notes'] ?? '',
-        'status': 'DRAFT',
+        'status': submissionIntent == 'submit' ? 'PENDING' : 'DRAFT',
       };
 
-      // Insert to database
-      await supabase.from('field_entries').insert(dbData);
+      String? serverEntryId;
+      final isResubmit = draft['is_resubmit'] == true;
+      final originalDraftId = draft['original_draft_id']?.toString();
+      final existingServerDraftId = draft['server_draft_id']?.toString();
+      if (isResubmit && originalDraftId != null && originalDraftId.isNotEmpty) {
+        dbData['resubmit_count'] = (draft['resubmit_count'] is int
+                ? draft['resubmit_count'] as int
+                : int.tryParse(draft['resubmit_count']?.toString() ?? '') ??
+                    0) +
+            1;
+        dbData['confidence_score'] = null;
+        dbData['auto_validation_reason'] = null;
+        dbData['admin_feedback'] = null;
+        dbData['modified_at'] = DateTime.now().toIso8601String();
+        await supabase
+            .from('field_entries')
+            .update(dbData)
+            .eq('id', originalDraftId);
+        serverEntryId = originalDraftId;
+      } else if (existingServerDraftId != null &&
+          existingServerDraftId.isNotEmpty) {
+        await supabase
+            .from('field_entries')
+            .update(dbData)
+            .eq('id', existingServerDraftId);
+        serverEntryId = existingServerDraftId;
+      } else {
+        final inserted = await supabase
+            .from('field_entries')
+            .insert(dbData)
+            .select('id')
+            .single();
+        serverEntryId = inserted['id']?.toString();
+      }
 
       // Log audit entry
       await supabase.from('audit_logs').insert({
         'title': 'Offline Draft Synced',
-        'description': 'Offline draft for ${draft['common_name']} synced to server',
+        'description':
+            'Offline draft for ${draft['common_name']} synced to server',
         'category': 'Field Data',
         'ip_address': 'Mobile App',
         'result': 'Success',
@@ -334,8 +439,18 @@ class OfflineDraftService extends ChangeNotifier {
         'timestamp': DateTime.now().toIso8601String(),
       });
 
-      // Mark as synced
-      await updateDraftSyncStatus(draft['draft_id'] as String, true);
+      final localDraftId = draft['draft_id'] as String;
+      if (submissionIntent == 'submit') {
+        // A queued Submit belongs in Sent, not in Drafts.
+        await deleteOfflineDraft(localDraftId);
+      } else {
+        // Explicitly saved drafts stay editable and retain their server identity.
+        await updateDraftSyncStatus(
+          localDraftId,
+          true,
+          serverDraftId: serverEntryId,
+        );
+      }
       return true;
     } catch (e) {
       debugPrint('Error syncing draft: $e');
@@ -347,9 +462,10 @@ class OfflineDraftService extends ChangeNotifier {
   /// Throws exception if offline or if authentication is required
   Future<void> syncAllPendingDrafts() async {
     if (!_isOnline) {
-      throw Exception('Device is offline. Please check your internet connection.');
+      throw Exception(
+          'Device is offline. Please check your internet connection.');
     }
-    
+
     await _syncPendingDrafts();
   }
 
@@ -357,19 +473,20 @@ class OfflineDraftService extends ChangeNotifier {
   /// Call this when a synced draft is deleted online to remove the offline copy
   Future<void> cleanupSyncedDraft(String? draftId) async {
     if (draftId == null || draftId.isEmpty) return;
-    
+
     // Ensure boxes are initialized before accessing
     if (!_draftsBox.isOpen || !_imagesBox.isOpen) {
       debugPrint('Offline service not initialized, skipping cleanup');
       return;
     }
-    
+
     try {
       // Check if this draft exists offline
-      final offlineDraft = getOfflineDraft(draftId);
+      final offlineDraft =
+          getOfflineDraft(draftId) ?? getOfflineDraftByServerId(draftId);
       if (offlineDraft != null && offlineDraft['synced'] == true) {
         // Delete the offline copy since it's been synced
-        await deleteOfflineDraft(draftId);
+        await deleteOfflineDraft(offlineDraft['draft_id'].toString());
         debugPrint('Cleaned up synced draft: $draftId');
       }
     } catch (e) {
