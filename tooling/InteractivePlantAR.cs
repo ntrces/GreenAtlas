@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using GLTFast;
 using UnityEngine;
 using UnityEngine.InputSystem.EnhancedTouch;
-using UnityEngine.Networking;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
@@ -24,34 +23,32 @@ public sealed class InteractivePlantAR : MonoBehaviour
     [SerializeField] private ARPlaneManager planeManager;
     [SerializeField] private GameObject sproutPrefab;
     [SerializeField] private List<SpeciesEntry> species = new();
-    [SerializeField, Min(0.5f)] private float growthDistanceMeters = 2f;
+    private const float GrowthDistanceMeters = 1.5f;
     [SerializeField, Min(0.1f)] private float growthAnimationSeconds = 2.2f;
+    [SerializeField, Min(1f)] private float matureTreeHeightMeters = 3.5f;
+    [SerializeField, Min(1)] private int requiredWaterings = 3;
 
     private static readonly List<ARRaycastHit> Hits = new();
-    private GameObject selectedPrefab;
     private GltfImport selectedGltf;
     private string selectedSpeciesID;
-    private string selectedRemoteUrl;
     private string selectedModelPath;
     private bool modelReady;
-    private bool isDownloading;
     private GameObject placedPlant;
     private Pose placementPose;
     private bool hasPlacement;
     private bool watered;
+    private int wateringCount;
     private bool growthStarted;
     private bool growthComplete;
     private bool reportedReady;
     private int lastDistanceDecimeter = -1;
     private Vector3 sproutBaseScale;
     private Camera arCamera;
-    private Material planeGridMaterial;
     private AudioSource ambientSource;
     private AudioSource effectSource;
     private AudioSource shimmerSource;
     private AudioClip splashClip;
     private AudioClip bloomClip;
-    private readonly List<GameObject> informationPins = new();
 
     private void Awake()
     {
@@ -61,7 +58,7 @@ public sealed class InteractivePlantAR : MonoBehaviour
             planeManager = FindFirstObjectByType<ARPlaneManager>();
         arCamera = Camera.main;
         CreateAudioExperience();
-        planeGridMaterial = CreateGridMaterial();
+        ShowPlanes(false);
     }
 
     private void OnEnable()
@@ -85,8 +82,6 @@ public sealed class InteractivePlantAR : MonoBehaviour
     private void OnDestroy()
     {
         selectedGltf?.Dispose();
-        if (planeGridMaterial != null)
-            Destroy(planeGridMaterial);
     }
 
     private void OnArSessionStateChanged(ARSessionStateChangedEventArgs args)
@@ -128,7 +123,7 @@ public sealed class InteractivePlantAR : MonoBehaviour
     private void Update()
     {
         if (Time.frameCount % 20 == 0)
-            EnsurePlaneGridVisuals();
+            ShowPlanes(false);
 
         if (watered && !growthStarted && hasPlacement)
             UpdateProximityGrowth();
@@ -155,18 +150,12 @@ public sealed class InteractivePlantAR : MonoBehaviour
             return;
 
         Ray ray = arCamera.ScreenPointToRay(touch.screenPosition);
-        if (!Physics.Raycast(ray, out RaycastHit hit, 100f))
+        RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
+        if (hits.Length == 0)
             return;
 
-        InfoNodeMarker marker = hit.collider.GetComponent<InfoNodeMarker>();
-        if (marker != null)
-        {
-            effectSource.PlayOneShot(CreatePinClip(), 0.35f);
-            SendToFlutter.Send($"info_node:{marker.key}");
-            return;
-        }
-
-        if (!watered && placedPlant != null && hit.transform.IsChildOf(placedPlant.transform))
+        RaycastHit hit = hits[0];
+        if (!growthComplete && placedPlant != null && hit.transform.IsChildOf(placedPlant.transform))
             NurtureSprout();
     }
 
@@ -175,23 +164,12 @@ public sealed class InteractivePlantAR : MonoBehaviour
         string[] parts = payload.Split(new[] { '|' }, 2);
         string speciesID = parts[0];
         string location = parts.Length > 1 ? parts[1] : string.Empty;
-        SpeciesEntry match = species.Find(entry => string.Equals(
-            entry.speciesID, speciesID, StringComparison.OrdinalIgnoreCase));
-
         ClearPlacedExperience();
         selectedGltf?.Dispose();
         selectedGltf = null;
-        selectedPrefab = match != null ? match.prefab : null;
         selectedSpeciesID = speciesID;
-        selectedRemoteUrl = string.Empty;
         selectedModelPath = string.Empty;
-        modelReady = selectedPrefab != null;
-
-        if (modelReady)
-        {
-            ReportModelReady();
-            return;
-        }
+        modelReady = false;
 
         if (TryResolveLocalPath(location, out string localPath) && File.Exists(localPath))
         {
@@ -207,21 +185,14 @@ public sealed class InteractivePlantAR : MonoBehaviour
             return;
         }
 
-        if (Uri.TryCreate(location, UriKind.Absolute, out Uri uri) &&
-            (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
-        {
-            selectedRemoteUrl = location;
-            SendToFlutter.Send($"model_download_required:{speciesID}");
-            return;
-        }
-
-        SendToFlutter.Send($"error:The downloaded AR model for {speciesID} was not found.");
+        SendToFlutter.Send(
+            $"error:The downloaded AR model for {speciesID} was not found. Return to the shelf and download it again.");
     }
 
     public void DownloadSelectedSpecies(string ignored)
     {
-        if (!modelReady && !isDownloading && !string.IsNullOrWhiteSpace(selectedRemoteUrl))
-            StartCoroutine(DownloadModel());
+        SendToFlutter.Send(
+            "error:Download this species from the Botanical Shelf before opening AR.");
     }
 
     public void WaterPlant(string ignored)
@@ -232,8 +203,8 @@ public sealed class InteractivePlantAR : MonoBehaviour
     public void ResetPlant(string ignored)
     {
         ClearPlacedExperience();
-        ShowPlanes(true);
-        SendToFlutter.Send("status:Scan the surface grid, then tap to place the sprout.");
+        ShowPlanes(false);
+        SendToFlutter.Send("status:Move slowly to find a flat floor, then tap to place the sprout.");
     }
 
     public void StopExperience(string ignored)
@@ -261,8 +232,8 @@ public sealed class InteractivePlantAR : MonoBehaviour
         effectSource.transform.position = pose.position;
         shimmerSource.transform.position = pose.position;
         SendToFlutter.Send("plant_placed");
-        SendToFlutter.Send("growth:0/1");
-        SendToFlutter.Send("status:Sprout anchored—tap the sprout to water it.");
+        SendToFlutter.Send($"growth:0/{requiredWaterings}");
+        SendToFlutter.Send($"status:Sprout anchored—water it {requiredWaterings} times.");
     }
 
     private void NurtureSprout()
@@ -270,17 +241,26 @@ public sealed class InteractivePlantAR : MonoBehaviour
         if (!hasPlacement || placedPlant == null || watered || growthComplete)
             return;
 
-        watered = true;
-        lastDistanceDecimeter = -1;
+        wateringCount = Mathf.Min(wateringCount + 1, requiredWaterings);
         CreateWaterParticles(placedPlant);
         effectSource.PlayOneShot(splashClip, 0.9f);
         StartCoroutine(PulseGlow(placedPlant));
+        SendToFlutter.Send($"growth:{wateringCount}/{requiredWaterings}");
+
+        if (wateringCount < requiredWaterings)
+        {
+            int remaining = requiredWaterings - wateringCount;
+            SendToFlutter.Send($"status:Water absorbed—{remaining} more {(remaining == 1 ? "watering" : "waterings")} needed.");
+            return;
+        }
+
+        watered = true;
+        lastDistanceDecimeter = -1;
         shimmerSource.volume = 0.04f;
         shimmerSource.pitch = 0.75f;
         if (!shimmerSource.isPlaying)
             shimmerSource.Play();
-        SendToFlutter.Send("growth:1/1");
-        SendToFlutter.Send("status:Water absorbed—step backward and listen as it gathers strength.");
+        SendToFlutter.Send("status:The sprout is fully watered—step backward and listen as it gathers strength.");
     }
 
     private void UpdateProximityGrowth()
@@ -291,17 +271,17 @@ public sealed class InteractivePlantAR : MonoBehaviour
             return;
 
         float distance = Vector3.Distance(arCamera.transform.position, placementPose.position);
-        float progress = Mathf.Clamp01(distance / growthDistanceMeters);
+        float progress = Mathf.Clamp01(distance / GrowthDistanceMeters);
         shimmerSource.volume = Mathf.Lerp(0.04f, 0.5f, progress);
         shimmerSource.pitch = Mathf.Lerp(0.75f, 1.65f, progress);
-        int decimeter = Mathf.FloorToInt(Mathf.Min(distance, growthDistanceMeters) * 10f);
+        int decimeter = Mathf.FloorToInt(Mathf.Min(distance, GrowthDistanceMeters) * 10f);
         if (decimeter != lastDistanceDecimeter)
         {
             lastDistanceDecimeter = decimeter;
-            SendToFlutter.Send($"growth_distance:{Mathf.Min(distance, growthDistanceMeters):0.0}");
+            SendToFlutter.Send($"growth_distance:{Mathf.Min(distance, GrowthDistanceMeters):0.0}");
         }
 
-        if (distance >= growthDistanceMeters)
+        if (distance >= GrowthDistanceMeters)
         {
             growthStarted = true;
             StartCoroutine(TransformIntoMatureTree());
@@ -320,28 +300,30 @@ public sealed class InteractivePlantAR : MonoBehaviour
 
         Destroy(placedPlant);
         placedPlant = null;
-        if (selectedPrefab != null)
+        if (selectedGltf == null)
         {
-            placedPlant = Instantiate(selectedPrefab, placementPose.position, placementPose.rotation, transform);
-        }
-        else
-        {
-            placedPlant = new GameObject($"{selectedSpeciesID}_MatureTree");
-            placedPlant.transform.SetParent(transform, false);
-            placedPlant.transform.SetPositionAndRotation(placementPose.position, placementPose.rotation);
-            Task<bool> task = selectedGltf.InstantiateMainSceneAsync(placedPlant.transform);
-            while (!task.IsCompleted)
-                yield return null;
-            if (task.IsFaulted || !task.Result)
-            {
-                Destroy(placedPlant);
-                placedPlant = null;
-                SendToFlutter.Send("error:The downloaded tree could not be displayed.");
-                yield break;
-            }
+            SendToFlutter.Send("error:The downloaded tree is not ready. Return to the shelf and try again.");
+            yield break;
         }
 
-        Vector3 matureScale = placedPlant.transform.localScale;
+        placedPlant = new GameObject($"{selectedSpeciesID}_MatureTree");
+        placedPlant.transform.SetParent(transform, false);
+        placedPlant.transform.SetPositionAndRotation(placementPose.position, placementPose.rotation);
+        Task<bool> task = selectedGltf.InstantiateMainSceneAsync(placedPlant.transform);
+        while (!task.IsCompleted)
+            yield return null;
+        if (task.IsFaulted || !task.Result)
+        {
+            Destroy(placedPlant);
+            placedPlant = null;
+            SendToFlutter.Send("error:The downloaded tree could not be displayed.");
+            yield break;
+        }
+
+        Vector3 importedScale = placedPlant.transform.localScale;
+        Bounds importedBounds = CalculateBounds(placedPlant);
+        float importedHeight = Mathf.Max(importedBounds.size.y, 0.001f);
+        Vector3 matureScale = importedScale * (matureTreeHeightMeters / importedHeight);
         placedPlant.transform.localScale = matureScale * 0.03f;
         yield return AnimateScale(
             placedPlant.transform,
@@ -349,59 +331,13 @@ public sealed class InteractivePlantAR : MonoBehaviour
             matureScale,
             growthAnimationSeconds);
 
+        Bounds groundedBounds = CalculateBounds(placedPlant);
+        placedPlant.transform.position += Vector3.up * (placementPose.position.y - groundedBounds.min.y);
+
         AddInteractionCollider(placedPlant);
-        CreateInformationPins(placedPlant);
         growthComplete = true;
         SendToFlutter.Send("growth_complete");
-        SendToFlutter.Send("status:Walk around the tree and tap its floating information pins.");
-    }
-
-    private void CreateInformationPins(GameObject tree)
-    {
-        Bounds bounds = CalculateBounds(tree);
-        float side = Mathf.Max(0.35f, bounds.extents.x * 0.65f);
-        CreateInformationPin("leaves", new Vector3(
-            bounds.center.x + side, bounds.min.y + bounds.size.y * 0.74f, bounds.center.z),
-            new Color(0.35f, 0.9f, 0.42f));
-        CreateInformationPin("bark", new Vector3(
-            bounds.center.x + Mathf.Min(side, 0.65f), bounds.min.y + bounds.size.y * 0.33f, bounds.center.z),
-            new Color(0.95f, 0.62f, 0.25f));
-        CreateInformationPin("conservation", new Vector3(
-            bounds.center.x - Mathf.Min(side, 0.8f), bounds.min.y + Mathf.Max(0.35f, bounds.size.y * 0.1f), bounds.center.z),
-            new Color(0.3f, 0.72f, 1f));
-    }
-
-    private void CreateInformationPin(string key, Vector3 worldPosition, Color color)
-    {
-        GameObject pin = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        pin.name = $"InfoPin_{key}";
-        pin.transform.SetParent(transform, true);
-        pin.transform.position = worldPosition;
-        pin.transform.localScale = Vector3.one * 0.18f;
-        Renderer renderer = pin.GetComponent<Renderer>();
-        Material material = new Material(Shader.Find("Unlit/Color"));
-        material.color = color;
-        renderer.material = material;
-        pin.AddComponent<InfoNodeMarker>().key = key;
-        pin.AddComponent<MarkerPulse>();
-        informationPins.Add(pin);
-    }
-
-    private void EnsurePlaneGridVisuals()
-    {
-        if (planeManager == null || planeGridMaterial == null || hasPlacement)
-            return;
-        foreach (ARPlane plane in planeManager.trackables)
-        {
-            if (plane.GetComponent<PlaneGridTag>() != null)
-                continue;
-            MeshFilter filter = plane.GetComponent<MeshFilter>() ?? plane.gameObject.AddComponent<MeshFilter>();
-            MeshRenderer renderer = plane.GetComponent<MeshRenderer>() ?? plane.gameObject.AddComponent<MeshRenderer>();
-            if (plane.GetComponent<ARPlaneMeshVisualizer>() == null)
-                plane.gameObject.AddComponent<ARPlaneMeshVisualizer>();
-            renderer.sharedMaterial = planeGridMaterial;
-            plane.gameObject.AddComponent<PlaneGridTag>();
-        }
+        SendToFlutter.Send("status:Walk around the tree and expand Information to learn more.");
     }
 
     private void ShowPlanes(bool visible)
@@ -414,45 +350,6 @@ public sealed class InteractivePlantAR : MonoBehaviour
             if (renderer != null)
                 renderer.enabled = visible;
         }
-    }
-
-    private IEnumerator DownloadModel()
-    {
-        isDownloading = true;
-        Directory.CreateDirectory(Path.GetDirectoryName(selectedModelPath));
-        string temporaryPath = selectedModelPath + ".download";
-        if (File.Exists(temporaryPath))
-            File.Delete(temporaryPath);
-
-        using UnityWebRequest request = UnityWebRequest.Get(selectedRemoteUrl);
-        request.downloadHandler = new DownloadHandlerFile(temporaryPath);
-        UnityWebRequestAsyncOperation operation = request.SendWebRequest();
-        int lastPercent = -1;
-        while (!operation.isDone)
-        {
-            int percent = Mathf.Clamp(Mathf.RoundToInt(request.downloadProgress * 100f), 0, 99);
-            if (percent != lastPercent)
-            {
-                lastPercent = percent;
-                SendToFlutter.Send($"model_download_progress:{percent}");
-            }
-            yield return null;
-        }
-
-        isDownloading = false;
-        if (request.result != UnityWebRequest.Result.Success)
-        {
-            if (File.Exists(temporaryPath))
-                File.Delete(temporaryPath);
-            SendToFlutter.Send($"error:Model download failed: {request.error}");
-            yield break;
-        }
-
-        if (File.Exists(selectedModelPath))
-            File.Delete(selectedModelPath);
-        File.Move(temporaryPath, selectedModelPath);
-        SendToFlutter.Send("model_download_progress:100");
-        yield return LoadCachedModel();
     }
 
     private IEnumerator LoadCachedModel()
@@ -468,7 +365,17 @@ public sealed class InteractivePlantAR : MonoBehaviour
             selectedGltf.Dispose();
             selectedGltf = null;
             modelReady = false;
-            SendToFlutter.Send("error:The downloaded model is invalid. Delete it and try again.");
+            try
+            {
+                if (File.Exists(selectedModelPath))
+                    File.Delete(selectedModelPath);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Could not remove invalid GLB: {exception.Message}");
+            }
+            SendToFlutter.Send(
+                "error:The downloaded model is invalid and was removed. Return to the shelf and download it again.");
             yield break;
         }
 
@@ -482,7 +389,7 @@ public sealed class InteractivePlantAR : MonoBehaviour
         SendToFlutter.Send("model_ready");
         SendToFlutter.Send(
             ARSession.state == ARSessionState.SessionTracking
-                ? "status:Scan the surface grid, then tap to place the sprout."
+                ? "status:Move slowly to find a flat floor, then tap to place the sprout."
                 : "status:Tree ready—waiting for AR tracking…");
     }
 
@@ -490,13 +397,10 @@ public sealed class InteractivePlantAR : MonoBehaviour
     {
         if (placedPlant != null)
             Destroy(placedPlant);
-        foreach (GameObject pin in informationPins)
-            if (pin != null)
-                Destroy(pin);
-        informationPins.Clear();
         placedPlant = null;
         hasPlacement = false;
         watered = false;
+        wateringCount = 0;
         growthStarted = false;
         growthComplete = false;
         shimmerSource.Stop();
@@ -698,18 +602,6 @@ public sealed class InteractivePlantAR : MonoBehaviour
         return CreateClip("Procedural Foliage Bloom", samples, rate);
     }
 
-    private static AudioClip CreatePinClip()
-    {
-        const int rate = 22050;
-        float[] samples = new float[(int)(rate * 0.18f)];
-        for (int i = 0; i < samples.Length; i++)
-        {
-            float t = i / (float)rate;
-            samples[i] = Mathf.Sin(2f * Mathf.PI * 880f * t) * Mathf.Exp(-18f * t) * 0.35f;
-        }
-        return CreateClip("Information Pin", samples, rate);
-    }
-
     private static AudioClip CreateClip(string name, float[] samples, int sampleRate)
     {
         AudioClip clip = AudioClip.Create(name, samples.Length, 1, sampleRate, false);
@@ -768,18 +660,6 @@ public sealed class InteractivePlantAR : MonoBehaviour
         if (target != null)
             target.localScale = to;
     }
-}
-
-public sealed class InfoNodeMarker : MonoBehaviour
-{
-    public string key;
-}
-
-public sealed class MarkerPulse : MonoBehaviour
-{
-    private Vector3 baseScale;
-    private void Awake() => baseScale = transform.localScale;
-    private void Update() => transform.localScale = baseScale * (1f + Mathf.Sin(Time.time * 3f) * 0.12f);
 }
 
 public sealed class PlaneGridTag : MonoBehaviour

@@ -9,6 +9,9 @@ import 'LandingPage_Mobile/landing_screen.dart';
 import 'User_Mobile/user_dashboard.dart'; 
 import 'Employee_Mobile/Employee_dashboard.dart'; 
 import 'Login_Signup_Mobile/login_screen.dart'; 
+import 'services/app_update_service.dart';
+
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +32,12 @@ void main() async {
       child: const EcoConservationApp(),
     ),
   );
+
+  // Allow the splash/auth redirect to finish before presenting an optional
+  // GitHub Release update. A failed or offline check never blocks startup.
+  Future<void>.delayed(const Duration(seconds: 4), () {
+    AppUpdateService.checkAndPrompt(appNavigatorKey);
+  });
 }
 
 class EcoConservationApp extends StatelessWidget {
@@ -39,6 +48,7 @@ class EcoConservationApp extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Green Atlas',
       themeMode: themeProvider.themeMode, 
