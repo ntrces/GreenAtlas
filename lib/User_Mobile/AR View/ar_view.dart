@@ -971,19 +971,24 @@ class _Ar_ViewState extends State<Ar_View> {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               "AR View",
               style: TextStyle(
                 fontFamily: 'Poppins-Bold',
-                fontSize: 18,
+                fontSize: 15,
                 color: getTextColor(isDark),
                 height: 1.2,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               "Explore the Cavite Protected Area",
-              style: TextStyle(color: getSubtextColor(isDark), fontSize: 12),
+              style: TextStyle(color: getSubtextColor(isDark), fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1221,7 +1226,7 @@ class _Ar_ViewState extends State<Ar_View> {
             BottomNavigationBarItem(
               icon: Icon(Icons.auto_stories_outlined),
               activeIcon: Icon(Icons.auto_stories),
-              label: "Plants",
+              label: "Botanical Gallery",
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined),

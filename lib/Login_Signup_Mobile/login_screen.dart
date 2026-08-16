@@ -23,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = false;
   bool _obscurePassword = true;
-
   bool _isCapsLockOn = false;
 
   final Color darkGreen = const Color(0xFF303D32);
@@ -317,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                               ),
                             ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
                           SizedBox(
                             width: double.infinity,
                             height: 48,

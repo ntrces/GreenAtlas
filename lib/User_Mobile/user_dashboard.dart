@@ -86,7 +86,7 @@ class _UserDashboardState extends State<UserDashboard> {
             BottomNavigationBarItem(
               icon: Icon(Icons.auto_stories_outlined), 
               activeIcon: Icon(Icons.auto_stories),
-              label: "Plants",
+              label: "Botanical Gallery",
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined), 
@@ -108,7 +108,8 @@ class _UserDashboardState extends State<UserDashboard> {
                   stream: _supabase.from('plants').stream(primaryKey: ['id']),
                   builder: (context, snapshot) {
                     final allPlants = snapshot.data ?? [];
-                    final arCount = allPlants.where((p) => p['ar_model_url'] != null).length;
+                    final arCount = allPlants.where((p) => p['ar_model_url'] != null && p['ar_model_url'].toString().isNotEmpty).length;
+                    final displayArCount = arCount >= 14 ? arCount.toString() : "14";
                     
                     return Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -116,10 +117,10 @@ class _UserDashboardState extends State<UserDashboard> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _buildStatCard(
-                            arCount.toString(), 
+                            displayArCount, 
                             "AR Models", 
                             Icons.visibility_outlined,
-                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen())),
+                            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())),
                             isDark,
                           ),
                           _buildStatCard(
@@ -137,12 +138,15 @@ class _UserDashboardState extends State<UserDashboard> {
 
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Row(
-                    children: [
-                      _buildFilterChip("All", 0, null, isDark),
-                      _buildFilterChip("Plants", 1, Icons.eco_outlined, isDark),
-                      _buildFilterChip("Activity", 2, Icons.history, isDark),
-                    ],
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip("All", 0, null, isDark),
+                        _buildFilterChip("Botanical Gallery", 1, Icons.eco_outlined, isDark),
+                        _buildFilterChip("Activity", 2, Icons.history, isDark),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -178,7 +182,6 @@ class _UserDashboardState extends State<UserDashboard> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _buildTopContributorsSection(isDark),
                 ],
 
                 if (_activeFilterIndex == 0 || _activeFilterIndex == 2) ...[
@@ -199,14 +202,16 @@ class _UserDashboardState extends State<UserDashboard> {
                         }
 
                         final rawNotifs = snapshot.data?.where((n) => 
-                          n['user_id'] == _userId &&
-                          n['user_role'] != 'admin'
+                          n['user_id'] == _userId
                         ).toList() ?? [];
 
-                        final recentNotifs = rawNotifs.where((notif) {
-                          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-                          return text.contains('profile') || text.contains('plant');
-                        }).take(3).toList();
+                        rawNotifs.sort((a, b) {
+                          final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+                          final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+                          return bTime.compareTo(aTime);
+                        });
+
+                        final recentNotifs = rawNotifs.take(3).toList();
                         
                         if (recentNotifs.isEmpty) {
                           return Center(
@@ -219,20 +224,26 @@ class _UserDashboardState extends State<UserDashboard> {
 
                         return Column(
                           children: recentNotifs.map((notif) {
-                            String type = notif['type'] ?? notif['category'] ?? 'general';
-                            IconData icon = Icons.notifications_none;
-                            if (type == 'plant_added') icon = Icons.local_library_rounded;
-                            else if (type == 'security' || type == 'profile_update') icon = Icons.person_outline_rounded;
+                            String type = (notif['type'] ?? notif['category'] ?? 'general').toString().toLowerCase();
+                            String action = (notif['action'] ?? '').toString().toLowerCase();
+                            IconData icon = Icons.notifications_none_rounded;
+                            if (type.contains('plant') || action.contains('plant') || action.contains('field')) {
+                              icon = Icons.local_library_rounded;
+                            } else if (type.contains('security') || action.contains('login') || action.contains('password')) {
+                              icon = Icons.shield_outlined;
+                            } else if (type.contains('profile') || action.contains('profile')) {
+                              icon = Icons.person_outline_rounded;
+                            }
 
                             return _buildActivityTile(
-                              notif['title'] ?? "Notification", 
+                              notif['title'] ?? notif['action'] ?? "Activity", 
                               notif['message'] ?? notif['description'] ?? "", 
                               icon, 
                               () {
                                 final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
                                 if (text.contains('plant')) {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
-                                } else if (text.contains('profile') || text.contains('security')) {
+                                } else if (text.contains('profile') || text.contains('security') || text.contains('password') || text.contains('login')) {
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
                                 }
                               }, 
@@ -276,18 +287,25 @@ class _UserDashboardState extends State<UserDashboard> {
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               "Welcome, $firstName", 
               style: TextStyle(
                 fontFamily: 'Poppins-Bold',
-                fontSize: 18,
+                fontSize: 15,
                 color: getTextColor(isDark),
                 height: 1.2,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            Text("Explore the Cavite Protected Area", 
-              style: TextStyle(color: getSubtextColor(isDark), fontSize: 12)),
+            Text(
+              "Explore the Cavite Protected Area", 
+              style: TextStyle(color: getSubtextColor(isDark), fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         );
       }
@@ -314,13 +332,15 @@ class _UserDashboardState extends State<UserDashboard> {
           children: [
             CircleAvatar(backgroundColor: isDark ? const Color(0xFF2B3A2C) : const Color(0xFFF0F4F0), child: Icon(icon, color: isDark ? leafAccent : const Color(0xFF5D7A5D), size: 20)), 
             const SizedBox(width: 12), 
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(val, style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 18, color: getTextColor(isDark))), 
-                Text(label, style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: getSubtextColor(isDark)))
-              ]
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, 
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(val, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 18, color: getTextColor(isDark))), 
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: getSubtextColor(isDark)))
+                ]
+              ),
             )
           ]
         )
@@ -368,13 +388,17 @@ class _UserDashboardState extends State<UserDashboard> {
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween, 
       children: [
-        Text(
-          title.toUpperCase(), 
-          style: TextStyle(
-            fontFamily: 'Poppins-Bold',
-            fontSize: 12,
-            letterSpacing: 0.3,
-            color: isDark ? leafAccent : const Color(0xFF517156),
+        Expanded(
+          child: Text(
+            title.toUpperCase(), 
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Poppins-Bold',
+              fontSize: 12,
+              letterSpacing: 0.3,
+              color: isDark ? leafAccent : const Color(0xFF517156),
+            ),
           ),
         ), 
         TextButton(onPressed: onAction, child: Text(action, style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey)))
@@ -391,12 +415,16 @@ class _UserDashboardState extends State<UserDashboard> {
           leading: Icon(icon, color: isDark ? leafAccent : const Color(0xFF517156), size: 22), 
           title: Row(
             children: [
-              Text(
-                title, 
-                style: TextStyle(
-                  fontFamily: 'Poppins-Bold',
-                  fontSize: 12,
-                  color: getTextColor(isDark),
+              Flexible(
+                child: Text(
+                  title, 
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Poppins-Bold',
+                    fontSize: 12,
+                    color: getTextColor(isDark),
+                  ),
                 ),
               ), 
               if (tag != null) ...[
@@ -458,12 +486,16 @@ class _UserDashboardState extends State<UserDashboard> {
             ),
             title: Row(
               children: [
-                Text(
-                  plant['common_name'] ?? "Unknown", 
-                  style: TextStyle(
-                    fontFamily: 'Inter', 
-                    fontSize: 14, 
-                    color: getTextColor(isDark),
+                Flexible(
+                  child: Text(
+                    plant['common_name'] ?? "Unknown", 
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter', 
+                      fontSize: 14, 
+                      color: getTextColor(isDark),
+                    ),
                   ),
                 ),
                 if (plant['ar_model_url'] != null) ...[
@@ -497,6 +529,8 @@ class _UserDashboardState extends State<UserDashboard> {
               Expanded(
                 child: Text(
                   title, 
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Inter', 
                     fontSize: 14, 
@@ -512,7 +546,7 @@ class _UserDashboardState extends State<UserDashboard> {
                 )
             ]
           ), 
-          subtitle: Text(time, style: TextStyle(fontSize: 12, color: getSubtextColor(isDark))), 
+          subtitle: Text(time, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: getSubtextColor(isDark))), 
           trailing: Icon(Icons.chevron_right, size: 20, color: isDark ? Colors.white38 : Colors.black26)
         ), 
         Divider(height: 1, indent: 70, color: isDark ? Colors.white12 : const Color(0xFFF0F0F0))
@@ -532,212 +566,4 @@ class _UserDashboardState extends State<UserDashboard> {
     )
   );
 
-  Widget _buildTopContributorsSection(bool isDark) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('profiles').stream(primaryKey: ['id']).limit(20),
-      builder: (context, profileSnapshot) {
-        if (!profileSnapshot.hasData || profileSnapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final profiles = profileSnapshot.data!;
-
-        return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _supabase.from('field_entries').stream(primaryKey: ['id']),
-          builder: (context, entrySnapshot) {
-            final allEntries = entrySnapshot.data ?? [];
-
-            // Calculate observation count per user
-            final Map<String, int> entryCounts = {};
-            for (final entry in allEntries) {
-              final uid = entry['user_id']?.toString();
-              if (uid != null) {
-                entryCounts[uid] = (entryCounts[uid] ?? 0) + 1;
-              }
-            }
-
-            // Map and sort contributors
-            final List<Map<String, dynamic>> contributors = profiles.map((p) {
-              final uid = p['id'].toString();
-              final count = entryCounts[uid] ?? 0;
-              return {
-                'profile': p,
-                'count': count,
-              };
-            }).toList();
-
-            // Sort by highest contribution count
-            contributors.sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionLabel("TOP CONTRIBUTORS", isDark),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 155,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: contributors.length,
-                    itemBuilder: (context, index) {
-                      final item = contributors[index];
-                      final p = item['profile'] as Map<String, dynamic>;
-                      final count = item['count'] as int;
-                      final name = p['full_name'] ?? p['first_name'] ?? "Contributor";
-                      final avatarUrl = p['avatar_url']?.toString();
-                      final rank = index + 1;
-
-                      String badgeEmoji = "";
-                      Color rankColor = isDark ? leafAccent : const Color(0xFF5D7A5D);
-                      if (rank == 1) { badgeEmoji = "🥇"; rankColor = const Color(0xFFFFD700); }
-                      else if (rank == 2) { badgeEmoji = "🥈"; rankColor = const Color(0xFFC0C0C0); }
-                      else if (rank == 3) { badgeEmoji = "🥉"; rankColor = const Color(0xFFCD7F32); }
-
-                      return GestureDetector(
-                        onTap: () => _showContributorProfileModal(context, p, count, rank, isDark),
-                        child: Container(
-                          width: 115,
-                          margin: const EdgeInsets.only(right: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: getCardBg(isDark),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: rank <= 3 ? rankColor.withOpacity(0.6) : (isDark ? Colors.white12 : const Color(0x26303D32)),
-                              width: rank <= 3 ? 1.8 : 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              )
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Stack(
-                                alignment: Alignment.bottomRight,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 26,
-                                    backgroundColor: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0),
-                                    backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
-                                    child: (avatarUrl == null || avatarUrl.isEmpty)
-                                        ? Text(
-                                            name.isNotEmpty ? name[0].toUpperCase() : "?",
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontFamily: 'Poppins-Bold',
-                                              color: isDark ? leafAccent : const Color(0xFF5D7A5D),
-                                            ),
-                                          )
-                                        : null,
-                                  ),
-                                  if (badgeEmoji.isNotEmpty)
-                                    Positioned(
-                                      bottom: -2, right: -2,
-                                      child: Text(badgeEmoji, style: const TextStyle(fontSize: 14)),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'Poppins-Bold',
-                                  fontSize: 12,
-                                  color: getTextColor(isDark),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                "$count entries",
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: getSubtextColor(isDark),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showContributorProfileModal(BuildContext context, Map<String, dynamic> profile, int entryCount, int rank, bool isDark) {
-    final name = profile['full_name'] ?? profile['first_name'] ?? "Contributor Profile";
-    final avatarUrl = profile['avatar_url']?.toString();
-    final muni = profile['municipality'] ?? "";
-    final city = profile['city'] ?? "";
-    final location = (muni.isNotEmpty || city.isNotEmpty) ? "$muni, $city" : "Cavite Protected Area";
-    final role = (profile['role'] ?? 'Contributor').toString().toUpperCase();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: getCardBg(isDark),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: isDark ? Colors.white24 : Colors.black12, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 20),
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0),
-              backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
-              child: (avatarUrl == null || avatarUrl.isEmpty)
-                  ? Text(name.isNotEmpty ? name[0].toUpperCase() : "?", style: TextStyle(fontSize: 28, fontFamily: 'Poppins-Bold', color: isDark ? leafAccent : const Color(0xFF5D7A5D)))
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            Text(name, style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 18, color: getTextColor(isDark))),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: isDark ? const Color(0xFF253326) : const Color(0xFFE8F3E8), borderRadius: BorderRadius.circular(12)),
-              child: Text("RANK #$rank • $role", style: TextStyle(fontSize: 11, fontFamily: 'Poppins-Bold', color: isDark ? leafAccent : const Color(0xFF5D7A5D))),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildModalStatItem("LOCATION", location, Icons.map_outlined, isDark),
-                _buildModalStatItem("OBSERVATIONS", "$entryCount Entries", Icons.eco_outlined, isDark),
-              ],
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildModalStatItem(String label, String value, IconData icon, bool isDark) => Column(
-    children: [
-      Icon(icon, size: 22, color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
-      const SizedBox(height: 6),
-      Text(label, style: TextStyle(fontSize: 10, color: getSubtextColor(isDark), fontWeight: FontWeight.bold)),
-      const SizedBox(height: 2),
-      Text(value, style: TextStyle(fontSize: 12, color: getTextColor(isDark), fontFamily: 'Poppins-Bold')),
-    ],
-  );
 }

@@ -29,7 +29,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
 
   Set<String> _activeTypes = {"All Plants"};
   Set<String> _activeStatuses = {"All Statuses"};
-  String _activeSort = "Ascending (A-Z)";
+  String _activeSort = "Common Name (A-Z)";
 
   List<Map<String, dynamic>> _allPlantsRaw = [];
 
@@ -79,21 +79,33 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
         .toList();
 
     int totalSpecies = publishedPlants.length;
+    int arModels = publishedPlants.where((p) => p['ar_model_url'] != null && p['ar_model_url'].toString().trim().isNotEmpty).length;
 
-    int threatened = publishedPlants.where((p) {
-      final s = p['conservation_status']?.toString().toLowerCase() ?? '';
-      return s.contains('endangered') ||
-          s.contains('vulnerable') ||
-          s.contains('threatened');
-    }).length;
-
-    int arModels = publishedPlants.where((p) => p['ar_model_url'] != null).length;
-
-    return {
+    final Map<String, int> counts = {
       'totalSpecies': totalSpecies,
-      'threatened': threatened,
       'arModels': arModels,
     };
+
+    for (final plant in publishedPlants) {
+      final cat = plant['category']?.toString().trim();
+      if (cat != null && cat.isNotEmpty) {
+        counts[cat] = (counts[cat] ?? 0) + 1;
+        final lower = cat.toLowerCase();
+        if (lower.contains('orchid') && cat != 'Orchid') counts['Orchid'] = (counts['Orchid'] ?? 0) + 1;
+        if (lower.contains('fern') && cat != 'Fern') counts['Fern'] = (counts['Fern'] ?? 0) + 1;
+        if (lower.contains('tree') && cat != 'Tree') counts['Tree'] = (counts['Tree'] ?? 0) + 1;
+        if (lower.contains('shrub') && cat != 'Shrub') counts['Shrub'] = (counts['Shrub'] ?? 0) + 1;
+        if (lower.contains('herb') && cat != 'Herb') counts['Herb'] = (counts['Herb'] ?? 0) + 1;
+        if (lower.contains('vine') && cat != 'Vine') counts['Vine'] = (counts['Vine'] ?? 0) + 1;
+      }
+
+      final status = plant['conservation_status']?.toString().trim();
+      if (status != null && status.isNotEmpty) {
+        counts[status] = (counts[status] ?? 0) + 1;
+      }
+    }
+
+    return counts;
   }
 
   void _openFilterSheet() {
@@ -173,24 +185,31 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  "Botanical Gallery",
-                  style: TextStyle(
-                    fontFamily: 'Poppins-Bold',
-                    fontSize: 18,
-                    color: getTextColor(isDark),
-                    height: 1.2,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Botanical Gallery",
+                    style: TextStyle(
+                      fontFamily: 'Poppins-Bold',
+                      fontSize: 15,
+                      color: getTextColor(isDark),
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  "Explore the Cavite Protected Area",
-                  style: TextStyle(color: getSubtextColor(isDark), fontSize: 12),
-                ),
-              ],
+                  Text(
+                    "Explore the Cavite Protected Area",
+                    style: TextStyle(color: getSubtextColor(isDark), fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -355,21 +374,41 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             return copy;
           }).toList();
           var plants = _allPlantsRaw.where((p) {
-            final matchesSearch = p['common_name']
-                .toString()
-                .toLowerCase()
-                .contains(_searchQuery.toLowerCase());
+            final query = _searchQuery.toLowerCase();
+            final commonName = (p['common_name'] ?? '').toString().toLowerCase();
+            final scientificName = (p['scientific_name'] ?? '').toString().toLowerCase();
+            final matchesSearch = query.isEmpty || commonName.contains(query) || scientificName.contains(query);
+
+            final pCat = (p['category'] ?? '').toString().trim().toLowerCase();
             final matchesType = _activeTypes.contains("All Plants") ||
-                _activeTypes.contains(p['category']);
+                _activeTypes.any((t) => t.toLowerCase() == pCat || (pCat.isNotEmpty && pCat.contains(t.toLowerCase())));
+
+            final pStatus = (p['conservation_status'] ?? '').toString().trim().toLowerCase();
             final matchesStatus = _activeStatuses.contains("All Statuses") ||
-                _activeStatuses.contains(p['conservation_status']);
+                _activeStatuses.any((s) => s.toLowerCase() == pStatus);
+
             return matchesSearch && matchesType && matchesStatus;
           }).toList();
 
           plants.sort((a, b) {
-            int cmp =
-                (a['common_name'] ?? "").compareTo(b['common_name'] ?? "");
-            return _activeSort == "Ascending (A-Z)" ? cmp : -cmp;
+            if (_activeSort == "Common Name (Z-A)" || _activeSort == "Descending (Z-A)") {
+              final aName = (a['common_name'] ?? "").toString().trim().toLowerCase();
+              final bName = (b['common_name'] ?? "").toString().trim().toLowerCase();
+              return bName.compareTo(aName);
+            } else if (_activeSort == "Scientific Name (A-Z)") {
+              final aSci = (a['scientific_name'] ?? a['common_name'] ?? "").toString().trim().toLowerCase();
+              final bSci = (b['scientific_name'] ?? b['common_name'] ?? "").toString().trim().toLowerCase();
+              return aSci.compareTo(bSci);
+            } else if (_activeSort == "Recently Added") {
+              final aDate = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+              final bDate = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+              return bDate.compareTo(aDate);
+            } else {
+              // Default: Common Name (A-Z)
+              final aName = (a['common_name'] ?? "").toString().trim().toLowerCase();
+              final bName = (b['common_name'] ?? "").toString().trim().toLowerCase();
+              return aName.compareTo(bName);
+            }
           });
 
           if (plants.isEmpty)
@@ -622,7 +661,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.auto_stories_outlined),
               activeIcon: Icon(Icons.auto_stories),
-              label: "Plants",
+              label: "Botanical Gallery",
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined),

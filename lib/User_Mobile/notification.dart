@@ -83,14 +83,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
         if (snapshot.hasError) return Scaffold(backgroundColor: getScaffoldBg(isDark), body: Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: getTextColor(isDark)))));
         
         final rawNotifs = snapshot.data?.where((n) => 
-          n['user_id'] == _userId && 
-          n['user_role'] != 'admin'
+          n['user_id'] == _userId
         ).toList() ?? [];
 
-        final allNotifs = rawNotifs.where((notif) {
-          final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-          return text.contains('profile') || text.contains('plant');
-        }).take(10).toList();
+        rawNotifs.sort((a, b) {
+          final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+          final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+          return bTime.compareTo(aTime);
+        });
+
+        final allNotifs = rawNotifs.take(15).toList();
 
         final unreadCount = allNotifs.where((n) => !(n['is_read'] ?? false)).length;
 

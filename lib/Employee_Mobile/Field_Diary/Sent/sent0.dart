@@ -65,7 +65,31 @@ class _SentListScreenState extends State<SentListScreen> {
                         return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));
                       }
                       if (snapshot.hasError) {
-                        return Center(child: Text("Error: ${snapshot.error}"));
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.cloud_off_rounded, size: 56, color: Colors.grey.shade500),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "Unable to connect to server",
+                                  style: textTheme.titleMedium?.copyWith(
+                                    color: textColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "Check your internet connection to view sent observations.",
+                                  textAlign: TextAlign.center,
+                                  style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       }
 
                       var sentItems = (snapshot.data ?? [])

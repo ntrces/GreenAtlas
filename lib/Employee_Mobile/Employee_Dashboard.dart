@@ -190,10 +190,15 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
           const SizedBox(height: 12),
           Text(
             value, 
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: textTheme.displaySmall?.copyWith(color: getTextColor(isDark)),
           ),
           Text(
             label, 
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
           ),
       ]),
@@ -355,10 +360,14 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
       leading: Icon(icon, color: isDark ? leafAccent : Colors.black45, size: 22), 
       title: Text(
         title, 
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: textTheme.titleSmall?.copyWith(color: getTextColor(isDark), fontSize: 15),
       ), 
       subtitle: subtitle.isEmpty ? null : Text(
         subtitle, 
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
       ), 
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -398,10 +407,14 @@ Widget _buildTopProfileIcon(BuildContext context, bool isDark) => InkWell(
       ), 
       title: Text(
         title, 
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: textTheme.titleSmall?.copyWith(color: getTextColor(isDark), fontSize: 15),
       ), 
       subtitle: Text(
         subtitle, 
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: textTheme.bodySmall?.copyWith(color: getSubtextColor(isDark)),
       ), 
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
