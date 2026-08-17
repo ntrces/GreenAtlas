@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_constants.dart';
-import 'login_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -103,13 +102,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final user = response.user;
 
       if (user != null) {
-        // Explicitly request OTP code email dispatch
-        try {
-          await supabase.auth.resend(type: OtpType.signup, email: email);
-        } catch (e) {
-          debugPrint("Resend OTP notice: $e");
-        }
-
         await supabase.from('audit_logs').insert({
           'title': 'User Registration',
           'description': 'New user account created ($email)',
@@ -123,17 +115,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
         });
 
         if (mounted) {
-          _showEmailConfirmationDialog();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Account created successfully! Please sign in."),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context); // Return to login screen
         }
       }
     } on AuthException catch (e) {
-      if (e.message.toLowerCase().contains("sending confirmation mail") || e.message.toLowerCase().contains("unexpected_failure")) {
-        if (mounted) {
-          _showEmailConfirmationDialog();
-        }
-      } else {
-        _showError(e.message);
-      }
+      _showError(e.message);
     } catch (e) {
       _showError("An unexpected error occurred: $e");
     } finally {
@@ -144,219 +136,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
-    );
-  }
-
-  void _showEmailConfirmationDialog() {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-    final email = _emailController.text.trim();
-    final otpController = TextEditingController();
-    bool isVerifying = false;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: getCardBg(isDark),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: (isDark ? leafAccent : sageGreen).withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.mark_email_read_outlined, color: isDark ? leafAccent : sageGreen, size: 24),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "Verify Your Gmail",
-                  style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 17, color: getTextColor(isDark)),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "A verification code has been sent to:",
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: getSubtextColor(isDark)),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13.5, color: isDark ? leafAccent : darkGreen),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  "Please check your Gmail inbox and enter the 6-digit verification code below to verify your account:",
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 12.5, color: getSubtextColor(isDark), height: 1.35),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: otpController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Poppins-Bold',
-                    fontSize: 20,
-                    letterSpacing: 8,
-                    color: getTextColor(isDark),
-                  ),
-                  decoration: InputDecoration(
-                    hintText: "123456",
-                    hintStyle: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 16,
-                      letterSpacing: 4,
-                      color: getSubtextColor(isDark).withOpacity(0.4),
-                    ),
-                    counterText: "",
-                    filled: true,
-                    fillColor: isDark ? const Color(0xFF182219) : const Color(0xFFEAF7EA),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: isDark ? leafAccent : sageGreen, width: 1.5),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: isDark ? leafAccent : sageGreen, width: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: isVerifying
-                          ? null
-                          : () async {
-                              try {
-                                final supabase = Supabase.instance.client;
-                                await supabase.auth.resend(
-                                  type: OtpType.signup,
-                                  email: email,
-                                );
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("New verification email/code sent! Check your inbox.")),
-                                  );
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Error resending email: $e"), backgroundColor: Colors.redAccent),
-                                  );
-                                }
-                              }
-                            },
-                      child: Text("Resend Email", style: TextStyle(color: isDark ? leafAccent : sageGreen, fontSize: 12.5)),
-                    ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: isVerifying
-                          ? null
-                          : () async {
-                              final code = otpController.text.trim();
-                              if (code.length < 6) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Please enter the full 6-digit code or use the link in email"), backgroundColor: Colors.orange),
-                                );
-                                return;
-                              }
-
-                              setDialogState(() => isVerifying = true);
-                              try {
-                                final supabase = Supabase.instance.client;
-                                await supabase.auth.verifyOTP(
-                                  type: OtpType.signup,
-                                  token: code,
-                                  email: email,
-                                );
-
-                                if (mounted) {
-                                  Navigator.pop(dialogContext); // Close dialog
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Gmail verified successfully! You can now sign in."),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                  Navigator.pop(context); // Return to login screen
-                                }
-                              } on AuthException catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Verification failed: ${e.message}"), backgroundColor: Colors.redAccent),
-                                  );
-                                }
-                              } catch (e) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text("Invalid verification code: $e"), backgroundColor: Colors.redAccent),
-                                  );
-                                }
-                              } finally {
-                                setDialogState(() => isVerifying = false);
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDark ? leafAccent : sageGreen,
-                        foregroundColor: isDark ? Colors.black : Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      child: isVerifying
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text("Verify Code", style: TextStyle(fontFamily: 'Poppins-Bold', fontSize: 13)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(dialogContext); // Close dialog
-                      Navigator.pop(context); // Go back to Login screen
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: (isDark ? leafAccent : sageGreen).withOpacity(0.5)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text(
-                      "Already Clicked Email Link? Sign In Now",
-                      style: TextStyle(fontSize: 12, color: isDark ? leafAccent : sageGreen, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
