@@ -9,6 +9,7 @@ import '../User_Mobile/user_dashboard.dart';
 import '../Employee_Mobile/Employee_Dashboard.dart';
 import '../IntroPages/intro1.dart';
 import '../IntroPages/completeprofile.dart';
+import '../services/error_handler.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -141,13 +142,9 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
       }
-    } on AuthException catch (e) {
-      if (mounted) {
-        _showSnackBar(e.message, Colors.redAccent);
-      }
     } catch (e) {
       if (mounted) {
-        _showSnackBar("An unexpected error occurred: $e", Colors.redAccent);
+        ErrorHandler.showError(context, e);
       }
     } finally {
       if (mounted) {

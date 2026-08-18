@@ -6,6 +6,8 @@ import '../theme_constants.dart';
 import '../services/notification_service.dart';
 import 'change_password.dart'; 
 import '../UserProfile/edit_profile.dart';
+import '../services/error_handler.dart';
+import 'user_manual_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -23,6 +25,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _location = "Loading location...";
   String _joinedDate = "Joined --";
   String? _avatarUrl; 
+  String _role = "user";
   bool _isLoading = true;
 
   bool _pushNotif = true;
@@ -42,9 +45,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (e) {
       debugPrint("Error toggling notifications: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error setting notifications: $e"), backgroundColor: Colors.redAccent),
-        );
+        ErrorHandler.showError(context, e);
       }
     }
   }
@@ -78,12 +79,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             }
 
             _avatarUrl = data['avatar_url'];
+            _role = data['role'] ?? "user";
             _isLoading = false;
           });
         }
       } catch (e) {
-        if (mounted) setState(() => _isLoading = false);
-        debugPrint("Load Error: $e");
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ErrorHandler.showError(context, e);
+        }
       }
     }
   }
@@ -203,6 +207,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
               const SizedBox(height: 24),
 
+              _buildSecurityButton(
+                icon: Icons.menu_book_rounded, 
+                label: "USER MANUAL", 
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => UserManualScreen(role: _role))),
+                isDark: isDark,
+              ),
+              const SizedBox(height: 12),
               _buildSecurityButton(
                 icon: Icons.lock_reset, 
                 label: "CHANGE PASSWORD", 
