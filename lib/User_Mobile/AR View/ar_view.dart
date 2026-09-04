@@ -4,8 +4,10 @@ import 'package:flutter_embed_unity/flutter_embed_unity.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 import '../../theme_provider.dart';
 import '../../theme_constants.dart';
@@ -20,6 +22,16 @@ const String _arModelBaseUrl = String.fromEnvironment(
       'https://raw.githubusercontent.com/ntrces/GreenAtlas/main/remote_ar_models',
 );
 const double _growthTriggerDistanceMeters = 1.5;
+const String _dao2017Url =
+    'https://elibrary.bmb.gov.ph/elibrary/laws-and-policies/denr-administrative-orders/';
+const String _digitalFloraUrl = 'https://www.philippineplants.org/';
+
+class PlantReference {
+  final String citation;
+  final String url;
+
+  const PlantReference(this.citation, this.url);
+}
 
 // Tree model data class
 class TreeModel {
@@ -28,6 +40,7 @@ class TreeModel {
   final String assetPath;
   final Color color;
   final String? remoteModelFile;
+  final String powoUrl;
   final String conservationStatus;
   final String habitat;
   final String ecologicalImportance;
@@ -41,6 +54,7 @@ class TreeModel {
     required this.assetPath,
     required this.color,
     this.remoteModelFile,
+    required this.powoUrl,
     this.conservationStatus = 'Threatened',
     this.habitat = 'Native forest habitats in Cavite and the Philippines',
     this.ecologicalImportance =
@@ -52,6 +66,21 @@ class TreeModel {
     this.conservationDetails =
         'Protecting this threatened native tree requires conserving its habitat, preventing illegal cutting, supporting responsible propagation, and monitoring planted seedlings until they mature.',
   });
+
+  List<PlantReference> get references => [
+        PlantReference(
+          'Royal Botanic Gardens, Kew. (2026). $scientificName. Plants of the World Online.',
+          powoUrl,
+        ),
+        const PlantReference(
+          'Department of Environment and Natural Resources. (2017). DAO No. 2017-11: Updated National List of Threatened Philippine Plants and Their Categories.',
+          _dao2017Url,
+        ),
+        const PlantReference(
+          "Pelser, P. B., Barcelona, J. F., & Nickrent, D. L. (Eds.). (2011–present). Co's Digital Flora of the Philippines.",
+          _digitalFloraUrl,
+        ),
+      ];
 }
 
 // Native trees represented in the GreenAtlas AR collection. Conservation
@@ -64,12 +93,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.red,
     remoteModelFile: 'Hopea_quisumbingiana.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77222162-1',
     conservationStatus: 'Critically Endangered (DAO 2017-11)',
-    habitat: 'A Philippine-endemic dipterocarp of lowland tropical rainforest. Its very restricted wild population makes every remaining habitat and mature seed tree exceptionally important.',
-    ecologicalImportance: 'As a canopy tree, it stores carbon, stabilizes forest soil, and adds structure and food resources to native forest. Its loss would also remove habitat used by many smaller organisms.',
-    leafDetails: 'The leaves are simple, alternate, leathery, and elliptic, with a pointed tip and clearly visible side veins. Their firm surface helps the tree function in warm, humid forest conditions.',
-    barkDetails: 'Like other gisok trees, it develops a straight woody trunk and durable timber. Its rarity means wild trees must never be treated as a timber source; mature individuals are vital seed producers.',
-    conservationDetails: 'DENR DAO 2017-11 lists this species as Critically Endangered. Priorities include strict habitat protection, prevention of cutting and collection, propagation from documented local seed sources, and long-term monitoring of both wild and restored populations.',
+    habitat:
+        'A Philippine-endemic dipterocarp recorded by Kew from Samar. It is a tree of the wet tropical biome; its restricted national distribution makes protection of verified wild populations especially important.',
+    ecologicalImportance:
+        'As a canopy tree, it stores carbon, stabilizes forest soil, and adds structure and food resources to native forest. Its loss would also remove habitat used by many smaller organisms.',
+    leafDetails:
+        'The leaves are simple, alternate, leathery, and elliptic, with a pointed tip and clearly visible side veins. Their firm surface helps the tree function in warm, humid forest conditions.',
+    barkDetails:
+        'Like other gisok trees, it develops a straight woody trunk and durable timber. Its rarity means wild trees must never be treated as a timber source; mature individuals are vital seed producers.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists this species as Critically Endangered. Priorities include strict habitat protection, prevention of cutting and collection, propagation from documented local seed sources, and long-term monitoring of both wild and restored populations.',
   ),
   TreeModel(
     name: 'Molave',
@@ -77,12 +113,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.orange,
     remoteModelFile: 'Vitex_parviflora.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:865916-1/general-information',
     conservationStatus: 'Endangered (DAO 2017-11)',
-    habitat: 'Native to seasonal lowland forest, limestone forest, and other relatively dry forest habitats in the Philippines. It tolerates stronger seasonal drought than many rainforest trees.',
-    ecologicalImportance: 'Molave forms sturdy forest structure, supplies flowers and fruit to wildlife, stores carbon, and helps protect soil in seasonally dry landscapes.',
-    leafDetails: 'Its leaves are compound, usually with three leaflets. The leaflets are firm and often paler beneath—useful identification characters when distinguishing Molave from simple-leaved trees.',
-    barkDetails: 'Molave is renowned for dense, durable wood used historically in heavy construction. That value encouraged extensive harvesting, so surviving mature trunks now have high conservation and seed-source value.',
-    conservationDetails: 'DENR DAO 2017-11 lists Molave as Endangered. Protect remnant dry and limestone forests, stop unauthorized cutting, retain mature seed trees, and use traceable native planting material in restoration.',
+    habitat:
+        'A native Philippine tree also occurring elsewhere in Malesia and Palau. Flora Malesiana research summarized by Kew records it in secondary or mixed primary forest, often along streams, from about 30–650 m elevation.',
+    ecologicalImportance:
+        'Molave forms sturdy forest structure, supplies flowers and fruit to wildlife, stores carbon, and helps protect soil in seasonally dry landscapes.',
+    leafDetails:
+        'Its leaves are compound, usually with three leaflets. The leaflets are firm and often paler beneath—useful identification characters when distinguishing Molave from simple-leaved trees.',
+    barkDetails:
+        'Molave is renowned for dense, durable wood used historically in heavy construction. That value encouraged extensive harvesting, so surviving mature trunks now have high conservation and seed-source value.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Molave as Endangered. Protect remnant dry and limestone forests, stop unauthorized cutting, retain mature seed trees, and use traceable native planting material in restoration.',
   ),
   TreeModel(
     name: 'Manggachapui',
@@ -90,12 +133,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.orange,
     remoteModelFile: 'Hopea_acuminata.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:320835-1/general-information',
     conservationStatus: 'Endangered (DAO 2017-11)',
-    habitat: 'A Philippine-endemic dipterocarp associated with lowland evergreen forest. It depends on intact forest conditions for successful flowering, seedling establishment, and canopy development.',
-    ecologicalImportance: 'This canopy tree contributes large amounts of living biomass, shades the forest floor, supports wildlife, and helps regulate water movement through forest soil.',
-    leafDetails: 'Leaves are simple, alternate, and leathery, generally elliptic to lance-shaped with an elongated tip. Numerous fine, parallel-looking side veins are characteristic of many dipterocarps.',
-    barkDetails: 'The trunk can yield valuable dipterocarp timber, making the species vulnerable to logging. Large individuals are irreplaceable sources of seed and forest structure.',
-    conservationDetails: 'DENR DAO 2017-11 lists Manggachapui as Endangered. Remaining populations need protection from forest clearing and cutting, accompanied by local seed collection, nursery propagation, enrichment planting, and survival monitoring.',
+    habitat:
+        'A Philippine-endemic dipterocarp associated with lowland evergreen forest. It depends on intact forest conditions for successful flowering, seedling establishment, and canopy development.',
+    ecologicalImportance:
+        'This canopy tree contributes large amounts of living biomass, shades the forest floor, supports wildlife, and helps regulate water movement through forest soil.',
+    leafDetails:
+        'Leaves are simple, alternate, and leathery, generally elliptic to lance-shaped with an elongated tip. Numerous fine, parallel-looking side veins are characteristic of many dipterocarps.',
+    barkDetails:
+        'The trunk can yield valuable dipterocarp timber, making the species vulnerable to logging. Large individuals are irreplaceable sources of seed and forest structure.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Manggachapui as Endangered. Remaining populations need protection from forest clearing and cutting, accompanied by local seed collection, nursery propagation, enrichment planting, and survival monitoring.',
   ),
   TreeModel(
     name: 'Kubili',
@@ -103,12 +153,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.orange,
     remoteModelFile: 'Cubilia_cubili.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:782343-1/general-information',
     conservationStatus: 'Endangered (DAO 2017-11)',
-    habitat: 'A Philippine-endemic forest tree occurring in lowland to lower montane rainforest. Healthy native forest and functioning seed dispersal are essential to its regeneration.',
-    ecologicalImportance: 'Its canopy, flowers, and fruits add food and shelter to the forest community, while its roots and leaf litter support soil stability and nutrient cycling.',
-    leafDetails: 'Kubili has alternate, compound leaves with paired leaflets. The leaflet arrangement separates it from simple-leaved species and gives the crown a layered texture.',
-    barkDetails: 'Its woody trunk is part of the long-lived framework of the forest. Because the species is endemic and endangered, mature trees should be conserved principally as habitat and seed sources.',
-    conservationDetails: 'DENR DAO 2017-11 lists Kubili as Endangered. Conservation should protect known stands, prevent unauthorized removal, document fruiting trees, propagate genetically diverse seedlings, and restore them within suitable native forest.',
+    habitat:
+        'A wet-tropical forest tree native from eastern Borneo through the Philippines and Sulawesi to western Maluku. Healthy native forest remains essential to its regeneration.',
+    ecologicalImportance:
+        'Its canopy, flowers, and fruits add food and shelter to the forest community, while its roots and leaf litter support soil stability and nutrient cycling.',
+    leafDetails:
+        'Kubili has alternate, compound leaves with paired leaflets. The leaflet arrangement separates it from simple-leaved species and gives the crown a layered texture.',
+    barkDetails:
+        'Its woody trunk is part of the long-lived framework of the forest. Because the species is endemic and endangered, mature trees should be conserved principally as habitat and seed sources.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Kubili as Endangered. Conservation should protect known stands, prevent unauthorized removal, document fruiting trees, propagate genetically diverse seedlings, and restore them within suitable native forest.',
   ),
   TreeModel(
     name: 'Dao',
@@ -116,12 +173,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Dracontomelon_dao.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:69546-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A large tree of lowland rainforest, often favoring moist valleys, river margins, and deep soils. It occurs in the Philippines and elsewhere in Southeast Asia and the Pacific.',
-    ecologicalImportance: 'Dao develops a broad canopy and large buttressed base, stores substantial carbon, stabilizes moist soil, and produces fruit used by wildlife.',
-    leafDetails: 'The leaves are pinnately compound, with several opposite or nearly opposite leaflets. Young foliage may flush pinkish or reddish before becoming green.',
-    barkDetails: 'Older Dao trees often have conspicuous buttress roots and a massive trunk. Its attractive timber has been used for furniture and interior work, contributing to harvesting pressure.',
-    conservationDetails: 'DENR DAO 2017-11 lists Dao as Vulnerable. Retaining old trees, protecting riverine forest, controlling harvest, and raising seedlings from several parent trees can help maintain healthy populations.',
+    habitat:
+        'A large tree of lowland rainforest, often favoring moist valleys, river margins, and deep soils. It occurs in the Philippines and elsewhere in Southeast Asia and the Pacific.',
+    ecologicalImportance:
+        'Dao develops a broad canopy and large buttressed base, stores substantial carbon, stabilizes moist soil, and produces fruit used by wildlife.',
+    leafDetails:
+        'The leaves are pinnately compound, with several opposite or nearly opposite leaflets. Young foliage may flush pinkish or reddish before becoming green.',
+    barkDetails:
+        'Older Dao trees often have conspicuous buttress roots and a massive trunk. Its attractive timber has been used for furniture and interior work, contributing to harvesting pressure.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Dao as Vulnerable. Retaining old trees, protecting riverine forest, controlling harvest, and raising seedlings from several parent trees can help maintain healthy populations.',
   ),
   TreeModel(
     name: 'Pahutan',
@@ -129,12 +193,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Mangifera_altissima.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:69877-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A Philippine-endemic wild mango of lowland and hill forest. It belongs in diverse native forest rather than in open monoculture plantations.',
-    ecologicalImportance: 'Its flowers support pollinators and its mango-like fruits can feed wildlife. The crown stores carbon, moderates heat, and helps maintain native forest complexity.',
-    leafDetails: 'Leaves are simple, alternate, leathery, and elongated, usually clustered toward twig ends. New leaves may appear reddish before maturing to deep green.',
-    barkDetails: 'The trunk contains resinous sap typical of mango relatives. Wild trees should be handled carefully and retained as seed sources rather than harvested indiscriminately.',
-    conservationDetails: 'DENR lists Pahutan as Vulnerable. Priorities are conserving remaining forest populations, preventing conversion and cutting, documenting fruiting trees, and propagating seedlings with verified identity.',
+    habitat:
+        'A wet-tropical wild mango native from the Lesser Sunda Islands and Sulawesi through the Philippines to Papuasia and the Solomon Islands.',
+    ecologicalImportance:
+        'Its flowers support pollinators and its mango-like fruits can feed wildlife. The crown stores carbon, moderates heat, and helps maintain native forest complexity.',
+    leafDetails:
+        'Leaves are simple, alternate, leathery, and elongated, usually clustered toward twig ends. New leaves may appear reddish before maturing to deep green.',
+    barkDetails:
+        'The trunk contains resinous sap typical of mango relatives. Wild trees should be handled carefully and retained as seed sources rather than harvested indiscriminately.',
+    conservationDetails:
+        'DENR lists Pahutan as Vulnerable. Priorities are conserving remaining forest populations, preventing conversion and cutting, documenting fruiting trees, and propagating seedlings with verified identity.',
   ),
   TreeModel(
     name: 'Narra',
@@ -142,12 +213,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Pterocarpus_indicus.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:516487-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'Native to Philippine lowland forest, including seasonal forest and sites near streams. It also grows well in open planted landscapes when given adequate space.',
-    ecologicalImportance: 'Narra is a nitrogen-fixing legume that can improve soil, provide shade, support pollinators, and produce winged fruits dispersed away from the parent tree.',
-    leafDetails: 'Its leaves are pinnately compound, usually bearing several oval leaflets with smooth edges. The leaflets form a light, spreading crown rather than a dense solid mass.',
-    barkDetails: 'The trunk yields richly colored, highly valued wood and may exude reddish sap. Heavy demand for timber has made protection and legal sourcing especially important.',
-    conservationDetails: 'DENR lists Narra as Vulnerable. Protect natural populations, enforce timber controls, retain genetically diverse seed trees, and favor locally sourced seedlings in restoration and civic planting.',
+    habitat:
+        'Native to Philippine lowland forest, including seasonal forest and sites near streams. It also grows well in open planted landscapes when given adequate space.',
+    ecologicalImportance:
+        'Narra is a nitrogen-fixing legume that can improve soil, provide shade, support pollinators, and produce winged fruits dispersed away from the parent tree.',
+    leafDetails:
+        'Its leaves are pinnately compound, usually bearing several oval leaflets with smooth edges. The leaflets form a light, spreading crown rather than a dense solid mass.',
+    barkDetails:
+        'The trunk yields richly colored, highly valued wood and may exude reddish sap. Heavy demand for timber has made protection and legal sourcing especially important.',
+    conservationDetails:
+        'DENR lists Narra as Vulnerable. Protect natural populations, enforce timber controls, retain genetically diverse seed trees, and favor locally sourced seedlings in restoration and civic planting.',
   ),
   TreeModel(
     name: 'Kamagong',
@@ -155,12 +233,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Diospyros_discolor.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:322146-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A Philippine native of lowland rainforest. It grows as an evergreen tree and is also cultivated for its edible velvet apple fruit.',
-    ecologicalImportance: 'Its flowers and fruits support insects, fruit-eating birds, bats, and other animals. The dense crown adds shade, carbon storage, and vertical structure to forest habitat.',
-    leafDetails: 'Leaves are simple, alternate, oblong, and leathery. Their upper surface is glossy green while the lower surface is often paler and softly hairy.',
-    barkDetails: 'Kamagong can form very dark, dense heartwood known as Philippine ebony. High timber value and slow replacement make mature wild trees particularly vulnerable to illegal cutting.',
-    conservationDetails: 'DENR lists Kamagong as Vulnerable. Protect fruiting adults and their habitat, prevent illegal timber extraction, propagate from multiple parent trees, and distinguish conservation planting from fruit-only cultivation.',
+    habitat:
+        'A wet-tropical tree native to the Philippines, Borneo, and Taiwan and cultivated more widely for its edible velvet apple fruit. Kew currently accepts the name Diospyros blancoi and treats Diospyros discolor as a synonym.',
+    ecologicalImportance:
+        'Its flowers and fruits support insects, fruit-eating birds, bats, and other animals. The dense crown adds shade, carbon storage, and vertical structure to forest habitat.',
+    leafDetails:
+        'Leaves are simple, alternate, oblong, and leathery. Their upper surface is glossy green while the lower surface is often paler and softly hairy.',
+    barkDetails:
+        'Kamagong can form very dark, dense heartwood known as Philippine ebony. High timber value and slow replacement make mature wild trees particularly vulnerable to illegal cutting.',
+    conservationDetails:
+        'DENR lists Kamagong as Vulnerable. Protect fruiting adults and their habitat, prevent illegal timber extraction, propagate from multiple parent trees, and distinguish conservation planting from fruit-only cultivation.',
   ),
   TreeModel(
     name: 'Kalantas',
@@ -168,9 +253,11 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Toona_calantas.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:579298-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
     habitat:
-        'Kalantas is native to Philippine lowland forests, including the remaining forest fragments and protected landscapes of Cavite. It grows best in warm, humid sites where deep soil and a healthy forest canopy support seedlings and mature trees.',
+        'A wet-tropical tree native across western and central Malesia, including the Philippines, and eastward to New Guinea and the Bismarck Archipelago. Verified local occurrence should be established from field or herbarium records rather than assumed from the national range.',
     ecologicalImportance:
         'Kalantas provides shelter, shade, and feeding space for insects, birds, and other forest wildlife. Its roots help hold soil in place, while its canopy stores carbon, cools the surrounding habitat, and supports the recovery of a layered native forest. Because valuable timber and habitat loss have reduced its population, every surviving mature tree can serve as a seed source for future restoration. Protecting Kalantas means preserving both a distinctive Philippine species and the wider community of life that depends on healthy native forests.',
     leafDetails:
@@ -186,12 +273,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Cynometra_inaequifolia.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:489426-1',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A Philippine-endemic member of the bean family found in native lowland forest. Its survival depends on retaining suitable forest habitat and natural regeneration.',
-    ecologicalImportance: 'As a native legume tree it contributes to forest structure, offers resources to insects and other wildlife, and helps protect soil beneath its crown.',
-    leafDetails: 'Its compound leaves typically have a small number of unequal-sided leaflets, reflected in the name inaequifolia. Young growth may differ noticeably in color from mature foliage.',
-    barkDetails: 'The trunk supports a compact native canopy and the living communities associated with bark and wood. Scarce mature trees are more valuable as reproductive sources than as timber.',
-    conservationDetails: 'DENR DAO 2017-11 lists Dila-dila as Vulnerable. Known trees should be mapped and protected, with seeds propagated from several parents and returned only to ecologically suitable native sites.',
+    habitat:
+        'A Philippine-endemic member of the bean family found in native lowland forest. Its survival depends on retaining suitable forest habitat and natural regeneration.',
+    ecologicalImportance:
+        'As a native legume tree it contributes to forest structure, offers resources to insects and other wildlife, and helps protect soil beneath its crown.',
+    leafDetails:
+        'Its compound leaves typically have a small number of unequal-sided leaflets, reflected in the name inaequifolia. Young growth may differ noticeably in color from mature foliage.',
+    barkDetails:
+        'The trunk supports a compact native canopy and the living communities associated with bark and wood. Scarce mature trees are more valuable as reproductive sources than as timber.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Dila-dila as Vulnerable. Known trees should be mapped and protected, with seeds propagated from several parents and returned only to ecologically suitable native sites.',
   ),
   TreeModel(
     name: 'Haikan',
@@ -199,12 +293,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Camellia_lanceolata.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:828528-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A native evergreen of humid forest, generally associated with shaded woodland conditions. It is a wild relative of tea and ornamental camellias.',
-    ecologicalImportance: 'Its evergreen foliage and flowers contribute year-round cover and seasonal resources for forest insects, while its roots and litter help maintain forest soil.',
-    leafDetails: 'Leaves are simple, alternate, leathery, and lance-shaped, with a pointed tip and finely toothed margin—features consistent with its scientific name lanceolata.',
-    barkDetails: 'The relatively modest woody stem supports an evergreen crown. Its conservation value lies in maintaining native plant diversity and the genetic variety of wild camellia relatives.',
-    conservationDetails: 'Under the DAO 2017-11-era GreenAtlas classification, Haikan is presented as Vulnerable. It deserves habitat protection and responsible, documented collection, especially where local populations are small.',
+    habitat:
+        'An evergreen shrub of the wet tropical biome, native to northern Borneo, the Philippines, Sulawesi, and Bali. It is a wild relative of tea and ornamental camellias.',
+    ecologicalImportance:
+        'Its evergreen foliage and flowers contribute year-round cover and seasonal resources for forest insects, while its roots and litter help maintain forest soil.',
+    leafDetails:
+        'Leaves are simple, alternate, leathery, and lance-shaped, with a pointed tip and finely toothed margin—features consistent with its scientific name lanceolata.',
+    barkDetails:
+        'The relatively modest woody stem supports an evergreen crown. Its conservation value lies in maintaining native plant diversity and the genetic variety of wild camellia relatives.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Haikan is presented as Vulnerable. It deserves habitat protection and responsible, documented collection, especially where local populations are small.',
   ),
   TreeModel(
     name: 'Malachico / Mamolko',
@@ -212,12 +313,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Glenniea_philippinensis.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:783178-1',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A native forest tree of the Philippines and nearby parts of Southeast Asia, occurring in lowland tropical forest where mature stands and animal dispersers remain.',
-    ecologicalImportance: 'As a member of the soapberry family, it contributes flowers and fruits to forest food webs while adding canopy cover, carbon storage, and leaf litter.',
-    leafDetails: 'Leaves are compound, with several leaflets arranged along a central stalk. This leaflet pattern is a useful field character for separating it from simple-leaved neighbors.',
-    barkDetails: 'Its woody trunk forms part of the permanent forest framework. Mature specimens are important genetic and reproductive resources and should not be removed without lawful scientific justification.',
-    conservationDetails: 'DENR lists Malachico or Mamolko as Vulnerable. Protect remaining habitat and fruiting trees, limit destructive collection, maintain several seed sources, and monitor restored seedlings over many years.',
+    habitat:
+        'A wet-tropical forest tree native to southern Indochina, northern Borneo, and the Philippines; Kew records it from Thailand, Vietnam, Borneo, and the Philippines.',
+    ecologicalImportance:
+        'As a member of the soapberry family, it contributes flowers and fruits to forest food webs while adding canopy cover, carbon storage, and leaf litter.',
+    leafDetails:
+        'Leaves are compound, with several leaflets arranged along a central stalk. This leaflet pattern is a useful field character for separating it from simple-leaved neighbors.',
+    barkDetails:
+        'Its woody trunk forms part of the permanent forest framework. Mature specimens are important genetic and reproductive resources and should not be removed without lawful scientific justification.',
+    conservationDetails:
+        'DENR lists Malachico or Mamolko as Vulnerable. Protect remaining habitat and fruiting trees, limit destructive collection, maintain several seed sources, and monitor restored seedlings over many years.',
   ),
   TreeModel(
     name: 'Bagarilau',
@@ -225,12 +333,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Cryptocarya_ampla.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:463790-1',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A Philippine-endemic tree in the laurel family, associated with native lowland to montane forest. Forest continuity is important for its regeneration and dispersal.',
-    ecologicalImportance: 'Its fleshy fruits can support forest animals, while its evergreen crown stores carbon, intercepts rain, and supplies litter to the soil community.',
-    leafDetails: 'Leaves are simple, alternate, evergreen, and generally broad to elliptic. As in many laurels, the foliage may be aromatic when crushed, though field identification should use several characters.',
-    barkDetails: 'The trunk and bark support lichens, insects, and other small organisms. Mature endemic trees are important seed reservoirs and should be retained within intact forest.',
-    conservationDetails: 'Under the DAO 2017-11-era GreenAtlas classification, Bagarilau is presented as Vulnerable. Habitat protection, population surveys, verified seed collection, nursery propagation, and long-term survival checks are appropriate recovery actions.',
+    habitat:
+        'A wet-tropical tree in the laurel family native to the Philippines and southern Sulawesi. Forest continuity is important for its regeneration and dispersal.',
+    ecologicalImportance:
+        'Its fleshy fruits can support forest animals, while its evergreen crown stores carbon, intercepts rain, and supplies litter to the soil community.',
+    leafDetails:
+        'Leaves are simple, alternate, evergreen, and generally broad to elliptic. As in many laurels, the foliage may be aromatic when crushed, though field identification should use several characters.',
+    barkDetails:
+        'The trunk and bark support lichens, insects, and other small organisms. Mature endemic trees are important seed reservoirs and should be retained within intact forest.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Bagarilau is presented as Vulnerable. Habitat protection, population surveys, verified seed collection, nursery propagation, and long-term survival checks are appropriate recovery actions.',
   ),
   TreeModel(
     name: 'Nato',
@@ -238,12 +353,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Palaquium_luzoniense.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788344-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A native sapotaceous tree of Philippine lowland forest. It favors warm, humid forest conditions where seedlings can develop beneath and eventually enter the canopy.',
-    ecologicalImportance: 'Its flowers and fleshy fruits support forest fauna, while the evergreen canopy stores carbon, protects soil, and contributes to a multilayered forest.',
-    leafDetails: 'Leaves are simple, alternate, leathery, and often crowded near twig tips. The lower surface may be paler than the glossy upper surface.',
-    barkDetails: 'Cut tissues of many Palaquium species release milky latex. The trunk has also been valued for wood, so legal sourcing and retention of mature wild trees remain important.',
-    conservationDetails: 'Under the DAO 2017-11-era GreenAtlas classification, Nato is presented as Vulnerable. Local populations still need protection from forest loss, poor regeneration, and unsustainable cutting.',
+    habitat:
+        'A wet-tropical sapotaceous tree native to the Philippines and Sulawesi. Its occurrence in the Philippines is supported by Kew’s taxonomic and distribution records.',
+    ecologicalImportance:
+        'Its flowers and fleshy fruits support forest fauna, while the evergreen canopy stores carbon, protects soil, and contributes to a multilayered forest.',
+    leafDetails:
+        'Leaves are simple, alternate, leathery, and often crowded near twig tips. The lower surface may be paler than the glossy upper surface.',
+    barkDetails:
+        'Cut tissues of many Palaquium species release milky latex. The trunk has also been valued for wood, so legal sourcing and retention of mature wild trees remain important.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Nato is presented as Vulnerable. Local populations still need protection from forest loss, poor regeneration, and unsustainable cutting.',
   ),
   TreeModel(
     name: 'Malak-malak',
@@ -251,12 +373,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Palaquium_philippense.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788385-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A Philippine-endemic Palaquium of native tropical forest. It relies on forest habitat and animal-assisted ecological processes for long-term regeneration.',
-    ecologicalImportance: 'The evergreen crown, flowers, and fleshy fruits contribute food and shelter to forest wildlife; roots and litter help retain soil nutrients and moisture.',
-    leafDetails: 'Leaves are simple, alternate, and leathery, commonly clustered toward the ends of twigs. Their durable texture suits an evergreen forest canopy.',
-    barkDetails: 'The woody stem may release milky latex when damaged, a familiar trait in the sapodilla family. Endemic mature trees should be protected as local seed and habitat sources.',
-    conservationDetails: 'Under the DAO 2017-11-era GreenAtlas classification, Malak-malak is presented as Vulnerable. Because it is Philippine-endemic, habitat protection, verified identification, and locally diverse propagation remain prudent safeguards.',
+    habitat:
+        'A Philippine-endemic Palaquium of native tropical forest. It relies on forest habitat and animal-assisted ecological processes for long-term regeneration.',
+    ecologicalImportance:
+        'The evergreen crown, flowers, and fleshy fruits contribute food and shelter to forest wildlife; roots and litter help retain soil nutrients and moisture.',
+    leafDetails:
+        'Leaves are simple, alternate, and leathery, commonly clustered toward the ends of twigs. Their durable texture suits an evergreen forest canopy.',
+    barkDetails:
+        'The woody stem may release milky latex when damaged, a familiar trait in the sapodilla family. Endemic mature trees should be protected as local seed and habitat sources.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Malak-malak is presented as Vulnerable. Because it is Philippine-endemic, habitat protection, verified identification, and locally diverse propagation remain prudent safeguards.',
   ),
   TreeModel(
     name: 'Anang',
@@ -264,12 +393,19 @@ const List<TreeModel> threatenedTrees = [
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
     remoteModelFile: 'Diospyros_pyrrhocarpa.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:322921-1',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    habitat: 'A native Diospyros tree of lowland tropical forest in the Philippines and parts of Southeast Asia. It needs surviving forest and reproductive adults for natural renewal.',
-    ecologicalImportance: 'Its crown contributes shade and carbon storage, while flowers and fruits add resources for insects and fruit-eating animals in the forest food web.',
-    leafDetails: 'Leaves are simple, alternate, and leathery, generally elliptic to oblong with an unbroken margin. Multiple characters, including fruit and flowers, are needed for reliable identification.',
-    barkDetails: 'As an ebony relative, Anang produces dense wood. Mature trees are slow to replace and are ecologically more valuable when retained as habitat and seed sources.',
-    conservationDetails: 'DENR lists Anang as Vulnerable. Conserve known stands, prevent unauthorized cutting, protect fruiting adults, collect seed across several parents, and monitor planted trees through establishment.',
+    habitat:
+        'A native Diospyros tree of lowland tropical forest in the Philippines and parts of Southeast Asia. It needs surviving forest and reproductive adults for natural renewal.',
+    ecologicalImportance:
+        'Its crown contributes shade and carbon storage, while flowers and fruits add resources for insects and fruit-eating animals in the forest food web.',
+    leafDetails:
+        'Leaves are simple, alternate, and leathery, generally elliptic to oblong with an unbroken margin. Multiple characters, including fruit and flowers, are needed for reliable identification.',
+    barkDetails:
+        'As an ebony relative, Anang produces dense wood. Mature trees are slow to replace and are ecologically more valuable when retained as habitat and seed sources.',
+    conservationDetails:
+        'DENR lists Anang as Vulnerable. Conserve known stands, prevent unauthorized cutting, protect fruiting adults, collect seed across several parents, and monitor planted trees through establishment.',
   ),
 ];
 
@@ -781,6 +917,74 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
+  Future<void> _openReference(PlantReference reference) async {
+    final uri = Uri.parse(reference.url);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The reference could not be opened.')),
+      );
+    }
+  }
+
+  Widget _buildReferencesSection(List<PlantReference> references) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        iconColor: const Color(0xFFB9D9BB),
+        collapsedIconColor: Colors.white54,
+        title: const Text(
+          'References',
+          style: TextStyle(
+            color: Color(0xFFB9D9BB),
+            fontFamily: 'Poppins-Bold',
+            fontSize: 11,
+          ),
+        ),
+        children: references
+            .map(
+              (reference) => InkWell(
+                onTap: () => _openReference(reference),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.open_in_new,
+                          size: 11,
+                          color: Colors.white54,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          reference.citation,
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 9.5,
+                            height: 1.35,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.white38,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
   void _restartGrowth() {
     sendToUnity('Plant_Anchor', 'ResetPlant', 'reset');
     setState(() {
@@ -1089,6 +1293,9 @@ class _Ar_ViewState extends State<Ar_View> {
                                           'Conservation',
                                           _viewingArTree!.conservationDetails,
                                         ),
+                                        _buildReferencesSection(
+                                          _viewingArTree!.references,
+                                        ),
                                         const SizedBox(height: 8),
                                         TextButton.icon(
                                           onPressed: _restartGrowth,
@@ -1298,32 +1505,34 @@ class _Ar_ViewState extends State<Ar_View> {
         child: Center(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Calculate responsive dimensions based on screen size
-              double width = constraints.maxWidth * 0.95;
-              double height = width * (803 / 412); // Maintain aspect ratio
+              const shelfAspectRatio = 412 / 803;
+              final widthFromHeight = constraints.maxHeight * shelfAspectRatio;
+              final width = math.min(
+                constraints.maxWidth * 0.98,
+                widthFromHeight,
+              );
+              final height = width / shelfAspectRatio;
 
-              return Container(
+              return SizedBox(
                 width: width,
                 height: height,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: const AssetImage('assets/plant_shelf.png'),
-                    fit: BoxFit.cover,
-                    onError: (exception, stackTrace) {},
-                  ),
-                  color: isDark ? const Color(0xFF1E261F) : Colors.grey[300],
-                ),
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    // Dark overlay (~10% opacity for enhanced contrast)
-                    Container(
-                      width: width,
-                      height: height,
+                    Image.asset(
+                      'assets/plant_shelf.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => ColoredBox(
+                        color: isDark
+                            ? const Color(0xFF1E261F)
+                            : Colors.grey[300]!,
+                      ),
+                    ),
+                    ColoredBox(
                       color: isDark
                           ? Colors.black.withOpacity(0.4)
                           : Colors.black.withOpacity(0.1),
                     ),
-                    // Overlay buttons positioned on plants
                     _buildPlantOverlays(width, height, isDark),
                   ],
                 ),
@@ -1338,50 +1547,42 @@ class _Ar_ViewState extends State<Ar_View> {
 
   Widget _buildPlantOverlays(
       double containerWidth, double containerHeight, bool isDark) {
-    // Scale factors based on responsive dimensions
-    const double baseWidth = 412;
-    const double baseHeight = 803;
-    final double scaleX = containerWidth / baseWidth;
-    final double scaleY = containerHeight / baseHeight;
+    const columns = [56.0, 156.0, 256.0, 356.0];
+    const baseWidth = 412.0;
+    const baseHeight = 803.0;
+    final scaleX = containerWidth / baseWidth;
+    final scaleY = containerHeight / baseHeight;
+    final cardWidth = (containerWidth * 0.23).clamp(76.0, 110.0).toDouble();
+    final nameBoxHeight = (containerWidth * 0.087).clamp(32.0, 42.0).toDouble();
+    final nameFontSize = (containerWidth * 0.023).clamp(8.0, 11.0).toDouble();
+    final buttonHeight = (containerWidth * 0.073).clamp(28.0, 36.0).toDouble();
+    final buttonFontSize = (containerWidth * 0.019).clamp(7.0, 9.0).toDouble();
+    final cardGap = (containerWidth * 0.014).clamp(4.0, 7.0).toDouble();
+    final cardHeight = nameBoxHeight + cardGap + buttonHeight;
 
     // Plant positions on the shelf (center points) - base values for 412x803
     final plantPositions = [
       // Top shelf
-      _PlantPosition(
-          left: 95, top: 190, plant: threatenedTrees[0]), // Subyang (CR)
-      _PlantPosition(
-          left: 180, top: 170, plant: threatenedTrees[1]), // Molave (EN)
-      _PlantPosition(
-          left: 250, top: 170, plant: threatenedTrees[2]), // Manggachapui (EN)
-      _PlantPosition(
-          left: 360, top: 190, plant: threatenedTrees[3]), // Kubili (EN)
+      _PlantPosition(left: columns[0], top: 180, plant: threatenedTrees[0]),
+      _PlantPosition(left: columns[1], top: 180, plant: threatenedTrees[1]),
+      _PlantPosition(left: columns[2], top: 180, plant: threatenedTrees[2]),
+      _PlantPosition(left: columns[3], top: 180, plant: threatenedTrees[3]),
       // Second shelf
-      _PlantPosition(left: 95, top: 310, plant: threatenedTrees[4]), // Dao (VU)
-      _PlantPosition(
-          left: 180, top: 290, plant: threatenedTrees[5]), // Paho (VU)
-      _PlantPosition(
-          left: 270, top: 290, plant: threatenedTrees[6]), // Narra (VU)
-      _PlantPosition(
-          left: 350, top: 310, plant: threatenedTrees[7]), // Kamagong (VU)
+      _PlantPosition(left: columns[0], top: 300, plant: threatenedTrees[4]),
+      _PlantPosition(left: columns[1], top: 300, plant: threatenedTrees[5]),
+      _PlantPosition(left: columns[2], top: 300, plant: threatenedTrees[6]),
+      _PlantPosition(left: columns[3], top: 300, plant: threatenedTrees[7]),
       // Middle/Hanging section
-      _PlantPosition(
-          left: 95, top: 430, plant: threatenedTrees[8]), // Kalantas (VU)
-      _PlantPosition(
-          left: 355, top: 430, plant: threatenedTrees[9]), // Dila-dila (VU)
+      _PlantPosition(left: columns[0], top: 430, plant: threatenedTrees[8]),
+      _PlantPosition(left: columns[3], top: 430, plant: threatenedTrees[9]),
       // Third shelf
-      _PlantPosition(
-          left: 95, top: 545, plant: threatenedTrees[10]), // Haikan (VU)
-      _PlantPosition(
-          left: 175, top: 540, plant: threatenedTrees[11]), // Malachio (VU)
-      _PlantPosition(
-          left: 260, top: 540, plant: threatenedTrees[12]), // Bagarilau (VU)
-      _PlantPosition(
-          left: 355, top: 550, plant: threatenedTrees[13]), // Nato (VU)
+      _PlantPosition(left: columns[0], top: 545, plant: threatenedTrees[10]),
+      _PlantPosition(left: columns[1], top: 545, plant: threatenedTrees[11]),
+      _PlantPosition(left: columns[2], top: 545, plant: threatenedTrees[12]),
+      _PlantPosition(left: columns[3], top: 545, plant: threatenedTrees[13]),
       // Bottom shelf
-      _PlantPosition(
-          left: 80, top: 655, plant: threatenedTrees[14]), // Malak-malak (VU)
-      _PlantPosition(
-          left: 355, top: 655, plant: threatenedTrees[15]), // Katmon (VU)
+      _PlantPosition(left: columns[0], top: 655, plant: threatenedTrees[14]),
+      _PlantPosition(left: columns[3], top: 655, plant: threatenedTrees[15]),
     ];
 
     return SizedBox(
@@ -1391,11 +1592,17 @@ class _Ar_ViewState extends State<Ar_View> {
         children: plantPositions
             .map(
               (pos) => Positioned(
-                left: pos.left * scaleX,
-                top: pos.top * scaleY,
-                child: Transform.translate(
-                  offset: const Offset(-55, -35),
-                  child: _buildPlantButton(pos.plant, isDark),
+                left: (pos.left * scaleX) - (cardWidth / 2),
+                top: (pos.top * scaleY) - (cardHeight / 2),
+                child: _buildPlantButton(
+                  pos.plant,
+                  isDark,
+                  cardWidth: cardWidth,
+                  nameBoxHeight: nameBoxHeight,
+                  nameFontSize: nameFontSize,
+                  buttonHeight: buttonHeight,
+                  buttonFontSize: buttonFontSize,
+                  gap: cardGap,
                 ),
               ),
             )
@@ -1404,72 +1611,94 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
-  Widget _buildPlantButton(TreeModel plant, bool isDark) {
+  Widget _buildPlantButton(
+    TreeModel plant,
+    bool isDark, {
+    required double cardWidth,
+    required double nameBoxHeight,
+    required double nameFontSize,
+    required double buttonHeight,
+    required double buttonFontSize,
+    required double gap,
+  }) {
     final modelFile = plant.remoteModelFile;
     final isModelDownloaded =
         modelFile != null && _downloadedModelFiles.contains(modelFile);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.black87 : Colors.black54,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                plant.name,
-                style: TextStyle(
-                  color: plant.color,
-                  fontFamily: 'Poppins-Bold',
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  shadows: const [
-                    Shadow(
-                      offset: Offset(1, 1),
-                      blurRadius: 3,
-                      color: Colors.black54,
-                    ),
-                  ],
+    return SizedBox(
+      width: cardWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                height: nameBoxHeight,
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black87 : Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                textAlign: TextAlign.center,
+                child: Text(
+                  plant.name,
+                  style: TextStyle(
+                    color: plant.color,
+                    fontFamily: 'Poppins-Bold',
+                    fontSize: nameFontSize,
+                    fontWeight: FontWeight.bold,
+                    shadows: const [
+                      Shadow(
+                        offset: Offset(1, 1),
+                        blurRadius: 3,
+                        color: Colors.black54,
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 6),
-        ElevatedButton(
-          onPressed: _shelfDownloadingSpeciesID == null
-              ? () => _viewPlantInAR(plant)
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? leafAccent : const Color(0xFF517156),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            minimumSize: const Size(60, 24),
-          ),
-          child: Text(
-            _shelfDownloadingSpeciesID ==
-                    plant.scientificName.trim().replaceAll(RegExp(r'\s+'), '_')
-                ? 'Downloading $_shelfDownloadPercent%'
-                : modelFile == null
-                    ? 'Model unavailable'
-                    : isModelDownloaded
-                        ? 'View in AR'
-                        : 'Download AR',
-            style: TextStyle(
-              color: isDark ? Colors.black : Colors.white,
-              fontFamily: 'Poppins-Bold',
-              fontSize: 8,
+          SizedBox(height: gap),
+          ElevatedButton(
+            onPressed: _shelfDownloadingSpeciesID == null
+                ? () => _viewPlantInAR(plant)
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? leafAccent : const Color(0xFF517156),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              minimumSize: Size(cardWidth, buttonHeight),
+              maximumSize: Size(cardWidth, buttonHeight),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _shelfDownloadingSpeciesID ==
+                        plant.scientificName
+                            .trim()
+                            .replaceAll(RegExp(r'\s+'), '_')
+                    ? 'Downloading $_shelfDownloadPercent%'
+                    : modelFile == null
+                        ? 'Model unavailable'
+                        : isModelDownloaded
+                            ? 'View in AR'
+                            : 'Download AR',
+                style: TextStyle(
+                  color: isDark ? Colors.black : Colors.white,
+                  fontFamily: 'Poppins-Bold',
+                  fontSize: buttonFontSize,
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
