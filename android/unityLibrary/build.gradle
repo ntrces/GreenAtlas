@@ -30,7 +30,8 @@ android {
         targetSdk 36
 
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a"
+            // The Flutter release package intentionally ships ARM64 AR only.
+            abiFilters "arm64-v8a"
             debugSymbolLevel "none"
         }
 
@@ -209,4 +210,4 @@ def execCommand(String workDir, List<String> command, Map<String, String> env = 
         error.append("Command Line:\n${command.join(' ')}\n");
         throw new GradleException(error.toString())
     }
-}
+}

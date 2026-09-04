@@ -320,6 +320,8 @@ public sealed class InteractivePlantAR : MonoBehaviour
             yield break;
         }
 
+        RepairTransparentLeafMaterials(placedPlant);
+
         Vector3 importedScale = placedPlant.transform.localScale;
         Bounds importedBounds = CalculateBounds(placedPlant);
         float importedHeight = Mathf.Max(importedBounds.size.y, 0.001f);
@@ -338,6 +340,54 @@ public sealed class InteractivePlantAR : MonoBehaviour
         growthComplete = true;
         SendToFlutter.Send("growth_complete");
         SendToFlutter.Send("status:Walk around the tree and expand Information to learn more.");
+    }
+
+    private static void RepairTransparentLeafMaterials(GameObject modelRoot)
+    {
+        Shader transparentShader = Shader.Find("glTF/Unlit");
+        if (transparentShader == null)
+        {
+            Debug.LogWarning("glTF/Unlit was not included in this build.");
+            return;
+        }
+
+        foreach (Renderer modelRenderer in modelRoot.GetComponentsInChildren<Renderer>(true))
+        {
+            Material[] materials = modelRenderer.materials;
+            bool changed = false;
+
+            for (int index = 0; index < materials.Length; index++)
+            {
+                Material material = materials[index];
+                if (material == null)
+                    continue;
+
+                string materialName = material.name.ToLowerInvariant();
+                bool looksLikeLeaf =
+                    materialName.Contains("leaf") ||
+                    materialName.Contains("leaves") ||
+                    materialName.Contains("foliage");
+                bool isTransparent = material.renderQueue >= 3000;
+                if (!looksLikeLeaf && !isTransparent)
+                    continue;
+
+                material.shader = transparentShader;
+                material.SetFloat("_Mode", 2f);
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.SetInt("_ZWrite", 0);
+                material.SetInt("_CullMode", 0);
+                material.EnableKeyword("_ALPHABLEND_ON");
+                material.DisableKeyword("_ALPHATEST_ON");
+                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                material.SetOverrideTag("RenderType", "Transparent");
+                material.renderQueue = 3000;
+                changed = true;
+            }
+
+            if (changed)
+                modelRenderer.materials = materials;
+        }
     }
 
     private void ShowPlanes(bool visible)
