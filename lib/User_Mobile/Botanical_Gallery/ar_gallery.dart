@@ -666,7 +666,7 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined),
               activeIcon: Icon(Icons.view_in_ar_rounded),
-              label: "AR View",
+              label: "AR Garden",
             ),
           ],
         ),

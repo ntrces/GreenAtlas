@@ -1470,7 +1470,7 @@ class _Ar_ViewState extends State<Ar_View> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "AR View",
+              "AR Garden",
               style: TextStyle(
                 fontFamily: 'Poppins-Bold',
                 fontSize: 15,
@@ -1754,7 +1754,7 @@ class _Ar_ViewState extends State<Ar_View> {
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined),
               activeIcon: Icon(Icons.view_in_ar_rounded),
-              label: "AR View",
+              label: "AR Garden",
             ),
           ],
         ),
