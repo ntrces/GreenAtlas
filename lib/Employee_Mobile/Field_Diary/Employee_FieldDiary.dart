@@ -7,6 +7,7 @@ import '../../theme_provider.dart';
 import '../../UserProfile/user_profile.dart';
 import '../EmployeeNotification/employeenotif.dart';
 import '../../components/notification_badge.dart';
+import '../../services/user_session_service.dart';
 
 // Navigation Targets
 import '../Field_Diary/Collect/collect01.dart'; 
@@ -22,7 +23,7 @@ class FieldObservationScreen extends StatefulWidget {
 
 class _FieldObservationScreenState extends State<FieldObservationScreen> {
   final _supabase = Supabase.instance.client;
-  String? get _userId => _supabase.auth.currentUser?.id;
+  String? get _userId => _supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
 
   final Color darkGreen = const Color(0xFF2D3E2D);
   final Color forestGreen = const Color(0xFF5D7A5D);
@@ -32,7 +33,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
-    if (_userId == null) {
+    if (_userId == null && !UserSessionService.isLoggedIn) {
       return const Scaffold(body: Center(child: Text("Please sign in.")));
     }
 
@@ -235,12 +236,14 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
       ),
       // Drafts with dynamic count
       StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _supabase
-            .from('field_entries')
-            .select()
-            .eq('user_id', _userId!)
-            .eq('status', 'DRAFT')
-            .asStream(),
+        stream: _userId != null
+            ? _supabase
+                .from('field_entries')
+                .select()
+                .eq('user_id', _userId!)
+                .eq('status', 'DRAFT')
+                .asStream()
+            : null,
         builder: (context, snapshot) {
           final draftCount = snapshot.data?.length ?? 0;
           return _actionRow(
@@ -257,12 +260,14 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
       ),
       // Sent with dynamic count
       StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _supabase
-            .from('field_entries')
-            .select()
-            .eq('user_id', _userId!)
-            .neq('status', 'DRAFT')
-            .asStream(),
+        stream: _userId != null
+            ? _supabase
+                .from('field_entries')
+                .select()
+                .eq('user_id', _userId!)
+                .neq('status', 'DRAFT')
+                .asStream()
+            : null,
         builder: (context, snapshot) {
           final sentCount = snapshot.data?.length ?? 0;
           return _actionRow(
@@ -382,12 +387,14 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
 
   Widget _buildRecentEntriesList(bool isDark, TextTheme textTheme) {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase
-          .from('field_entries')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', _userId!)
-          .order('created_at', ascending: false)
-          .limit(5),
+      stream: _userId != null
+          ? _supabase
+              .from('field_entries')
+              .stream(primaryKey: ['id'])
+              .eq('user_id', _userId!)
+              .order('created_at', ascending: false)
+              .limit(5)
+          : null,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator(color: Color(0xFF5D7A5D)));

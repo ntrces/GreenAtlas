@@ -47,6 +47,8 @@ class TreeModel {
   final String leafDetails;
   final String barkDetails;
   final String conservationDetails;
+  final String? modelCredit;
+  final String? modelCreditUrl;
 
   const TreeModel({
     required this.name,
@@ -65,6 +67,8 @@ class TreeModel {
         'Its trunk and bark support the canopy, transport water and nutrients, and provide habitat for small forest organisms. Mature trees are especially important seed sources.',
     this.conservationDetails =
         'Protecting this threatened native tree requires conserving its habitat, preventing illegal cutting, supporting responsible propagation, and monitoring planted seedlings until they mature.',
+    this.modelCredit,
+    this.modelCreditUrl,
   });
 
   List<PlantReference> get references => [
@@ -80,6 +84,11 @@ class TreeModel {
           "Pelser, P. B., Barcelona, J. F., & Nickrent, D. L. (Eds.). (2011–present). Co's Digital Flora of the Philippines.",
           _digitalFloraUrl,
         ),
+        if (modelCredit != null && modelCreditUrl != null)
+          PlantReference(
+            '3D Model Attribution: $modelCredit',
+            modelCreditUrl!,
+          ),
       ];
 }
 
@@ -96,6 +105,8 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77222162-1',
     conservationStatus: 'Critically Endangered (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A Philippine-endemic dipterocarp recorded by Kew from Samar. It is a tree of the wet tropical biome; its restricted national distribution makes protection of verified wild populations especially important.',
     ecologicalImportance:
@@ -176,6 +187,8 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:69546-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A large tree of lowland rainforest, often favoring moist valleys, river margins, and deep soils. It occurs in the Philippines and elsewhere in Southeast Asia and the Pacific.',
     ecologicalImportance:
@@ -196,6 +209,8 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:69877-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model from Sketchfab (Pahutan - Mangifera altissima)',
+    modelCreditUrl: 'https://skfb.ly/osUzz',
     habitat:
         'A wet-tropical wild mango native from the Lesser Sunda Islands and Sulawesi through the Philippines to Papuasia and the Solomon Islands.',
     ecologicalImportance:
@@ -356,6 +371,8 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788344-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A wet-tropical sapotaceous tree native to the Philippines and Sulawesi. Its occurrence in the Philippines is supported by Kew’s taxonomic and distribution records.',
     ecologicalImportance:
@@ -376,6 +393,8 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788385-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A Philippine-endemic Palaquium of native tropical forest. It relies on forest habitat and animal-assisted ecological processes for long-term regeneration.',
     ecologicalImportance:
@@ -985,6 +1004,236 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
+  Widget _buildModelCreditSection(String credit, String? url) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFB9D9BB).withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.view_in_ar, size: 14, color: Color(0xFFB9D9BB)),
+                SizedBox(width: 6),
+                Text(
+                  '3D Model Attribution',
+                  style: TextStyle(
+                    color: Color(0xFFB9D9BB),
+                    fontFamily: 'Poppins-Bold',
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              credit,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+            if (url != null && url.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => _openUrl(url),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.open_in_new, size: 12, color: Color(0xFFB9D9BB)),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        url,
+                        style: const TextStyle(
+                          color: Color(0xFFB9D9BB),
+                          fontSize: 11,
+                          decoration: TextDecoration.underline,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the link.')),
+      );
+    }
+  }
+
+  void _showModelCreditsDialog(bool isDark) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: getCardBg(isDark),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.view_in_ar, color: isDark ? leafAccent : const Color(0xFF517156)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '3D Model Credits',
+                  style: TextStyle(
+                    fontFamily: 'Poppins-Bold',
+                    fontSize: 16,
+                    color: getTextColor(isDark),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'The following 3D models were modified and integrated for the GreenAtlas interactive AR experience:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: getSubtextColor(isDark),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildCreditTile(
+                  'Mangifera altissima (Pahutan)',
+                  'Modified 3D model from Sketchfab',
+                  'https://skfb.ly/osUzz',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Hopea quisumbingiana (Subyang / Quisumbing Gisok)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Dracontomelon dao (Dao)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Palaquium luzoniense (Nato)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Palaquium philippense (Malak-malak)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Close',
+                style: TextStyle(
+                  color: isDark ? leafAccent : const Color(0xFF517156),
+                  fontFamily: 'Poppins-Bold',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCreditTile(String species, String source, String url, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? Colors.white12 : Colors.black12,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              species,
+              style: TextStyle(
+                fontFamily: 'Poppins-Bold',
+                fontSize: 12,
+                color: getTextColor(isDark),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              source,
+              style: TextStyle(
+                fontSize: 11,
+                color: getSubtextColor(isDark),
+              ),
+            ),
+            const SizedBox(height: 5),
+            InkWell(
+              onTap: () => _openUrl(url),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.open_in_new,
+                    size: 11,
+                    color: isDark ? leafAccent : const Color(0xFF517156),
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      url,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? leafAccent : const Color(0xFF517156),
+                        decoration: TextDecoration.underline,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _restartGrowth() {
     sendToUnity('Plant_Anchor', 'ResetPlant', 'reset');
     setState(() {
@@ -1293,6 +1542,11 @@ class _Ar_ViewState extends State<Ar_View> {
                                           'Conservation',
                                           _viewingArTree!.conservationDetails,
                                         ),
+                                        if (_viewingArTree!.modelCredit != null)
+                                          _buildModelCreditSection(
+                                            _viewingArTree!.modelCredit!,
+                                            _viewingArTree!.modelCreditUrl,
+                                          ),
                                         _buildReferencesSection(
                                           _viewingArTree!.references,
                                         ),
@@ -1470,7 +1724,7 @@ class _Ar_ViewState extends State<Ar_View> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "AR View",
+              "AR Garden",
               style: TextStyle(
                 fontFamily: 'Poppins-Bold',
                 fontSize: 15,
@@ -1489,6 +1743,12 @@ class _Ar_ViewState extends State<Ar_View> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline, size: 22),
+            tooltip: '3D Model Credits',
+            color: isDark ? Colors.white70 : const Color(0xFF303D32),
+            onPressed: () => _showModelCreditsDialog(isDark),
+          ),
           UserNotificationBadge(
               iconColor: isDark ? Colors.white : const Color(0xFF303D32)),
           _buildProfileIcon(isDark),
@@ -1754,7 +2014,7 @@ class _Ar_ViewState extends State<Ar_View> {
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined),
               activeIcon: Icon(Icons.view_in_ar_rounded),
-              label: "AR View",
+              label: "AR Garden",
             ),
           ],
         ),

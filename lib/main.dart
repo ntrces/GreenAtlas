@@ -10,6 +10,7 @@ import 'User_Mobile/user_dashboard.dart';
 import 'Employee_Mobile/Employee_dashboard.dart'; 
 import 'Login_Signup_Mobile/login_screen.dart'; 
 import 'services/app_update_service.dart';
+import 'services/user_session_service.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -22,6 +23,8 @@ void main() async {
       authFlowType: AuthFlowType.pkce,
     ),
   );
+
+  await UserSessionService.init();
 
   runApp(
     MultiProvider(

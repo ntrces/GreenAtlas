@@ -9,6 +9,7 @@ import '../EmployeeNotification/employeenotif.dart';
 import '../../components/notification_badge.dart';
 import '../EmployeeMeeting/required_meetingview.dart';
 import '../Field_Diary/Employee_FieldDiary.dart';
+import '../../services/user_session_service.dart';
 
 class MeetingsScreen extends StatefulWidget {
   const MeetingsScreen({super.key});
@@ -28,7 +29,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
   final Color errorRed = const Color(0xFFD32F2F);
   final Color accentOrange = const Color(0xFFF2994A);
 
-  String? get _userId => _supabase.auth.currentUser?.id;
+  String? get _userId => _supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
 
   bool _isMeetingDone(Map<String, dynamic> m) {
     if (m['is_completed'] == true) return true;
@@ -49,7 +50,7 @@ class _MeetingsScreenState extends State<MeetingsScreen> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
-    if (_userId == null)
+    if (_userId == null && !UserSessionService.isLoggedIn)
       return const Scaffold(body: Center(child: Text("Please sign in.")));
 
     return Scaffold(

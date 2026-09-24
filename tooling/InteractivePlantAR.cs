@@ -344,13 +344,11 @@ public sealed class InteractivePlantAR : MonoBehaviour
 
     private static void RepairTransparentLeafMaterials(GameObject modelRoot)
     {
-        Shader transparentShader = Shader.Find("glTF/Unlit");
-        if (transparentShader == null)
-        {
-            Debug.LogWarning("glTF/Unlit was not included in this build.");
-            return;
-        }
+        // Try to load pre-bundled FoliageCutout material or shader from Resources
+        Material foliageTemplate = Resources.Load<Material>("FoliageCutout");
+        Shader foliageShader = foliageTemplate != null ? foliageTemplate.shader : Shader.Find("GreenAtlas/FoliageCutout");
 
+        int fixedCount = 0;
         foreach (Renderer modelRenderer in modelRoot.GetComponentsInChildren<Renderer>(true))
         {
             Material[] materials = modelRenderer.materials;
@@ -362,33 +360,150 @@ public sealed class InteractivePlantAR : MonoBehaviour
                 if (material == null)
                     continue;
 
-                string materialName = material.name.ToLowerInvariant();
-                bool looksLikeLeaf =
-                    materialName.Contains("leaf") ||
-                    materialName.Contains("leaves") ||
-                    materialName.Contains("foliage");
-                bool isTransparent = material.renderQueue >= 3000;
-                if (!looksLikeLeaf && !isTransparent)
+                if (!NeedsAlphaFix(material))
                     continue;
 
-                material.shader = transparentShader;
-                material.SetFloat("_Mode", 2f);
-                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                material.SetInt("_ZWrite", 0);
-                material.SetInt("_CullMode", 0);
-                material.EnableKeyword("_ALPHABLEND_ON");
-                material.DisableKeyword("_ALPHATEST_ON");
-                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                material.SetOverrideTag("RenderType", "Transparent");
-                material.renderQueue = 3000;
+                // Extract base color texture from glTF material
+                Texture leafTex = null;
+                if (material.HasProperty("baseColorTexture"))
+                    leafTex = material.GetTexture("baseColorTexture");
+                if (leafTex == null && material.HasProperty("_MainTex"))
+                    leafTex = material.GetTexture("_MainTex");
+                if (leafTex == null && material.HasProperty("_BaseMap"))
+                    leafTex = material.GetTexture("_BaseMap");
+
+                // If dedicated FoliageCutout shader is available, apply it
+                if (foliageShader != null)
+                {
+                    material.shader = foliageShader;
+                    if (leafTex != null)
+                    {
+                        material.SetTexture("_MainTex", leafTex);
+                        material.SetTexture("baseColorTexture", leafTex);
+                    }
+                    material.SetFloat("_Cutoff", 0.35f);
+                    material.renderQueue = 2450;
+                }
+                else
+                {
+                    // Fallback to configuring existing glTF material
+                    if (material.HasProperty("alphaCutoff"))
+                        material.SetFloat("alphaCutoff", 0.35f);
+                    if (material.HasProperty("_Cutoff"))
+                        material.SetFloat("_Cutoff", 0.35f);
+                    if (material.HasProperty("_AlphaClip"))
+                        material.SetFloat("_AlphaClip", 1f);
+                    if (material.HasProperty("_Mode"))
+                        material.SetFloat("_Mode", 1f);
+                    if (material.HasProperty("_SrcBlend"))
+                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                    if (material.HasProperty("_DstBlend"))
+                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                    if (material.HasProperty("_ZWrite"))
+                        material.SetInt("_ZWrite", 1);
+                    if (material.HasProperty("_CullMode"))
+                        material.SetInt("_CullMode", 0);
+                    if (material.HasProperty("_Cull"))
+                        material.SetInt("_Cull", 0);
+
+                    material.EnableKeyword("_ALPHATEST_ON");
+                    material.EnableKeyword("_ALPHAMODE_MASK");
+                    material.DisableKeyword("_ALPHABLEND_ON");
+                    material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    material.SetOverrideTag("RenderType", "TransparentCutout");
+                    material.renderQueue = 2450;
+                }
+
+                Debug.Log($"[InteractivePlantAR] Fixed leaf material '{material.name}' with shader '{material.shader?.name}', queue: {material.renderQueue}");
+                fixedCount++;
                 changed = true;
             }
 
             if (changed)
                 modelRenderer.materials = materials;
         }
+
+        Debug.Log($"[InteractivePlantAR] Repaired leaf materials to cutout: {fixedCount} material(s) updated.");
     }
+
+    private static bool NeedsAlphaFix(Material material)
+    {
+        // Match by material name (e.g. Leaves, Leaf, Foliage, Canopy)
+        string materialName = material.name.ToLowerInvariant();
+        if (materialName.Contains("leaf") ||
+            materialName.Contains("leaves") ||
+            materialName.Contains("foliage") ||
+            materialName.Contains("frond") ||
+            materialName.Contains("canopy") ||
+            materialName.Contains("branch") ||
+            materialName.Contains("twig") ||
+            materialName.Contains("needle") ||
+            materialName.Contains("vegetation"))
+            return true;
+
+        // Already flagged transparent or cutout by the glTF importer
+        if (material.renderQueue >= 2400)
+            return true;
+
+        // Check textures on the material
+        Texture tex = null;
+        if (material.HasProperty("baseColorTexture"))
+            tex = material.GetTexture("baseColorTexture");
+        else if (material.HasProperty("_BaseColorTexture"))
+            tex = material.GetTexture("_BaseColorTexture");
+        else if (material.HasProperty("_BaseMap"))
+            tex = material.GetTexture("_BaseMap");
+        else if (material.HasProperty("_MainTex"))
+            tex = material.GetTexture("_MainTex");
+
+        if (tex != null)
+        {
+            string texName = tex.name.ToLowerInvariant();
+            if (texName.Contains("leaf") ||
+                texName.Contains("leaves") ||
+                texName.Contains("foliage") ||
+                texName.Contains("canopy") ||
+                texName.Contains("branch"))
+                return true;
+
+            if (tex is Texture2D t2d && HasAlphaChannel(t2d))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasAlphaChannel(Texture2D texture)
+    {
+        var format = texture.format;
+        return format == TextureFormat.RGBA32 ||
+               format == TextureFormat.ARGB32 ||
+               format == TextureFormat.RGBA4444 ||
+               format == TextureFormat.BGRA32 ||
+               format == TextureFormat.RGBAHalf ||
+               format == TextureFormat.RGBAFloat ||
+               format == TextureFormat.DXT5 ||
+               format == TextureFormat.BC7 ||
+               format == TextureFormat.ETC2_RGBA8 ||
+               format == TextureFormat.ASTC_4x4 ||
+               format == TextureFormat.ASTC_5x5 ||
+               format == TextureFormat.ASTC_6x6 ||
+               format == TextureFormat.ASTC_8x8 ||
+               format == TextureFormat.ASTC_10x10 ||
+               format == TextureFormat.ASTC_12x12;
+    }
+
+    private static Shader FindFirstAvailableShader(params string[] names)
+    {
+        foreach (string name in names)
+        {
+            Shader s = Shader.Find(name);
+            if (s != null) return s;
+        }
+        return null;
+    }
+
 
     private void ShowPlanes(bool visible)
     {
