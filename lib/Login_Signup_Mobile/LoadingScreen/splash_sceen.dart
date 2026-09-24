@@ -6,6 +6,8 @@ import '../../User_Mobile/user_dashboard.dart';
 import '../../IntroPages/completeprofile.dart';
 import '../../IntroPages/intro1.dart';
 
+import '../../services/user_session_service.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -25,78 +27,106 @@ class _SplashScreenState extends State<SplashScreen> {
 
     try {
       final supabase = Supabase.instance.client;
-      
-      // Wait for auth state to be fully restored from device storage
-      // Listen to the first auth state change to know session is restored
-      bool sessionRestored = false;
-      await for (final authState in supabase.auth.onAuthStateChange.take(1)) {
-        sessionRestored = true;
-        if (!mounted) return;
-        break;
+
+      // Safely wait for auth state restoration without hanging offline
+      try {
+        await supabase.auth.onAuthStateChange
+            .take(1)
+            .first
+            .timeout(const Duration(milliseconds: 1500));
+      } catch (_) {
+        // Offline or timed out - continue to evaluate local and cached state
       }
-      
-      // Add small delay to ensure all data is loaded
+
       await Future.delayed(const Duration(milliseconds: 300));
-      
+      if (!mounted) return;
+
       final currentUser = supabase.auth.currentUser;
+      Map<String, dynamic>? userData;
 
+      // If we have an active user, attempt to fetch fresh profile from Supabase
       if (currentUser != null) {
-        // User is already logged in, check their profile
-        final userData = await supabase
-            .from('profiles')
-            .select('role, is_first_time')
-            .eq('id', currentUser.id)
-            .maybeSingle();
+        try {
+          userData = await supabase
+              .from('profiles')
+              .select('role, is_first_time')
+              .eq('id', currentUser.id)
+              .maybeSingle()
+              .timeout(const Duration(seconds: 3));
 
-        if (mounted) {
-          if (userData == null) {
-            // No profile exists yet - go to complete profile
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const CompleteProfileScreen()),
+          if (userData != null) {
+            final fetchedRole =
+                userData['role']?.toString().toLowerCase().trim() ?? 'user';
+            final fetchedIsFirstTime = userData['is_first_time'] ?? false;
+            await UserSessionService.saveSession(
+              userId: currentUser.id,
+              role: fetchedRole,
+              email: currentUser.email,
+              isFirstTime: fetchedIsFirstTime,
             );
-          } else {
-            final role = userData['role'] ?? 'user';
-            final isFirstTime = userData['is_first_time'] ?? true;
-
-            if (isFirstTime && role == 'user') {
-              // User needs to see intro pages first
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const Intro1Screen()),
-              );
-            } else if (role == 'employee') {
-              // Go to employee dashboard
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const EmployeePortal()),
-              );
-            } else {
-              // Go to user dashboard
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const UserDashboard()),
-              );
-            }
           }
+        } catch (netErr) {
+          debugPrint('Offline or error fetching fresh profile: $netErr');
+        }
+      }
+
+      final role = (userData?['role']?.toString().toLowerCase().trim()) ??
+          UserSessionService.currentUserRole?.toLowerCase().trim() ??
+          'user';
+      final isFirstTime = (userData?['is_first_time'] as bool?) ??
+          UserSessionService.isFirstTime;
+      final isEmployee =
+          role == 'employee' || role == 'admin' || UserSessionService.isEmployee;
+      final hasActiveSession = currentUser != null || UserSessionService.isLoggedIn;
+
+      if (!mounted) return;
+
+      if (hasActiveSession) {
+        if (isEmployee) {
+          // Employee / Admin session restored (online or offline)
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const EmployeePortal()),
+          );
+        } else if (isFirstTime && role == 'user') {
+          // First-time regular user
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const Intro1Screen()),
+          );
+        } else {
+          // Regular user dashboard
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const UserDashboard()),
+          );
         }
       } else {
         // No user logged in - go to landing page
-        if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LandingScreen()),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error checking auth status: $e');
+      if (mounted) {
+        if (UserSessionService.isEmployee) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const EmployeePortal()),
+          );
+        } else if (UserSessionService.isLoggedIn) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const UserDashboard()),
+          );
+        } else {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const LandingScreen()),
           );
         }
-      }
-    } catch (e) {
-      debugPrint('Error checking auth status: $e');
-      // On error, redirect to landing page
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LandingScreen()),
-        );
       }
     }
   }

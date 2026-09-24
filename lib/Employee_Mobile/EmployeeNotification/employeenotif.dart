@@ -9,6 +9,7 @@ import '../Field_Diary/Sent/sent0.dart';
 import '../EmployeeMeeting/Employee_Meetings.dart';
 import '../EmployeeMeeting/required_meetingview.dart';
 import '../../UserProfile/user_profile.dart';
+import '../../services/user_session_service.dart';
 
 class EmployeeNotifications extends StatefulWidget {
   const EmployeeNotifications({super.key});
@@ -23,7 +24,7 @@ class EmployeeNotifications extends StatefulWidget {
 
 class _EmployeeNotificationsState extends State<EmployeeNotifications> {
   final _supabase = Supabase.instance.client;
-  String? get _userId => _supabase.auth.currentUser?.id;
+  String? get _userId => _supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
 
   Future<void> _clearAll() async {
     final now = DateTime.now();

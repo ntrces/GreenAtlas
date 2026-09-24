@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_constants.dart';
 import '../services/notification_service.dart';
+import '../services/user_session_service.dart';
 import 'change_password.dart'; 
 import '../UserProfile/edit_profile.dart';
 
@@ -119,6 +120,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
+                await UserSessionService.clearSession();
                 await _supabase.auth.signOut();
                 if (context.mounted) {
                   Navigator.pushReplacementNamed(context, '/login');
