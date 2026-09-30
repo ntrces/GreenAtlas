@@ -91,7 +91,7 @@ class _UserDashboardState extends State<UserDashboard> {
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined), 
               activeIcon: Icon(Icons.view_in_ar_rounded),
-              label: "AR View",
+              label: "AR Garden",
             ), 
           ],
         ),

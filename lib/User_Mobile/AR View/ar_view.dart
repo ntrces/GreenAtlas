@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_embed_unity/flutter_embed_unity.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 import '../../theme_provider.dart';
 import '../../theme_constants.dart';
@@ -15,8 +18,20 @@ import '../../components/notification_badge.dart';
 
 const String _arModelBaseUrl = String.fromEnvironment(
   'AR_MODEL_BASE_URL',
-  defaultValue: '',
+  defaultValue:
+      'https://raw.githubusercontent.com/ntrces/GreenAtlas/main/remote_ar_models',
 );
+const double _growthTriggerDistanceMeters = 1.5;
+const String _dao2017Url =
+    'https://elibrary.bmb.gov.ph/elibrary/laws-and-policies/denr-administrative-orders/';
+const String _digitalFloraUrl = 'https://www.philippineplants.org/';
+
+class PlantReference {
+  final String citation;
+  final String url;
+
+  const PlantReference(this.citation, this.url);
+}
 
 // Tree model data class
 class TreeModel {
@@ -25,9 +40,15 @@ class TreeModel {
   final String assetPath;
   final Color color;
   final String? remoteModelFile;
+  final String powoUrl;
   final String conservationStatus;
   final String habitat;
   final String ecologicalImportance;
+  final String leafDetails;
+  final String barkDetails;
+  final String conservationDetails;
+  final String? modelCredit;
+  final String? modelCreditUrl;
 
   const TreeModel({
     required this.name,
@@ -35,120 +56,375 @@ class TreeModel {
     required this.assetPath,
     required this.color,
     this.remoteModelFile,
+    required this.powoUrl,
     this.conservationStatus = 'Threatened',
     this.habitat = 'Native forest habitats in Cavite and the Philippines',
     this.ecologicalImportance =
         'This native tree supports forest biodiversity and deserves protection.',
+    this.leafDetails =
+        'Its leaves capture sunlight for photosynthesis, release oxygen, and help regulate moisture and temperature around the tree. Fallen leaves also return nutrients to the forest floor.',
+    this.barkDetails =
+        'Its trunk and bark support the canopy, transport water and nutrients, and provide habitat for small forest organisms. Mature trees are especially important seed sources.',
+    this.conservationDetails =
+        'Protecting this threatened native tree requires conserving its habitat, preventing illegal cutting, supporting responsible propagation, and monitoring planted seedlings until they mature.',
+    this.modelCredit,
+    this.modelCreditUrl,
   });
+
+  List<PlantReference> get references => [
+        PlantReference(
+          'Royal Botanic Gardens, Kew. (2026). $scientificName. Plants of the World Online.',
+          powoUrl,
+        ),
+        const PlantReference(
+          'Department of Environment and Natural Resources. (2017). DAO No. 2017-11: Updated National List of Threatened Philippine Plants and Their Categories.',
+          _dao2017Url,
+        ),
+        const PlantReference(
+          "Pelser, P. B., Barcelona, J. F., & Nickrent, D. L. (Eds.). (2011–present). Co's Digital Flora of the Philippines.",
+          _digitalFloraUrl,
+        ),
+        if (modelCredit != null && modelCreditUrl != null)
+          PlantReference(
+            '3D Model Attribution: $modelCredit',
+            modelCreditUrl!,
+          ),
+      ];
 }
 
-// Sample threatened trees from Cavite Protected Area - ordered by conservation status
-// CR (Critically Endangered) > EN (Endangered) > VU (Vulnerable)
+// Native trees represented in the GreenAtlas AR collection. Conservation
+// categories temporarily follow DENR Administrative Order 2017-11 rather
+// than the newer national list or the separate global IUCN categories.
 const List<TreeModel> threatenedTrees = [
-  // Critically Endangered (CR)
   TreeModel(
-    name: 'Subyang',
+    name: 'Subyang / Quisumbing Gisok',
     scientificName: 'Hopea quisumbingiana',
     assetPath: 'assets/paho.glb',
     color: Colors.red,
+    remoteModelFile: 'Hopea_quisumbingiana.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77222162-1',
+    conservationStatus: 'Critically Endangered (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
+    habitat:
+        'A Philippine-endemic dipterocarp recorded by Kew from Samar. It is a tree of the wet tropical biome; its restricted national distribution makes protection of verified wild populations especially important.',
+    ecologicalImportance:
+        'As a canopy tree, it stores carbon, stabilizes forest soil, and adds structure and food resources to native forest. Its loss would also remove habitat used by many smaller organisms.',
+    leafDetails:
+        'The leaves are simple, alternate, leathery, and elliptic, with a pointed tip and clearly visible side veins. Their firm surface helps the tree function in warm, humid forest conditions.',
+    barkDetails:
+        'Like other gisok trees, it develops a straight woody trunk and durable timber. Its rarity means wild trees must never be treated as a timber source; mature individuals are vital seed producers.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists this species as Critically Endangered. Priorities include strict habitat protection, prevention of cutting and collection, propagation from documented local seed sources, and long-term monitoring of both wild and restored populations.',
   ),
-  // Endangered (EN)
   TreeModel(
     name: 'Molave',
     scientificName: 'Vitex parviflora',
     assetPath: 'assets/paho.glb',
     color: Colors.orange,
+    remoteModelFile: 'Vitex_parviflora.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:865916-1/general-information',
+    conservationStatus: 'Endangered (DAO 2017-11)',
+    habitat:
+        'A native Philippine tree also occurring elsewhere in Malesia and Palau. Flora Malesiana research summarized by Kew records it in secondary or mixed primary forest, often along streams, from about 30–650 m elevation.',
+    ecologicalImportance:
+        'Molave forms sturdy forest structure, supplies flowers and fruit to wildlife, stores carbon, and helps protect soil in seasonally dry landscapes.',
+    leafDetails:
+        'Its leaves are compound, usually with three leaflets. The leaflets are firm and often paler beneath—useful identification characters when distinguishing Molave from simple-leaved trees.',
+    barkDetails:
+        'Molave is renowned for dense, durable wood used historically in heavy construction. That value encouraged extensive harvesting, so surviving mature trunks now have high conservation and seed-source value.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Molave as Endangered. Protect remnant dry and limestone forests, stop unauthorized cutting, retain mature seed trees, and use traceable native planting material in restoration.',
   ),
   TreeModel(
     name: 'Manggachapui',
     scientificName: 'Hopea acuminata',
     assetPath: 'assets/paho.glb',
     color: Colors.orange,
+    remoteModelFile: 'Hopea_acuminata.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:320835-1/general-information',
+    conservationStatus: 'Endangered (DAO 2017-11)',
+    habitat:
+        'A Philippine-endemic dipterocarp associated with lowland evergreen forest. It depends on intact forest conditions for successful flowering, seedling establishment, and canopy development.',
+    ecologicalImportance:
+        'This canopy tree contributes large amounts of living biomass, shades the forest floor, supports wildlife, and helps regulate water movement through forest soil.',
+    leafDetails:
+        'Leaves are simple, alternate, and leathery, generally elliptic to lance-shaped with an elongated tip. Numerous fine, parallel-looking side veins are characteristic of many dipterocarps.',
+    barkDetails:
+        'The trunk can yield valuable dipterocarp timber, making the species vulnerable to logging. Large individuals are irreplaceable sources of seed and forest structure.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Manggachapui as Endangered. Remaining populations need protection from forest clearing and cutting, accompanied by local seed collection, nursery propagation, enrichment planting, and survival monitoring.',
   ),
   TreeModel(
     name: 'Kubili',
     scientificName: 'Cubilia cubili',
     assetPath: 'assets/paho.glb',
     color: Colors.orange,
+    remoteModelFile: 'Cubilia_cubili.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:782343-1/general-information',
+    conservationStatus: 'Endangered (DAO 2017-11)',
+    habitat:
+        'A wet-tropical forest tree native from eastern Borneo through the Philippines and Sulawesi to western Maluku. Healthy native forest remains essential to its regeneration.',
+    ecologicalImportance:
+        'Its canopy, flowers, and fruits add food and shelter to the forest community, while its roots and leaf litter support soil stability and nutrient cycling.',
+    leafDetails:
+        'Kubili has alternate, compound leaves with paired leaflets. The leaflet arrangement separates it from simple-leaved species and gives the crown a layered texture.',
+    barkDetails:
+        'Its woody trunk is part of the long-lived framework of the forest. Because the species is endemic and endangered, mature trees should be conserved principally as habitat and seed sources.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Kubili as Endangered. Conservation should protect known stands, prevent unauthorized removal, document fruiting trees, propagate genetically diverse seedlings, and restore them within suitable native forest.',
   ),
-  // Vulnerable (VU)
   TreeModel(
     name: 'Dao',
     scientificName: 'Dracontomelon dao',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Dracontomelon_dao.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:69546-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
+    habitat:
+        'A large tree of lowland rainforest, often favoring moist valleys, river margins, and deep soils. It occurs in the Philippines and elsewhere in Southeast Asia and the Pacific.',
+    ecologicalImportance:
+        'Dao develops a broad canopy and large buttressed base, stores substantial carbon, stabilizes moist soil, and produces fruit used by wildlife.',
+    leafDetails:
+        'The leaves are pinnately compound, with several opposite or nearly opposite leaflets. Young foliage may flush pinkish or reddish before becoming green.',
+    barkDetails:
+        'Older Dao trees often have conspicuous buttress roots and a massive trunk. Its attractive timber has been used for furniture and interior work, contributing to harvesting pressure.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Dao as Vulnerable. Retaining old trees, protecting riverine forest, controlling harvest, and raising seedlings from several parent trees can help maintain healthy populations.',
   ),
   TreeModel(
-    name: 'Paho',
+    name: 'Pahutan',
     scientificName: 'Mangifera altissima',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Mangifera_altissima.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:69877-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model from Sketchfab (Pahutan - Mangifera altissima)',
+    modelCreditUrl: 'https://skfb.ly/osUzz',
+    habitat:
+        'A wet-tropical wild mango native from the Lesser Sunda Islands and Sulawesi through the Philippines to Papuasia and the Solomon Islands.',
+    ecologicalImportance:
+        'Its flowers support pollinators and its mango-like fruits can feed wildlife. The crown stores carbon, moderates heat, and helps maintain native forest complexity.',
+    leafDetails:
+        'Leaves are simple, alternate, leathery, and elongated, usually clustered toward twig ends. New leaves may appear reddish before maturing to deep green.',
+    barkDetails:
+        'The trunk contains resinous sap typical of mango relatives. Wild trees should be handled carefully and retained as seed sources rather than harvested indiscriminately.',
+    conservationDetails:
+        'DENR lists Pahutan as Vulnerable. Priorities are conserving remaining forest populations, preventing conversion and cutting, documenting fruiting trees, and propagating seedlings with verified identity.',
   ),
   TreeModel(
     name: 'Narra',
     scientificName: 'Pterocarpus indicus',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Pterocarpus_indicus.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:516487-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    habitat:
+        'Native to Philippine lowland forest, including seasonal forest and sites near streams. It also grows well in open planted landscapes when given adequate space.',
+    ecologicalImportance:
+        'Narra is a nitrogen-fixing legume that can improve soil, provide shade, support pollinators, and produce winged fruits dispersed away from the parent tree.',
+    leafDetails:
+        'Its leaves are pinnately compound, usually bearing several oval leaflets with smooth edges. The leaflets form a light, spreading crown rather than a dense solid mass.',
+    barkDetails:
+        'The trunk yields richly colored, highly valued wood and may exude reddish sap. Heavy demand for timber has made protection and legal sourcing especially important.',
+    conservationDetails:
+        'DENR lists Narra as Vulnerable. Protect natural populations, enforce timber controls, retain genetically diverse seed trees, and favor locally sourced seedlings in restoration and civic planting.',
   ),
   TreeModel(
     name: 'Kamagong',
     scientificName: 'Diospyros discolor',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Diospyros_discolor.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:322146-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    habitat:
+        'A wet-tropical tree native to the Philippines, Borneo, and Taiwan and cultivated more widely for its edible velvet apple fruit. Kew currently accepts the name Diospyros blancoi and treats Diospyros discolor as a synonym.',
+    ecologicalImportance:
+        'Its flowers and fruits support insects, fruit-eating birds, bats, and other animals. The dense crown adds shade, carbon storage, and vertical structure to forest habitat.',
+    leafDetails:
+        'Leaves are simple, alternate, oblong, and leathery. Their upper surface is glossy green while the lower surface is often paler and softly hairy.',
+    barkDetails:
+        'Kamagong can form very dark, dense heartwood known as Philippine ebony. High timber value and slow replacement make mature wild trees particularly vulnerable to illegal cutting.',
+    conservationDetails:
+        'DENR lists Kamagong as Vulnerable. Protect fruiting adults and their habitat, prevent illegal timber extraction, propagate from multiple parent trees, and distinguish conservation planting from fruit-only cultivation.',
   ),
   TreeModel(
     name: 'Kalantas',
     scientificName: 'Toona calantas',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
-    remoteModelFile: 'kalantas.glb',
-    conservationStatus: 'Vulnerable',
+    remoteModelFile: 'Toona_calantas.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:579298-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
     habitat:
-        'Native lowland forests of Luzon, including remaining Cavite forests',
+        'A wet-tropical tree native across western and central Malesia, including the Philippines, and eastward to New Guinea and the Bismarck Archipelago. Verified local occurrence should be established from field or herbarium records rather than assumed from the national range.',
     ecologicalImportance:
-        'Kalantas shelters wildlife and helps restore native forest structure. Every surviving tree is part of a living heritage worth protecting.',
+        'Kalantas provides shelter, shade, and feeding space for insects, birds, and other forest wildlife. Its roots help hold soil in place, while its canopy stores carbon, cools the surrounding habitat, and supports the recovery of a layered native forest. Because valuable timber and habitat loss have reduced its population, every surviving mature tree can serve as a seed source for future restoration. Protecting Kalantas means preserving both a distinctive Philippine species and the wider community of life that depends on healthy native forests.',
+    leafDetails:
+        'Kalantas produces large compound leaves made up of several paired leaflets. Their broad green surfaces capture sunlight and use photosynthesis to turn water and carbon dioxide into sugars that fuel the tree’s growth. The leaves release oxygen and water vapor, helping cool the air beneath the canopy. Fallen leaf litter also returns nutrients to the forest soil and supports fungi, insects, and other organisms.',
+    barkDetails:
+        'The straight trunk of Kalantas produces lightweight, workable timber traditionally valued for furniture, carving, and construction. That usefulness also placed the species under pressure from excessive and illegal cutting. Large mature trees preserve genetic diversity and produce seeds, allowing natural regeneration to continue and providing locally adapted planting material for restoration.',
+    conservationDetails:
+        'Kalantas is classified as Vulnerable because its population has declined through habitat loss and timber extraction. Recovery requires protecting remaining forest, preventing illegal cutting, caring for mature seed trees, propagating native seedlings, and restoring degraded sites with diverse local species. Community education and long-term monitoring are equally important because a planted seedling becomes a conservation success only when it survives and matures.',
   ),
   TreeModel(
     name: 'Dila-dila',
-    scientificName: 'Cynometra ramiflora',
+    scientificName: 'Cynometra inaequifolia',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Cynometra_inaequifolia.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:489426-1',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    habitat:
+        'A Philippine-endemic member of the bean family found in native lowland forest. Its survival depends on retaining suitable forest habitat and natural regeneration.',
+    ecologicalImportance:
+        'As a native legume tree it contributes to forest structure, offers resources to insects and other wildlife, and helps protect soil beneath its crown.',
+    leafDetails:
+        'Its compound leaves typically have a small number of unequal-sided leaflets, reflected in the name inaequifolia. Young growth may differ noticeably in color from mature foliage.',
+    barkDetails:
+        'The trunk supports a compact native canopy and the living communities associated with bark and wood. Scarce mature trees are more valuable as reproductive sources than as timber.',
+    conservationDetails:
+        'DENR DAO 2017-11 lists Dila-dila as Vulnerable. Known trees should be mapped and protected, with seeds propagated from several parents and returned only to ecologically suitable native sites.',
   ),
   TreeModel(
     name: 'Haikan',
-    scientificName: 'Koilodepas bantamense',
+    scientificName: 'Camellia lanceolata',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Camellia_lanceolata.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:828528-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    habitat:
+        'An evergreen shrub of the wet tropical biome, native to northern Borneo, the Philippines, Sulawesi, and Bali. It is a wild relative of tea and ornamental camellias.',
+    ecologicalImportance:
+        'Its evergreen foliage and flowers contribute year-round cover and seasonal resources for forest insects, while its roots and litter help maintain forest soil.',
+    leafDetails:
+        'Leaves are simple, alternate, leathery, and lance-shaped, with a pointed tip and finely toothed margin—features consistent with its scientific name lanceolata.',
+    barkDetails:
+        'The relatively modest woody stem supports an evergreen crown. Its conservation value lies in maintaining native plant diversity and the genetic variety of wild camellia relatives.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Haikan is presented as Vulnerable. It deserves habitat protection and responsible, documented collection, especially where local populations are small.',
   ),
   TreeModel(
-    name: 'Malachio',
-    scientificName: 'Aglaia rimosa',
+    name: 'Malachico / Mamolko',
+    scientificName: 'Glenniea philippinensis',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Glenniea_philippinensis.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:783178-1',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    habitat:
+        'A wet-tropical forest tree native to southern Indochina, northern Borneo, and the Philippines; Kew records it from Thailand, Vietnam, Borneo, and the Philippines.',
+    ecologicalImportance:
+        'As a member of the soapberry family, it contributes flowers and fruits to forest food webs while adding canopy cover, carbon storage, and leaf litter.',
+    leafDetails:
+        'Leaves are compound, with several leaflets arranged along a central stalk. This leaflet pattern is a useful field character for separating it from simple-leaved neighbors.',
+    barkDetails:
+        'Its woody trunk forms part of the permanent forest framework. Mature specimens are important genetic and reproductive resources and should not be removed without lawful scientific justification.',
+    conservationDetails:
+        'DENR lists Malachico or Mamolko as Vulnerable. Protect remaining habitat and fruiting trees, limit destructive collection, maintain several seed sources, and monitor restored seedlings over many years.',
   ),
   TreeModel(
     name: 'Bagarilau',
-    scientificName: 'Cryptocarya edanoii',
+    scientificName: 'Cryptocarya ampla',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Cryptocarya_ampla.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:463790-1',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    habitat:
+        'A wet-tropical tree in the laurel family native to the Philippines and southern Sulawesi. Forest continuity is important for its regeneration and dispersal.',
+    ecologicalImportance:
+        'Its fleshy fruits can support forest animals, while its evergreen crown stores carbon, intercepts rain, and supplies litter to the soil community.',
+    leafDetails:
+        'Leaves are simple, alternate, evergreen, and generally broad to elliptic. As in many laurels, the foliage may be aromatic when crushed, though field identification should use several characters.',
+    barkDetails:
+        'The trunk and bark support lichens, insects, and other small organisms. Mature endemic trees are important seed reservoirs and should be retained within intact forest.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Bagarilau is presented as Vulnerable. Habitat protection, population surveys, verified seed collection, nursery propagation, and long-term survival checks are appropriate recovery actions.',
   ),
   TreeModel(
     name: 'Nato',
     scientificName: 'Palaquium luzoniense',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Palaquium_luzoniense.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788344-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
+    habitat:
+        'A wet-tropical sapotaceous tree native to the Philippines and Sulawesi. Its occurrence in the Philippines is supported by Kew’s taxonomic and distribution records.',
+    ecologicalImportance:
+        'Its flowers and fleshy fruits support forest fauna, while the evergreen canopy stores carbon, protects soil, and contributes to a multilayered forest.',
+    leafDetails:
+        'Leaves are simple, alternate, leathery, and often crowded near twig tips. The lower surface may be paler than the glossy upper surface.',
+    barkDetails:
+        'Cut tissues of many Palaquium species release milky latex. The trunk has also been valued for wood, so legal sourcing and retention of mature wild trees remain important.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Nato is presented as Vulnerable. Local populations still need protection from forest loss, poor regeneration, and unsustainable cutting.',
   ),
   TreeModel(
     name: 'Malak-malak',
     scientificName: 'Palaquium philippense',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Palaquium_philippense.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788385-1/general-information',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
+    modelCreditUrl: 'https://sketchfab.com',
+    habitat:
+        'A Philippine-endemic Palaquium of native tropical forest. It relies on forest habitat and animal-assisted ecological processes for long-term regeneration.',
+    ecologicalImportance:
+        'The evergreen crown, flowers, and fleshy fruits contribute food and shelter to forest wildlife; roots and litter help retain soil nutrients and moisture.',
+    leafDetails:
+        'Leaves are simple, alternate, and leathery, commonly clustered toward the ends of twigs. Their durable texture suits an evergreen forest canopy.',
+    barkDetails:
+        'The woody stem may release milky latex when damaged, a familiar trait in the sapodilla family. Endemic mature trees should be protected as local seed and habitat sources.',
+    conservationDetails:
+        'Under the DAO 2017-11-era GreenAtlas classification, Malak-malak is presented as Vulnerable. Because it is Philippine-endemic, habitat protection, verified identification, and locally diverse propagation remain prudent safeguards.',
   ),
   TreeModel(
-    name: 'Katmon',
-    scientificName: 'Dillenia philippinensis',
+    name: 'Anang',
+    scientificName: 'Diospyros pyrrhocarpa',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
+    remoteModelFile: 'Diospyros_pyrrhocarpa.glb',
+    powoUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:322921-1',
+    conservationStatus: 'Vulnerable (DAO 2017-11)',
+    habitat:
+        'A native Diospyros tree of lowland tropical forest in the Philippines and parts of Southeast Asia. It needs surviving forest and reproductive adults for natural renewal.',
+    ecologicalImportance:
+        'Its crown contributes shade and carbon storage, while flowers and fruits add resources for insects and fruit-eating animals in the forest food web.',
+    leafDetails:
+        'Leaves are simple, alternate, and leathery, generally elliptic to oblong with an unbroken margin. Multiple characters, including fruit and flowers, are needed for reliable identification.',
+    barkDetails:
+        'As an ebony relative, Anang produces dense wood. Mature trees are slow to replace and are ecologically more valuable when retained as habitat and seed sources.',
+    conservationDetails:
+        'DENR lists Anang as Vulnerable. Conserve known stands, prevent unauthorized cutting, protect fruiting adults, collect seed across several parents, and monitor planted trees through establishment.',
   ),
 ];
 
@@ -169,6 +445,8 @@ class Ar_View extends StatefulWidget {
 }
 
 class _Ar_ViewState extends State<Ar_View> {
+  static const MethodChannel _arDiagnosticsChannel =
+      MethodChannel('com.example.greenatlas/ar_diagnostics');
   int _selectedIndex = 2;
   TreeModel? _viewingArTree; // Tree currently being viewed in AR
   bool _hasPermission = false;
@@ -180,6 +458,7 @@ class _Ar_ViewState extends State<Ar_View> {
   String? _arError;
   Timer? _arStartupTimer;
   bool _plantPlaced = false;
+  bool _isArInfoExpanded = true;
   bool _growthComplete = false;
   int _wateringCount = 0;
   int _wateringsRequired = 3;
@@ -190,23 +469,55 @@ class _Ar_ViewState extends State<Ar_View> {
   String? _viewingModelPath;
   String? _shelfDownloadingSpeciesID;
   int _shelfDownloadPercent = 0;
+  final Set<String> _downloadedModelFiles = <String>{};
 
   @override
   void initState() {
     super.initState();
     if (widget.initialSpeciesID != null) {
-      _viewingSpeciesID = widget.initialSpeciesID;
-      _viewingArTree = TreeModel(
-        name: widget.initialSpeciesName ?? widget.initialSpeciesID!,
-        scientificName: widget.initialScientificName ?? '',
-        assetPath: '',
-        color: Colors.green,
-        remoteModelFile:
-            widget.initialSpeciesID == 'Toona_calantas' ? 'kalantas.glb' : null,
-      );
-      _startArTimeout();
+      final requestedID = widget.initialSpeciesID!.trim().toLowerCase();
+      TreeModel? requestedTree;
+      for (final tree in threatenedTrees) {
+        final treeID = tree.scientificName
+            .trim()
+            .replaceAll(RegExp(r'\s+'), '_')
+            .toLowerCase();
+        if (treeID == requestedID) {
+          requestedTree = tree;
+          break;
+        }
+      }
+      if (requestedTree != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _viewPlantInAR(requestedTree!);
+        });
+      }
     }
-    _checkPermission(request: _viewingArTree != null);
+    _checkPermission();
+    _refreshDownloadedModels();
+  }
+
+  Future<void> _refreshDownloadedModels() async {
+    final documents = await getApplicationDocumentsDirectory();
+    final directory = Directory('${documents.path}/greenatlas_ar_models');
+    final downloaded = <String>{};
+
+    if (await directory.exists()) {
+      await for (final entity in directory.list()) {
+        if (entity is File &&
+            !entity.path.endsWith('.download') &&
+            await entity.length() > 0) {
+          downloaded.add(entity.uri.pathSegments.last);
+        }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _downloadedModelFiles
+        ..clear()
+        ..addAll(downloaded);
+    });
   }
 
   @override
@@ -243,6 +554,7 @@ class _Ar_ViewState extends State<Ar_View> {
     final modelPath = await _ensureModelDownloaded(tree);
     if (modelPath == null || !mounted) return;
     if (!_hasPermission && !await _checkPermission(request: true)) return;
+    if (!mounted) return;
     setState(() {
       _unitySceneReady = false;
       _unityAttachMessageScheduled = false;
@@ -253,6 +565,7 @@ class _Ar_ViewState extends State<Ar_View> {
       _arStatus = 'Starting Unity…';
       _arError = null;
       _plantPlaced = false;
+      _isArInfoExpanded = true;
       _growthComplete = false;
       _wateringCount = 0;
       _growthDistanceMeters = 0;
@@ -275,6 +588,7 @@ class _Ar_ViewState extends State<Ar_View> {
       _arStatus = 'Starting Unity…';
       _arError = null;
       _plantPlaced = false;
+      _isArInfoExpanded = true;
       _growthComplete = false;
       _wateringCount = 0;
       _growthDistanceMeters = 0;
@@ -288,12 +602,68 @@ class _Ar_ViewState extends State<Ar_View> {
     _arStartupTimer?.cancel();
     _arStartupTimer = Timer(const Duration(seconds: 18), () {
       if (!mounted || _viewingArTree == null || _arStatus == 'AR ready') return;
-      setState(() {
-        _arError =
-            'AR did not begin tracking. Check that Google Play Services for '
-            'AR is installed and that this device supports ARCore.';
-      });
+      _reportArStartupFailure();
     });
+  }
+
+  Future<void> _reportArStartupFailure() async {
+    Map<String, dynamic>? diagnostics;
+    try {
+      final result = await _arDiagnosticsChannel
+          .invokeMapMethod<String, dynamic>('getArDiagnostics');
+      diagnostics = result;
+    } catch (error) {
+      debugPrint('Unable to read Android AR diagnostics: $error');
+    }
+
+    if (!mounted || _viewingArTree == null || _arStatus == 'AR ready') return;
+
+    final unityLoaded = _unitySceneReady;
+    final installed = diagnostics?['arCoreInstalled'] == true;
+    final enabled = diagnostics?['arCoreEnabled'] == true;
+    final cameraGranted = diagnostics?['cameraGranted'] == true;
+    final hasArFeature = diagnostics?['hasArCameraFeature'] == true;
+    final version = diagnostics?['arCoreVersionName']?.toString();
+    final device = [
+      diagnostics?['manufacturer'],
+      diagnostics?['model'],
+    ].whereType<Object>().map((value) => value.toString()).join(' ');
+
+    late final String message;
+    if (diagnostics == null) {
+      message = unityLoaded
+          ? 'Unity loaded, but Android AR diagnostics could not be read. '
+              'This does not mean ARCore is missing. Reconnect the device and capture logs.'
+          : 'Unity did not finish loading, and Android AR diagnostics could '
+              'not be read. This is a Unity/Flutter integration failure, not '
+              'proof that ARCore is missing.';
+    } else if (!cameraGranted) {
+      message = 'Camera permission is not granted. Enable Camera permission '
+          'for GreenAtlas in Android Settings, then reopen AR.';
+    } else if (!installed) {
+      message = 'Google Play Services for AR is not installed. Install it '
+          'from Google Play, then reopen GreenAtlas.';
+    } else if (!enabled) {
+      message = 'Google Play Services for AR is installed but disabled. '
+          'Enable it in Android Settings, then reopen GreenAtlas.';
+    } else if (!unityLoaded) {
+      message = 'Unity did not finish loading within 18 seconds. ARCore is '
+          'installed${version == null ? '' : ' (version $version)'}. This is '
+          'a Unity startup/embedding failure, not a missing-ARCore error.';
+    } else if (!hasArFeature) {
+      message = 'Unity loaded and Google Play Services for AR is installed'
+          '${version == null ? '' : ' (version $version)'}, but Android does '
+          'not advertise the AR camera feature on ${device.isEmpty ? 'this device' : device}. '
+          'The device firmware or ARCore certification may be the cause.';
+    } else {
+      message = 'Unity loaded and Google Play Services for AR is installed'
+          '${version == null ? '' : ' (version $version)'}, but the ARCore '
+          'session did not start tracking. This points to an AR session, '
+          'camera configuration, graphics, or Unity scene error—not a missing '
+          'AR installation. Reconnect the device and capture logs for the exact cause.';
+    }
+
+    setState(() => _arError = message);
   }
 
   void _sendSelectedSpecies() {
@@ -397,7 +767,10 @@ class _Ar_ViewState extends State<Ar_View> {
       if (await target.exists()) await target.delete();
       await temporary.rename(target.path);
       if (mounted) {
-        setState(() => _shelfDownloadPercent = 100);
+        setState(() {
+          _shelfDownloadPercent = 100;
+          _downloadedModelFiles.add(modelFile);
+        });
       }
       return target.path;
     } catch (error) {
@@ -526,59 +899,336 @@ class _Ar_ViewState extends State<Ar_View> {
       final distance = double.tryParse(message.substring(16));
       if (mounted && distance != null) {
         setState(() {
-          _growthDistanceMeters = distance.clamp(0, 2);
+          _growthDistanceMeters =
+              distance.clamp(0, _growthTriggerDistanceMeters);
           _arStatus =
-              'Step back slowly: ${distance.toStringAsFixed(1)} / 2.0 m';
+              'Step back slowly: ${distance.toStringAsFixed(1)} / 1.5 m';
         });
       }
-    } else if (message.startsWith('info_node:')) {
-      _showInformationNode(message.substring(10));
     }
   }
 
-  void _showInformationNode(String node) {
-    if (!mounted || _viewingArTree == null) return;
-    final details = switch (node) {
-      'leaves' => (
-          'Leaves',
-          'Kalantas has compound leaves whose leaflets capture sunlight to make food through photosynthesis. Healthy native canopies also cool and shelter forest life.'
+  Widget _buildInformationSection(String title, String details) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFFB9D9BB),
+              fontFamily: 'Poppins-Bold',
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            details,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openReference(PlantReference reference) async {
+    final uri = Uri.parse(reference.url);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The reference could not be opened.')),
+      );
+    }
+  }
+
+  Widget _buildReferencesSection(List<PlantReference> references) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        iconColor: const Color(0xFFB9D9BB),
+        collapsedIconColor: Colors.white54,
+        title: const Text(
+          'References',
+          style: TextStyle(
+            color: Color(0xFFB9D9BB),
+            fontFamily: 'Poppins-Bold',
+            fontSize: 11,
+          ),
         ),
-      'bark' => (
-          'Trunk and bark',
-          'Its valuable timber made Kalantas vulnerable to heavy and illegal cutting. Protecting mature seed trees is essential for natural regeneration.'
+        children: references
+            .map(
+              (reference) => InkWell(
+                onTap: () => _openReference(reference),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.open_in_new,
+                          size: 11,
+                          color: Colors.white54,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          reference.citation,
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 9.5,
+                            height: 1.35,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.white38,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildModelCreditSection(String credit, String? url) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFB9D9BB).withOpacity(0.3)),
         ),
-      _ => (
-          'Conservation',
-          'Recovery depends on protecting remaining habitat, raising native seedlings, restoring degraded forest, and helping communities recognize the value of living trees.'
-        ),
-    };
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF233326),
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.eco, color: Color(0xFFB9D9BB), size: 34),
-              const SizedBox(height: 8),
-              Text(details.$1,
-                  style: const TextStyle(
-                    color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.view_in_ar, size: 14, color: Color(0xFFB9D9BB)),
+                SizedBox(width: 6),
+                Text(
+                  '3D Model Attribution',
+                  style: TextStyle(
+                    color: Color(0xFFB9D9BB),
                     fontFamily: 'Poppins-Bold',
-                    fontSize: 20,
-                  )),
-              const SizedBox(height: 10),
-              Text(details.$2,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    height: 1.5,
-                  )),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              credit,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+            if (url != null && url.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => _openUrl(url),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.open_in_new, size: 12, color: Color(0xFFB9D9BB)),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        url,
+                        style: const TextStyle(
+                          color: Color(0xFFB9D9BB),
+                          fontSize: 11,
+                          decoration: TextDecoration.underline,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the link.')),
+      );
+    }
+  }
+
+  void _showModelCreditsDialog(bool isDark) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: getCardBg(isDark),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.view_in_ar, color: isDark ? leafAccent : const Color(0xFF517156)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '3D Model Credits',
+                  style: TextStyle(
+                    fontFamily: 'Poppins-Bold',
+                    fontSize: 16,
+                    color: getTextColor(isDark),
+                  ),
+                ),
+              ),
             ],
           ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'The following 3D models were modified and integrated for the GreenAtlas interactive AR experience:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: getSubtextColor(isDark),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildCreditTile(
+                  'Mangifera altissima (Pahutan)',
+                  'Modified 3D model from Sketchfab',
+                  'https://skfb.ly/osUzz',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Hopea quisumbingiana (Subyang / Quisumbing Gisok)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Dracontomelon dao (Dao)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Palaquium luzoniense (Nato)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+                _buildCreditTile(
+                  'Palaquium philippense (Malak-malak)',
+                  'Modified 3D model sourced from Free3D / Sketchfab',
+                  'https://sketchfab.com',
+                  isDark,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Close',
+                style: TextStyle(
+                  color: isDark ? leafAccent : const Color(0xFF517156),
+                  fontFamily: 'Poppins-Bold',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCreditTile(String species, String source, String url, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? Colors.white12 : Colors.black12,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              species,
+              style: TextStyle(
+                fontFamily: 'Poppins-Bold',
+                fontSize: 12,
+                color: getTextColor(isDark),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              source,
+              style: TextStyle(
+                fontSize: 11,
+                color: getSubtextColor(isDark),
+              ),
+            ),
+            const SizedBox(height: 5),
+            InkWell(
+              onTap: () => _openUrl(url),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.open_in_new,
+                    size: 11,
+                    color: isDark ? leafAccent : const Color(0xFF517156),
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      url,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isDark ? leafAccent : const Color(0xFF517156),
+                        decoration: TextDecoration.underline,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -740,160 +1390,260 @@ class _Ar_ViewState extends State<Ar_View> {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(14),
-                child: _modelDownloadRequired || _modelDownloading
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.cloud_download_outlined,
-                              color: Color(0xFFB9D9BB), size: 30),
-                          const SizedBox(height: 6),
-                          Text(
-                            _modelDownloading
-                                ? 'Downloading AR model'
-                                : 'Download ${_viewingArTree!.name} for AR?',
-                            style: const TextStyle(
-                              fontFamily: 'Poppins-Bold',
-                              color: Colors.white,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            _modelDownloading
-                                ? '$_modelDownloadPercent% complete. Keep the app open.'
-                                : 'This optional model is downloaded once and then kept for offline use.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          if (_modelDownloading)
-                            LinearProgressIndicator(
-                              value: _modelDownloadPercent / 100,
-                              minHeight: 7,
-                              borderRadius: BorderRadius.circular(8),
-                              backgroundColor: Colors.white24,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Color(0xFF79B8E8),
-                              ),
-                            )
-                          else
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: _downloadSelectedModel,
-                                icon: const Icon(Icons.download),
-                                label: const Text('Download model'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF517156),
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
-                      )
-                    : _growthComplete
-                        ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.park,
-                                  color: Color(0xFF9CC89F), size: 30),
-                              const SizedBox(height: 6),
-                              Text(
-                                _viewingArTree!.name,
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins-Bold',
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              Text(
-                                _viewingArTree!.scientificName,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontStyle: FontStyle.italic,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Walk around the full-sized tree. Tap the floating '
-                                'leaf, bark, and conservation pins to inspect it.\n\n'
-                                '${_viewingArTree!.ecologicalImportance}',
-                                textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => setState(
+                        () => _isArInfoExpanded = !_isArInfoExpanded,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline,
+                                color: Color(0xFFB9D9BB), size: 20),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Information',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextButton.icon(
-                                onPressed: _restartGrowth,
-                                icon: const Icon(Icons.replay,
-                                    color: Color(0xFFB9D9BB)),
-                                label: const Text(
-                                  'Grow again',
-                                  style: TextStyle(color: Color(0xFFB9D9BB)),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                !_plantPlaced
-                                    ? '${_viewingArTree!.name} • ${_viewingArTree!.conservationStatus}'
-                                    : _wateringCount == 0
-                                        ? 'Nurture the sprout'
-                                        : 'Give it room to grow',
-                                style: const TextStyle(
                                   fontFamily: 'Poppins-Bold',
-                                  color: Colors.white,
-                                  fontSize: 15,
+                                  fontSize: 13,
                                 ),
                               ),
-                              const SizedBox(height: 5),
-                              Text(
-                                !_plantPlaced
-                                    ? '${_viewingArTree!.habitat}.\n\n'
-                                        '${_viewingArTree!.ecologicalImportance}\n\n'
-                                        'Move slowly to scan the surface grid, then tap the floor to plant the sprout.'
-                                    : _wateringCount == 0
-                                        ? 'Tap the sprout itself. Water, light, and sound will respond together.'
-                                        : 'Walk backward from the sprout. The shimmer rises until the tree blooms at 2 meters.',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              if (_plantPlaced && _wateringCount > 0) ...[
-                                const SizedBox(height: 10),
-                                LinearProgressIndicator(
-                                  value: _growthDistanceMeters / 2,
-                                  minHeight: 7,
-                                  borderRadius: BorderRadius.circular(8),
-                                  backgroundColor: Colors.white24,
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF79B8E8),
-                                  ),
-                                ),
+                            ),
+                            Icon(
+                              _isArInfoExpanded
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.keyboard_arrow_up,
+                              color: Colors.white70,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_isArInfoExpanded) ...[
+                      const SizedBox(height: 8),
+                      _modelDownloadRequired || _modelDownloading
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.cloud_download_outlined,
+                                    color: Color(0xFFB9D9BB), size: 30),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '${_growthDistanceMeters.toStringAsFixed(1)} / 2.0 meters',
+                                  _modelDownloading
+                                      ? 'Downloading AR model'
+                                      : 'Download ${_viewingArTree!.name} for AR?',
                                   style: const TextStyle(
-                                    color: Color(0xFFB9D9BB),
-                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Poppins-Bold',
+                                    color: Colors.white,
+                                    fontSize: 15,
                                   ),
                                 ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  _modelDownloading
+                                      ? '$_modelDownloadPercent% complete. Keep the app open.'
+                                      : 'This optional model is downloaded once and then kept for offline use.',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                if (_modelDownloading)
+                                  LinearProgressIndicator(
+                                    value: _modelDownloadPercent / 100,
+                                    minHeight: 7,
+                                    borderRadius: BorderRadius.circular(8),
+                                    backgroundColor: Colors.white24,
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF79B8E8),
+                                    ),
+                                  )
+                                else
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _downloadSelectedModel,
+                                      icon: const Icon(Icons.download),
+                                      label: const Text('Download model'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF517156),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                               ],
-                            ],
-                          ),
+                            )
+                          : _growthComplete
+                              ? ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxHeight:
+                                        MediaQuery.sizeOf(context).height *
+                                            0.46,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        const Icon(Icons.park,
+                                            color: Color(0xFF9CC89F), size: 30),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          _viewingArTree!.name,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins-Bold',
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                          ),
+                                        ),
+                                        Text(
+                                          _viewingArTree!.scientificName,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontStyle: FontStyle.italic,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _viewingArTree!.conservationStatus,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: _viewingArTree!.color,
+                                            fontFamily: 'Poppins-Bold',
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        _buildInformationSection(
+                                          'General overview',
+                                          '${_viewingArTree!.habitat}\n\n${_viewingArTree!.ecologicalImportance}',
+                                        ),
+                                        _buildInformationSection(
+                                          'Leaves',
+                                          _viewingArTree!.leafDetails,
+                                        ),
+                                        _buildInformationSection(
+                                          'Trunk and bark',
+                                          _viewingArTree!.barkDetails,
+                                        ),
+                                        _buildInformationSection(
+                                          'Conservation',
+                                          _viewingArTree!.conservationDetails,
+                                        ),
+                                        if (_viewingArTree!.modelCredit != null)
+                                          _buildModelCreditSection(
+                                            _viewingArTree!.modelCredit!,
+                                            _viewingArTree!.modelCreditUrl,
+                                          ),
+                                        _buildReferencesSection(
+                                          _viewingArTree!.references,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextButton.icon(
+                                          onPressed: _restartGrowth,
+                                          icon: const Icon(Icons.replay,
+                                              color: Color(0xFFB9D9BB)),
+                                          label: const Text(
+                                            'Back to Sprout',
+                                            style: TextStyle(
+                                                color: Color(0xFFB9D9BB)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (!_plantPlaced)
+                                      Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                                text: _viewingArTree!.name),
+                                            const TextSpan(text: ' • '),
+                                            TextSpan(
+                                              text: _viewingArTree!
+                                                  .conservationStatus,
+                                              style: TextStyle(
+                                                color: _viewingArTree!.color,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontFamily: 'Poppins-Bold',
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                        ),
+                                      )
+                                    else
+                                      Text(
+                                        _wateringCount < _wateringsRequired
+                                            ? 'Nurture the sprout'
+                                            : 'Give it room to grow',
+                                        style: const TextStyle(
+                                          fontFamily: 'Poppins-Bold',
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      !_plantPlaced
+                                          ? '${_viewingArTree!.habitat}.\n\n'
+                                              '${_viewingArTree!.ecologicalImportance}\n\n'
+                                              'Move slowly while the app searches for a flat floor, then tap the surface to plant the sprout.'
+                                          : _wateringCount < _wateringsRequired
+                                              ? 'Tap the sprout to water it three times. Each watering responds with light, sound, and a splash.'
+                                              : 'Walk backward from the sprout. The shimmer rises until the tree blooms at 1.5 meters.',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (_plantPlaced && _wateringCount > 0) ...[
+                                      const SizedBox(height: 10),
+                                      LinearProgressIndicator(
+                                        value: _growthDistanceMeters /
+                                            _growthTriggerDistanceMeters,
+                                        minHeight: 7,
+                                        borderRadius: BorderRadius.circular(8),
+                                        backgroundColor: Colors.white24,
+                                        valueColor:
+                                            const AlwaysStoppedAnimation<Color>(
+                                          Color(0xFF79B8E8),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '${_growthDistanceMeters.toStringAsFixed(1)} / 1.5 meters',
+                                        style: const TextStyle(
+                                          color: Color(0xFFB9D9BB),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -974,7 +1724,7 @@ class _Ar_ViewState extends State<Ar_View> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "AR View",
+              "AR Garden",
               style: TextStyle(
                 fontFamily: 'Poppins-Bold',
                 fontSize: 15,
@@ -993,6 +1743,12 @@ class _Ar_ViewState extends State<Ar_View> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline, size: 22),
+            tooltip: '3D Model Credits',
+            color: isDark ? Colors.white70 : const Color(0xFF303D32),
+            onPressed: () => _showModelCreditsDialog(isDark),
+          ),
           UserNotificationBadge(
               iconColor: isDark ? Colors.white : const Color(0xFF303D32)),
           _buildProfileIcon(isDark),
@@ -1009,32 +1765,34 @@ class _Ar_ViewState extends State<Ar_View> {
         child: Center(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Calculate responsive dimensions based on screen size
-              double width = constraints.maxWidth * 0.95;
-              double height = width * (803 / 412); // Maintain aspect ratio
+              const shelfAspectRatio = 412 / 803;
+              final widthFromHeight = constraints.maxHeight * shelfAspectRatio;
+              final width = math.min(
+                constraints.maxWidth * 0.98,
+                widthFromHeight,
+              );
+              final height = width / shelfAspectRatio;
 
-              return Container(
+              return SizedBox(
                 width: width,
                 height: height,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: const AssetImage('assets/plant_shelf.png'),
-                    fit: BoxFit.cover,
-                    onError: (exception, stackTrace) {},
-                  ),
-                  color: isDark ? const Color(0xFF1E261F) : Colors.grey[300],
-                ),
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    // Dark overlay (~10% opacity for enhanced contrast)
-                    Container(
-                      width: width,
-                      height: height,
+                    Image.asset(
+                      'assets/plant_shelf.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => ColoredBox(
+                        color: isDark
+                            ? const Color(0xFF1E261F)
+                            : Colors.grey[300]!,
+                      ),
+                    ),
+                    ColoredBox(
                       color: isDark
                           ? Colors.black.withOpacity(0.4)
                           : Colors.black.withOpacity(0.1),
                     ),
-                    // Overlay buttons positioned on plants
                     _buildPlantOverlays(width, height, isDark),
                   ],
                 ),
@@ -1049,50 +1807,42 @@ class _Ar_ViewState extends State<Ar_View> {
 
   Widget _buildPlantOverlays(
       double containerWidth, double containerHeight, bool isDark) {
-    // Scale factors based on responsive dimensions
-    const double baseWidth = 412;
-    const double baseHeight = 803;
-    final double scaleX = containerWidth / baseWidth;
-    final double scaleY = containerHeight / baseHeight;
+    const columns = [56.0, 156.0, 256.0, 356.0];
+    const baseWidth = 412.0;
+    const baseHeight = 803.0;
+    final scaleX = containerWidth / baseWidth;
+    final scaleY = containerHeight / baseHeight;
+    final cardWidth = (containerWidth * 0.23).clamp(76.0, 110.0).toDouble();
+    final nameBoxHeight = (containerWidth * 0.087).clamp(32.0, 42.0).toDouble();
+    final nameFontSize = (containerWidth * 0.023).clamp(8.0, 11.0).toDouble();
+    final buttonHeight = (containerWidth * 0.073).clamp(28.0, 36.0).toDouble();
+    final buttonFontSize = (containerWidth * 0.019).clamp(7.0, 9.0).toDouble();
+    final cardGap = (containerWidth * 0.014).clamp(4.0, 7.0).toDouble();
+    final cardHeight = nameBoxHeight + cardGap + buttonHeight;
 
     // Plant positions on the shelf (center points) - base values for 412x803
     final plantPositions = [
       // Top shelf
-      _PlantPosition(
-          left: 95, top: 190, plant: threatenedTrees[0]), // Subyang (CR)
-      _PlantPosition(
-          left: 180, top: 170, plant: threatenedTrees[1]), // Molave (EN)
-      _PlantPosition(
-          left: 250, top: 170, plant: threatenedTrees[2]), // Manggachapui (EN)
-      _PlantPosition(
-          left: 360, top: 190, plant: threatenedTrees[3]), // Kubili (EN)
+      _PlantPosition(left: columns[0], top: 180, plant: threatenedTrees[0]),
+      _PlantPosition(left: columns[1], top: 180, plant: threatenedTrees[1]),
+      _PlantPosition(left: columns[2], top: 180, plant: threatenedTrees[2]),
+      _PlantPosition(left: columns[3], top: 180, plant: threatenedTrees[3]),
       // Second shelf
-      _PlantPosition(left: 95, top: 310, plant: threatenedTrees[4]), // Dao (VU)
-      _PlantPosition(
-          left: 180, top: 290, plant: threatenedTrees[5]), // Paho (VU)
-      _PlantPosition(
-          left: 270, top: 290, plant: threatenedTrees[6]), // Narra (VU)
-      _PlantPosition(
-          left: 350, top: 310, plant: threatenedTrees[7]), // Kamagong (VU)
+      _PlantPosition(left: columns[0], top: 300, plant: threatenedTrees[4]),
+      _PlantPosition(left: columns[1], top: 300, plant: threatenedTrees[5]),
+      _PlantPosition(left: columns[2], top: 300, plant: threatenedTrees[6]),
+      _PlantPosition(left: columns[3], top: 300, plant: threatenedTrees[7]),
       // Middle/Hanging section
-      _PlantPosition(
-          left: 95, top: 430, plant: threatenedTrees[8]), // Kalantas (VU)
-      _PlantPosition(
-          left: 355, top: 430, plant: threatenedTrees[9]), // Dila-dila (VU)
+      _PlantPosition(left: columns[0], top: 430, plant: threatenedTrees[8]),
+      _PlantPosition(left: columns[3], top: 430, plant: threatenedTrees[9]),
       // Third shelf
-      _PlantPosition(
-          left: 95, top: 545, plant: threatenedTrees[10]), // Haikan (VU)
-      _PlantPosition(
-          left: 175, top: 540, plant: threatenedTrees[11]), // Malachio (VU)
-      _PlantPosition(
-          left: 260, top: 540, plant: threatenedTrees[12]), // Bagarilau (VU)
-      _PlantPosition(
-          left: 355, top: 550, plant: threatenedTrees[13]), // Nato (VU)
+      _PlantPosition(left: columns[0], top: 545, plant: threatenedTrees[10]),
+      _PlantPosition(left: columns[1], top: 545, plant: threatenedTrees[11]),
+      _PlantPosition(left: columns[2], top: 545, plant: threatenedTrees[12]),
+      _PlantPosition(left: columns[3], top: 545, plant: threatenedTrees[13]),
       // Bottom shelf
-      _PlantPosition(
-          left: 80, top: 655, plant: threatenedTrees[14]), // Malak-malak (VU)
-      _PlantPosition(
-          left: 355, top: 655, plant: threatenedTrees[15]), // Katmon (VU)
+      _PlantPosition(left: columns[0], top: 655, plant: threatenedTrees[14]),
+      _PlantPosition(left: columns[3], top: 655, plant: threatenedTrees[15]),
     ];
 
     return SizedBox(
@@ -1102,11 +1852,17 @@ class _Ar_ViewState extends State<Ar_View> {
         children: plantPositions
             .map(
               (pos) => Positioned(
-                left: pos.left * scaleX,
-                top: pos.top * scaleY,
-                child: Transform.translate(
-                  offset: const Offset(-55, -35),
-                  child: _buildPlantButton(pos.plant, isDark),
+                left: (pos.left * scaleX) - (cardWidth / 2),
+                top: (pos.top * scaleY) - (cardHeight / 2),
+                child: _buildPlantButton(
+                  pos.plant,
+                  isDark,
+                  cardWidth: cardWidth,
+                  nameBoxHeight: nameBoxHeight,
+                  nameFontSize: nameFontSize,
+                  buttonHeight: buttonHeight,
+                  buttonFontSize: buttonFontSize,
+                  gap: cardGap,
                 ),
               ),
             )
@@ -1115,67 +1871,94 @@ class _Ar_ViewState extends State<Ar_View> {
     );
   }
 
-  Widget _buildPlantButton(TreeModel plant, bool isDark) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.black87 : Colors.black54,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                plant.name,
-                style: TextStyle(
-                  color: plant.color,
-                  fontFamily: 'Poppins-Bold',
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  shadows: const [
-                    Shadow(
-                      offset: Offset(1, 1),
-                      blurRadius: 3,
-                      color: Colors.black54,
-                    ),
-                  ],
+  Widget _buildPlantButton(
+    TreeModel plant,
+    bool isDark, {
+    required double cardWidth,
+    required double nameBoxHeight,
+    required double nameFontSize,
+    required double buttonHeight,
+    required double buttonFontSize,
+    required double gap,
+  }) {
+    final modelFile = plant.remoteModelFile;
+    final isModelDownloaded =
+        modelFile != null && _downloadedModelFiles.contains(modelFile);
+    return SizedBox(
+      width: cardWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                height: nameBoxHeight,
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black87 : Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                textAlign: TextAlign.center,
+                child: Text(
+                  plant.name,
+                  style: TextStyle(
+                    color: plant.color,
+                    fontFamily: 'Poppins-Bold',
+                    fontSize: nameFontSize,
+                    fontWeight: FontWeight.bold,
+                    shadows: const [
+                      Shadow(
+                        offset: Offset(1, 1),
+                        blurRadius: 3,
+                        color: Colors.black54,
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 6),
-        ElevatedButton(
-          onPressed: _shelfDownloadingSpeciesID == null
-              ? () => _viewPlantInAR(plant)
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? leafAccent : const Color(0xFF517156),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            minimumSize: const Size(60, 24),
-          ),
-          child: Text(
-            _shelfDownloadingSpeciesID ==
-                    plant.scientificName.trim().replaceAll(RegExp(r'\s+'), '_')
-                ? 'Downloading $_shelfDownloadPercent%'
-                : plant.remoteModelFile == null
-                    ? 'Model unavailable'
-                    : 'View in AR',
-            style: TextStyle(
-              color: isDark ? Colors.black : Colors.white,
-              fontFamily: 'Poppins-Bold',
-              fontSize: 8,
+          SizedBox(height: gap),
+          ElevatedButton(
+            onPressed: _shelfDownloadingSpeciesID == null
+                ? () => _viewPlantInAR(plant)
+                : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? leafAccent : const Color(0xFF517156),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              minimumSize: Size(cardWidth, buttonHeight),
+              maximumSize: Size(cardWidth, buttonHeight),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _shelfDownloadingSpeciesID ==
+                        plant.scientificName
+                            .trim()
+                            .replaceAll(RegExp(r'\s+'), '_')
+                    ? 'Downloading $_shelfDownloadPercent%'
+                    : modelFile == null
+                        ? 'Model unavailable'
+                        : isModelDownloaded
+                            ? 'View in AR'
+                            : 'Download AR',
+                style: TextStyle(
+                  color: isDark ? Colors.black : Colors.white,
+                  fontFamily: 'Poppins-Bold',
+                  fontSize: buttonFontSize,
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1231,7 +2014,7 @@ class _Ar_ViewState extends State<Ar_View> {
             BottomNavigationBarItem(
               icon: Icon(Icons.view_in_ar_outlined),
               activeIcon: Icon(Icons.view_in_ar_rounded),
-              label: "AR View",
+              label: "AR Garden",
             ),
           ],
         ),

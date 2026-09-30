@@ -33,6 +33,10 @@ android {
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            // GreenAtlas AR intentionally supports 64-bit ARM devices only.
+            abiFilters += setOf("arm64-v8a")
+        }
     }
 
     buildTypes {

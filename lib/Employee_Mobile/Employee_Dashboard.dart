@@ -10,6 +10,7 @@ import '../Employee_Mobile/Field_Diary/Employee_FieldDiary.dart';
 import '../Employee_Mobile/EmployeeMeeting/Employee_Meetings.dart';
 import '../Employee_Mobile/EmployeeNotification/employeenotif.dart'; 
 import '../../components/notification_badge.dart';
+import '../services/user_session_service.dart';
 
 class EmployeePortal extends StatefulWidget {
   final int initialIndex; 
@@ -84,7 +85,7 @@ class EmployeeDashboardContent extends StatefulWidget {
 
 class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
   final _supabase = Supabase.instance.client;
-  String? get _userId => _supabase.auth.currentUser?.id;
+  String? get _userId => _supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
   
   bool _isMeetingsExpanded = true;
 
@@ -93,7 +94,7 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
-    if (_userId == null) {
+    if (_userId == null && !UserSessionService.isLoggedIn) {
       return const Center(
         child: Text("Access Denied. Please Login.")
       );
@@ -150,7 +151,9 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
       children: [
         Expanded(
           child: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!),
+            stream: _userId != null
+                ? _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!)
+                : null,
             builder: (context, snapshot) {
               final count = snapshot.data?.length ?? 0;
               return _buildLargeStatCard(Icons.menu_book_outlined, "$count", "Observation Entries", isDark, textTheme, onTap: () => widget.onNavigate(1));
@@ -207,7 +210,9 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
 
   Widget _buildRecentEntriesList(bool isDark, TextTheme textTheme) {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!).order('created_at', ascending: false).limit(3),
+      stream: _userId != null
+          ? _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!).order('created_at', ascending: false).limit(3)
+          : null,
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return _buildEmptyState(isDark, "No recent entries", textTheme);
         final entries = List<Map<String, dynamic>>.from(snapshot.data!);
@@ -260,7 +265,9 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
 
   Widget _buildLiveDiaryAction(bool isDark, TextTheme textTheme) {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!),
+      stream: _userId != null
+          ? _supabase.from('field_entries').stream(primaryKey: ['id']).eq('user_id', _userId!)
+          : null,
       builder: (context, snapshot) {
         final pending = snapshot.data?.where((e) => e['status'] == 'Pending').length ?? 0;
         return _buildDetailedAction(icon: Icons.menu_book_outlined, title: "Field Observation", subtitle: "Document observations", badge: pending > 0 ? "$pending Pending" : null, badgeColor: Colors.orange, isDark: isDark, textTheme: textTheme, onTap: () => widget.onNavigate(1));

@@ -9,6 +9,7 @@ import '../../EmployeeNotification/employeenotif.dart';
 import '../../../components/notification_badge.dart';
 import '../Employee_FieldDiary.dart'; 
 import '../clearentry.dart'; 
+import '../../../services/user_session_service.dart';
 
 class CollectStep1Screen extends StatefulWidget {
   const CollectStep1Screen({super.key});
@@ -38,11 +39,11 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
   @override
   void initState() {
     super.initState();
-    final user = _supabase.auth.currentUser;
-    if (user != null) {
+    final userId = _supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
+    if (userId != null) {
       Future.microtask(() {
         final model = context.read<ObservationModel>();
-        model.userId = user.id;
+        model.userId = userId;
         model.observerName = "FO-12345"; 
         model.updateData();
       });

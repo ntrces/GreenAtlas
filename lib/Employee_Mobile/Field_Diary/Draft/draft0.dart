@@ -24,12 +24,13 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
   @override
   void initState() {
     super.initState();
-    _initOfflineService();    // Add a small delay to allow Supabase to process updates
+    _initOfflineService(); // Add a small delay to allow Supabase to process updates
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         _refreshDraftList();
       }
-    });  }
+    });
+  }
 
   void _initOfflineService() async {
     _offlineService = OfflineDraftService();
@@ -75,7 +76,7 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     } catch (e) {
       if (mounted) {
         final errorMsg = e.toString();
-        
+
         // Check for authentication error
         if (errorMsg.contains('Authentication required')) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -116,18 +117,21 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     final userId = _supabase.auth.currentUser?.id;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
+      backgroundColor:
+          isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
         elevation: 0,
-        title: Text("My Drafts", style: TextStyle(color: darkGreen, fontSize: 18)),
+        title:
+            Text("My Drafts", style: TextStyle(color: darkGreen, fontSize: 18)),
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: darkGreen, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (_offlineService.hasOfflineDrafts && _offlineService.isOnline)
+          if (_offlineService.hasPendingOfflineDrafts &&
+              _offlineService.isOnline)
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Center(
@@ -186,7 +190,14 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
   }
 
   Widget _buildOfflineDraftsSection(bool isDark) {
-    final offlineDrafts = _offlineService.getAllOfflineDrafts();
+    final offlineDrafts = _offlineService
+        .getAllOfflineDrafts()
+        .where((draft) => !_offlineService.isOnline || draft['synced'] != true)
+        .toList();
+
+    if (offlineDrafts.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -209,8 +220,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
               ],
             ),
           ),
-          ...offlineDrafts.map((draft) =>
-              _buildOfflineDraftTile(draft, isDark)),
+          ...offlineDrafts
+              .map((draft) => _buildOfflineDraftTile(draft, isDark)),
           const Divider(height: 24, thickness: 1),
         ],
       ),
@@ -225,8 +236,7 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
         stream: userId != null
             ? _supabase
                 .from('field_entries')
-                .stream(primaryKey: ['id'])
-                .eq('user_id', userId)
+                .stream(primaryKey: ['id']).eq('user_id', userId)
             : const Stream.empty(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -270,7 +280,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                   child: Text(
                     "Synced Drafts (${drafts.length})",
                     style: const TextStyle(
@@ -279,8 +290,7 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                         color: Colors.black54),
                   ),
                 ),
-                ...drafts.map((item) =>
-                    _buildDraftTile(context, item, isDark)),
+                ...drafts.map((item) => _buildDraftTile(context, item, isDark)),
               ],
             ),
           );
@@ -289,8 +299,7 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     );
   }
 
-  Widget _buildOfflineDraftTile(
-      Map<String, dynamic> draft, bool isDark) {
+  Widget _buildOfflineDraftTile(Map<String, dynamic> draft, bool isDark) {
     final species = draft['common_name'] ?? "Unnamed Entry";
     final dateString = draft['observation_date'] ?? DateTime.now().toString();
     final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(dateString));
@@ -301,6 +310,13 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
       key: ValueKey('offline_$draftId$_refreshKey'),
       direction: DismissDirection.endToStart,
       onDismissed: (direction) async {
+        final serverDraftId = draft['server_draft_id']?.toString();
+        if (serverDraftId != null && serverDraftId.isNotEmpty) {
+          await _supabase
+              .from('field_entries')
+              .delete()
+              .eq('id', serverDraftId);
+        }
         await _offlineService.deleteOfflineDraft(draftId);
         _refreshDraftList(); // Ensure UI updates
         if (mounted) {
@@ -328,7 +344,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                   ),
                   TextButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                    child: const Text("Delete",
+                        style: TextStyle(color: Colors.red)),
                   ),
                 ],
               ),
@@ -352,7 +369,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                 offlineService: _offlineService,
               ),
             ),
-          ).then((_) => _refreshDraftList()); // Refresh when returning from detail screen
+          ).then((_) =>
+              _refreshDraftList()); // Refresh when returning from detail screen
         },
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -385,7 +403,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                             fontSize: 16)),
                     Text(
                       "Last edited: $date",
-                      style: const TextStyle(fontSize: 12, color: Colors.black45),
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.black45),
                     ),
                     if (isSynced)
                       const Text(
@@ -398,7 +417,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
+              const Icon(Icons.arrow_forward_ios,
+                  size: 14, color: Colors.black26),
             ],
           ),
         ),
@@ -432,7 +452,7 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
 
           // Wait for backend to sync
           await Future.delayed(const Duration(milliseconds: 500));
-          
+
           // Force UI refresh
           if (mounted) {
             _refreshDraftList();
@@ -472,7 +492,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                   ),
                   TextButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                    child: const Text("Delete",
+                        style: TextStyle(color: Colors.red)),
                   ),
                 ],
               ),
@@ -490,7 +511,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => DraftDetailScreen(draft: draft)),
-          ).then((_) => _refreshDraftList()); // Refresh when returning from detail screen
+          ).then((_) =>
+              _refreshDraftList()); // Refresh when returning from detail screen
         },
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -523,7 +545,8 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.black26),
+              const Icon(Icons.arrow_forward_ios,
+                  size: 14, color: Colors.black26),
             ],
           ),
         ),

@@ -8,6 +8,7 @@
     <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
 
     <queries>
+        <package android:name="com.google.ar.core" />
         <intent>
             <action android:name="com.google.ar.core.intent.ACTION_LAUNCH_RE_LIST" />
         </intent>

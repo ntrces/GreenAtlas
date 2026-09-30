@@ -10,6 +10,7 @@ import '../Employee_Mobile/Employee_Dashboard.dart';
 import '../IntroPages/intro1.dart';
 import '../IntroPages/completeprofile.dart';
 import '../services/error_handler.dart';
+import '../services/user_session_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -71,6 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
             role = userData['role'] ?? 'user';
             isFirstTime = userData['is_first_time'] ?? false;
           }
+
+          await UserSessionService.saveSession(
+            userId: user.id,
+            role: role,
+            email: user.email,
+            isFirstTime: isFirstTime,
+          );
 
           await _supabase.from('audit_logs').insert({
             'title': 'User Login',
