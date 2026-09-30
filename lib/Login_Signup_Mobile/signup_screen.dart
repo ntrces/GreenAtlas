@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_constants.dart';
+import '../services/error_handler.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -115,19 +116,65 @@ class _SignUpScreenState extends State<SignUpScreen> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Account created successfully! Please sign in."),
-              backgroundColor: Colors.green,
+          final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              backgroundColor: isDark ? const Color(0xFF253326) : Colors.white,
+              title: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
+                  const SizedBox(width: 10),
+                  Text(
+                    "Success",
+                    style: TextStyle(
+                      fontFamily: 'Poppins-Bold',
+                      color: getTextColor(isDark),
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                "Account created successfully!",
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: getSubtextColor(isDark),
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? leafAccent : sageGreen,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(
+                    "OK",
+                    style: TextStyle(
+                      fontFamily: 'Poppins-Bold',
+                      color: isDark ? Colors.black : Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
-          Navigator.pop(context); // Return to login screen
+
+          if (mounted) {
+            Navigator.pop(context); // Return to login screen
+          }
         }
       }
-    } on AuthException catch (e) {
-      _showError(e.message);
     } catch (e) {
-      _showError("An unexpected error occurred: $e");
+      if (mounted) {
+        ErrorHandler.showError(context, e);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

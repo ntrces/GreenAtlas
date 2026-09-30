@@ -1,0 +1,14 @@
+.git
+.dart_tool
+node_modules
+android
+ios
+windows
+macos
+linux
+.idea
+.vscode
+build/app
+build/.cxx
+build/unityLibrary
+build/xrmanifest.androidlib

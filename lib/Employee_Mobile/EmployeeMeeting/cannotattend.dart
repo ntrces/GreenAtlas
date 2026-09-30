@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme_provider.dart';
-import 'cannotattendview.dart'; // Ensure this import is present
+import 'cannotattendview.dart';
+import '../../../services/error_handler.dart';
 
 class CannotAttendScreen extends StatefulWidget {
   final Map<String, dynamic> meeting;
@@ -55,12 +56,7 @@ class _CannotAttendScreenState extends State<CannotAttendScreen> {
       debugPrint("Supabase Error: $e");
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error submitting justification: $e"),
-            backgroundColor: errorRed,
-          ),
-        );
+        ErrorHandler.showError(context, e);
       }
     }
   }

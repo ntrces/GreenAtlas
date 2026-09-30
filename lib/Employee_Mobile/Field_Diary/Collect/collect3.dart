@@ -234,8 +234,8 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           debugPrint("Error getting GPS location: $e");
         }
 
-        final String watermarkedPath =
-            await _watermarkImage(pickedImage.path, position, model);
+        final String watermarkedPath = await _watermarkImage(pickedImage.path, position, model);
+        if (!mounted) return;
         setState(() {
           if (position != null) {
             _imageLocations[watermarkedPath] = position;
