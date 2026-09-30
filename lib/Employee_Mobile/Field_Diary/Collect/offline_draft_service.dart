@@ -30,6 +30,11 @@ class OfflineDraftService extends ChangeNotifier {
     // Check initial connectivity
     await _checkConnectivity();
     
+    // Sync pending drafts if online at startup
+    if (_isOnline) {
+      _syncPendingDrafts();
+    }
+    
     // Listen to connectivity changes
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((result) {
       final wasOnline = _isOnline;
@@ -235,6 +240,12 @@ class OfflineDraftService extends ChangeNotifier {
     for (final draft in drafts) {
       if (draft['synced'] != true) {
         await _syncDraft(draft);
+      } else {
+        // Clean up legacy synced drafts from local Hive storage
+        final draftId = draft['draft_id'] as String?;
+        if (draftId != null) {
+          await deleteOfflineDraft(draftId);
+        }
       }
     }
   }
@@ -315,7 +326,7 @@ class OfflineDraftService extends ChangeNotifier {
         'count': draft['count'] ?? 0,
         'discovery_method': draft['discovery_method'] ?? '',
         'notes': draft['notes'] ?? '',
-        'status': 'DRAFT',
+        'status': 'PENDING',
       };
 
       // Insert to database
@@ -324,7 +335,7 @@ class OfflineDraftService extends ChangeNotifier {
       // Log audit entry
       await supabase.from('audit_logs').insert({
         'title': 'Offline Draft Synced',
-        'description': 'Offline draft for ${draft['common_name']} synced to server',
+        'description': 'Offline draft for ${draft['common_name']} synced and submitted to server',
         'category': 'Field Data',
         'ip_address': 'Mobile App',
         'result': 'Success',
@@ -334,8 +345,8 @@ class OfflineDraftService extends ChangeNotifier {
         'timestamp': DateTime.now().toIso8601String(),
       });
 
-      // Mark as synced
-      await updateDraftSyncStatus(draft['draft_id'] as String, true);
+      // Remove from local drafts once synced and submitted to server
+      await deleteOfflineDraft(draftId);
       return true;
     } catch (e) {
       debugPrint('Error syncing draft: $e');

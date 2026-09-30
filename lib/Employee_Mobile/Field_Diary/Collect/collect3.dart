@@ -227,6 +227,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
         }
 
         final String watermarkedPath = await _watermarkImage(pickedImage.path, position, model);
+        if (!mounted) return;
         setState(() {
           if (position != null) {
             _imageLocations[watermarkedPath] = position;
