@@ -109,7 +109,7 @@ class _UserDashboardState extends State<UserDashboard> {
                   builder: (context, snapshot) {
                     final allPlants = snapshot.data ?? [];
                     final arCount = allPlants.where((p) => p['ar_model_url'] != null && p['ar_model_url'].toString().isNotEmpty).length;
-                    final displayArCount = arCount >= 14 ? arCount.toString() : "14";
+                    final displayArCount = arCount >=16 ? arCount.toString() : "16";
                     
                     return Padding(
                       padding: const EdgeInsets.all(16.0),
