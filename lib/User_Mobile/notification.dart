@@ -6,6 +6,8 @@ import '../theme_provider.dart';
 import '../theme_constants.dart';
 import 'Botanical_Gallery/ar_gallery.dart';
 import '../UserProfile/user_profile.dart';
+import '../components/notification_badge.dart';
+import '../services/user_session_service.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -17,9 +19,22 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   final _supabase = Supabase.instance.client;
 
-  String? get _userId => _supabase.auth.currentUser?.id;
+  String? get _userId => _supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
+
+  bool _isItemUnread(Map<String, dynamic> notif) {
+    final String id = notif['id']?.toString() ?? '';
+    final bool isRead = notif['is_read'] == true;
+    final DateTime? createdAt = DateTime.tryParse(notif['created_at']?.toString() ?? '');
+    return NotificationStateNotifier.instance.isUnread(
+      id: id,
+      isRead: isRead,
+      createdAt: createdAt,
+    );
+  }
 
   Future<void> _updateReadStatus(dynamic id) async {
+    NotificationStateNotifier.instance.dismissSingle(id.toString());
+    setState(() {});
     try {
       await _supabase.from('audit_logs').update({'is_read': true}).eq('id', id);
     } catch (e) {
@@ -28,6 +43,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _markAllAsRead(List<Map<String, dynamic>> notifications) async {
+    final ids = notifications.map((n) => n['id'].toString()).toList();
+    NotificationStateNotifier.instance.clearAll(currentIds: ids);
+    setState(() {});
+
     try {
       final unreadIds = notifications.where((n) => !(n['is_read'] ?? false)).map((n) => n['id']).toList();
       if (unreadIds.isEmpty) return;
@@ -63,8 +82,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
+    final userId = _userId;
 
-    if (_userId == null) {
+    if (userId == null) {
       return Scaffold(
         backgroundColor: getScaffoldBg(isDark),
         body: Center(
@@ -73,114 +93,122 @@ class _NotificationScreenState extends State<NotificationScreen> {
       );
     }
 
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase
-          .from('audit_logs_with_roles')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', _userId!)
-          .order('created_at', ascending: false),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) return Scaffold(backgroundColor: getScaffoldBg(isDark), body: Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: getTextColor(isDark)))));
-        
-        final rawNotifs = snapshot.data?.where((n) => 
-          n['user_id'] == _userId
-        ).toList() ?? [];
+    NotificationStateNotifier.instance.ensureUserLoaded(userId);
 
-        rawNotifs.sort((a, b) {
-          final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
-          final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
-          return bTime.compareTo(aTime);
-        });
+    return AnimatedBuilder(
+      animation: NotificationStateNotifier.instance,
+      builder: (context, _) {
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: _supabase
+              .from('audit_logs_with_roles')
+              .stream(primaryKey: ['id'])
+              .eq('user_id', userId)
+              .order('created_at', ascending: false),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) return Scaffold(backgroundColor: getScaffoldBg(isDark), body: Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: getTextColor(isDark)))));
+            
+            final rawNotifs = snapshot.data?.where((n) => 
+              n['user_id'] == userId
+            ).toList() ?? [];
 
-        final allNotifs = rawNotifs.take(15).toList();
+            rawNotifs.sort((a, b) {
+              final aTime = DateTime.tryParse(a['created_at']?.toString() ?? '') ?? DateTime(1970);
+              final bTime = DateTime.tryParse(b['created_at']?.toString() ?? '') ?? DateTime(1970);
+              return bTime.compareTo(aTime);
+            });
 
-        final unreadCount = allNotifs.where((n) => !(n['is_read'] ?? false)).length;
+            final allNotifs = rawNotifs.take(50).toList();
+            final unreadCount = rawNotifs.where((n) => _isItemUnread(n)).length;
 
-        return Scaffold(
-          backgroundColor: getScaffoldBg(isDark),
-          appBar: AppBar(
-            backgroundColor: getCardBg(isDark),
-            elevation: 0,
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: getTextColor(isDark)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            title: Row(
-              children: [
-                Text(
-                  "Activity", 
-                  style: textTheme.titleLarge?.copyWith(
-                    color: getTextColor(isDark), 
-                    fontSize: 18,
-                  ),
+            return Scaffold(
+              backgroundColor: getScaffoldBg(isDark),
+              appBar: AppBar(
+                backgroundColor: getCardBg(isDark),
+                elevation: 0,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back, color: getTextColor(isDark)),
+                  onPressed: () => Navigator.pop(context),
                 ),
-                if (unreadCount > 0) ...[
-                  const SizedBox(width: 8),
-                  _buildBadge(unreadCount, isDark),
-                ]
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: allNotifs.isEmpty ? null : () => _markAllAsRead(allNotifs),
-                child: Text(
-                  "Mark all as read", 
-                  style: textTheme.labelLarge?.copyWith(
-                    color: isDark ? leafAccent : const Color(0xFF5D7A5D), 
-                    fontSize: 12,
-                  ),
-                ),
-              )
-            ],
-          ),
-          body: allNotifs.isEmpty 
-            ? Center(
-                child: Text(
-                  "No new activity.", 
-                  style: TextStyle(color: getSubtextColor(isDark)),
-                )
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: allNotifs.length,
-                itemBuilder: (context, index) {
-                  final notif = allNotifs[index];
-                  final String type = notif['type'] ?? notif['category'] ?? 'general';
-                  final bool isUnread = !(notif['is_read'] ?? false);
-                  
-                  final DateTime createdAt = DateTime.tryParse(notif['created_at']?.toString() ?? '') ?? DateTime.now();
-                  final String timeLabel = DateFormat.jm().format(createdAt); 
-
-                  return InkWell(
-                    onTap: () {
-                      try {
-                        if (isUnread) {
-                          _updateReadStatus(notif['id']);
-                        }
-                        final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-                        if (text.contains('plant')) {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
-                        } else if (text.contains('profile')) {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
-                        }
-                      } catch (e) {
-                        debugPrint("Error handling notification tap: $e");
-                      }
-                    },
-                    child: _buildNotifTile(
-                      icon: _getIcon(type),
-                      iconColor: _getIconColor(type, isDark),
-                      title: notif['title'] ?? "Notification",
-                      body: notif['message'] ?? notif['description'] ?? "",
-                      time: timeLabel,
-                      isUnread: isUnread,
-                      isDark: isDark,
+                title: Row(
+                  children: [
+                    Text(
+                      "Activity", 
+                      style: textTheme.titleLarge?.copyWith(
+                        color: getTextColor(isDark), 
+                        fontSize: 18,
+                      ),
                     ),
-                  );
-                },
+                    if (unreadCount > 0) ...[
+                      const SizedBox(width: 8),
+                      _buildBadge(unreadCount, isDark),
+                    ]
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: (rawNotifs.isEmpty || unreadCount == 0) ? null : () => _markAllAsRead(rawNotifs),
+                    child: Text(
+                      "Mark all as read", 
+                      style: textTheme.labelLarge?.copyWith(
+                        color: (rawNotifs.isEmpty || unreadCount == 0)
+                            ? (isDark ? Colors.white38 : Colors.grey)
+                            : (isDark ? leafAccent : const Color(0xFF5D7A5D)), 
+                        fontSize: 12,
+                      ),
+                    ),
+                  )
+                ],
               ),
+              body: allNotifs.isEmpty 
+                ? Center(
+                    child: Text(
+                      "No new activity.", 
+                      style: TextStyle(color: getSubtextColor(isDark)),
+                    )
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: allNotifs.length,
+                    itemBuilder: (context, index) {
+                      final notif = allNotifs[index];
+                      final String type = notif['type'] ?? notif['category'] ?? 'general';
+                      final bool isUnread = _isItemUnread(notif);
+                      
+                      final DateTime createdAt = DateTime.tryParse(notif['created_at']?.toString() ?? '') ?? DateTime.now();
+                      final String timeLabel = DateFormat.jm().format(createdAt); 
+
+                      return InkWell(
+                        onTap: () {
+                          try {
+                            if (isUnread) {
+                              _updateReadStatus(notif['id']);
+                            }
+                            final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
+                            if (text.contains('plant')) {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen()));
+                            } else if (text.contains('profile')) {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
+                            }
+                          } catch (e) {
+                            debugPrint("Error handling notification tap: $e");
+                          }
+                        },
+                        child: _buildNotifTile(
+                          icon: _getIcon(type),
+                          iconColor: _getIconColor(type, isDark),
+                          title: notif['title'] ?? "Notification",
+                          body: notif['message'] ?? notif['description'] ?? "",
+                          time: timeLabel,
+                          isUnread: isUnread,
+                          isDark: isDark,
+                        ),
+                      );
+                    },
+                  ),
+            );
+          },
         );
-      }
+      },
     );
   }
 

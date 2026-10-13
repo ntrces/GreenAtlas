@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../Collect/observation_model.dart';
 import '../Collect/collect01.dart';
 import '../Collect/offline_draft_service.dart';
+import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 
 class DraftDetailScreen extends StatefulWidget {
   final Map<String, dynamic> draft;
@@ -61,19 +63,60 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
 
   // --- LOGIC: DELETE ---
   void _handleDelete(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text("Delete Draft?"),
+        backgroundColor: getCardBg(isDark),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.06),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Delete Draft?",
+                style: TextStyle(
+                  color: isDark ? Colors.white : darkGreen,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
         content: Text(
           "Are you sure you want to delete this ${widget.isOfflineDraft ? 'offline ' : ''}draft? This action cannot be undone.",
+          style: TextStyle(
+            color: isDark ? Colors.white70 : Colors.black87,
+            fontSize: 14,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: _isDeleting ? null : () => Navigator.pop(dialogContext),
-            child: const Text("Cancel"),
+            child: Text(
+              "Cancel",
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: _isDeleting
                 ? null
                 : () async {
@@ -81,8 +124,8 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
                     await _performDelete();
                   },
             child: _isDeleting
-                ? const Text("Deleting...", style: TextStyle(color: Colors.red))
-                : const Text("Delete", style: TextStyle(color: Colors.red)),
+                ? const Text("Deleting...", style: TextStyle(color: Colors.white))
+                : const Text("Delete", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -100,10 +143,18 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
         if (draftId != null) {
           final serverDraftId = _editingDraft['server_draft_id']?.toString();
           if (serverDraftId != null && serverDraftId.isNotEmpty) {
-            await Supabase.instance.client
-                .from('field_entries')
-                .delete()
-                .eq('id', serverDraftId);
+            try {
+              await Supabase.instance.client
+                  .from('field_entries')
+                  .delete()
+                  .eq('id', serverDraftId);
+            } catch (_) {}
+            try {
+              await Supabase.instance.client
+                  .from('field_entries')
+                  .update({'status': 'ARCHIVED'})
+                  .eq('id', serverDraftId);
+            } catch (_) {}
           }
           await widget.offlineService!.deleteOfflineDraft(draftId);
           if (mounted) {
@@ -114,20 +165,52 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
                 duration: Duration(seconds: 2),
               ),
             );
-            // Pop with result indicating deletion
-            Navigator.pop(context, true);
+            Navigator.pop(context, {
+              'deleted': true,
+              'id': draftId,
+              'serverDraftId': serverDraftId,
+            });
           }
         }
       } else {
         // Delete online draft from Supabase
         final supabase = Supabase.instance.client;
         final draftId = _editingDraft['id'];
+        final user = supabase.auth.currentUser;
 
-        await supabase.from('field_entries').delete().eq('id', draftId);
+        try {
+          if (user != null) {
+            await supabase
+                .from('field_entries')
+                .delete()
+                .eq('id', draftId)
+                .eq('user_id', user.id);
+          } else {
+            await supabase.from('field_entries').delete().eq('id', draftId);
+          }
+        } catch (e) {
+          debugPrint('Physical delete error: $e');
+        }
+        try {
+          if (user != null) {
+            await supabase
+                .from('field_entries')
+                .update({'status': 'ARCHIVED'})
+                .eq('id', draftId)
+                .eq('user_id', user.id);
+          } else {
+            await supabase
+                .from('field_entries')
+                .update({'status': 'ARCHIVED'})
+                .eq('id', draftId);
+          }
+        } catch (e) {
+          debugPrint('Archive status error: $e');
+        }
 
         // Also cleanup offline copy if it exists
         if (widget.offlineService != null) {
-          await widget.offlineService!.cleanupSyncedDraft(draftId);
+          await widget.offlineService!.cleanupSyncedDraft(draftId?.toString());
         }
 
         if (mounted) {
@@ -139,7 +222,10 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
             ),
           );
           // Pop with result indicating deletion
-          Navigator.pop(context, true);
+          Navigator.pop(context, {
+            'deleted': true,
+            'id': draftId?.toString(),
+          });
         }
       }
     } catch (e) {
@@ -237,7 +323,7 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
     );
   }
 
-  Widget _buildImagesSection() {
+  Widget _buildImagesSection(bool isDark) {
     final images = _getImages();
     if (images.isEmpty) {
       return const SizedBox.shrink();
@@ -245,8 +331,8 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Photos",
-            style: TextStyle(fontSize: 12, color: Colors.black38)),
+        Text("Photos",
+            style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black38)),
         const SizedBox(height: 8),
         SizedBox(
           height: 120,
@@ -266,7 +352,7 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
     );
   }
 
-  Widget _buildTeamCard() {
+  Widget _buildTeamCard(bool isDark) {
     final List<dynamic>? members = _editingDraft['team_members'];
     if (members == null || members.isEmpty) return const SizedBox.shrink();
 
@@ -281,10 +367,10 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
     if (activeMembers.isEmpty) return const SizedBox.shrink();
 
     return _buildCard([
-      const Text("Team Members",
+      Text("Team Members",
           style: TextStyle(
               fontSize: 14,
-              color: Colors.black87,
+              color: isDark ? Colors.white : Colors.black87,
               fontWeight: FontWeight.bold)),
       const SizedBox(height: 12),
       ...activeMembers.map((m) {
@@ -298,36 +384,36 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(name,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                  style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
               Text(role,
-                  style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                  style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black45)),
             ],
           ),
         );
       }).toList(),
-    ]);
+    ], isDark);
   }
 
-  Widget _buildEnvironmentCard() {
+  Widget _buildEnvironmentCard(bool isDark) {
     return _buildCard([
-      const Text("Environment",
+      Text("Environment",
           style: TextStyle(
               fontSize: 14,
-              color: Colors.black87,
+              color: isDark ? Colors.white : Colors.black87,
               fontWeight: FontWeight.bold)),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(
             child: _buildInfoItem("Weather Conditions",
-                _editingDraft['weather_condition'] ?? "N/A")),
+                _editingDraft['weather_condition'] ?? "N/A", isDark)),
         Expanded(
             child: _buildInfoItem(
-                "Temperature", "${_editingDraft['temperature'] ?? 'N/A'}°C")),
+                "Temperature", "${_editingDraft['temperature'] ?? 'N/A'}°C", isDark)),
       ]),
-    ]);
+    ], isDark);
   }
 
-  Widget _buildObservationCard() {
+  Widget _buildObservationCard(bool isDark) {
     final List<String> methods = [];
     final discoveryMethod = _editingDraft['discovery_method'];
     if (discoveryMethod != null && discoveryMethod.toString().isNotEmpty) {
@@ -335,57 +421,58 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
     }
 
     return _buildCard([
-      const Text("Observation Details",
+      Text("Observation Details",
           style: TextStyle(
               fontSize: 14,
-              color: Colors.black87,
+              color: isDark ? Colors.white : Colors.black87,
               fontWeight: FontWeight.bold)),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(
             child: _buildInfoItem(
-                "Species Name", _editingDraft['common_name'] ?? "Unnamed")),
+                "Species Name", _editingDraft['common_name'] ?? "Unnamed", isDark)),
         Expanded(
             child: _buildInfoItem(
-                "Taxon Group", _editingDraft['taxon_group'] ?? "N/A")),
+                "Taxon Group", _editingDraft['taxon_group'] ?? "N/A", isDark)),
       ]),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(
             child: _buildInfoItem(
-                "Category", _editingDraft['observation_category'] ?? "N/A")),
+                "Category", _editingDraft['observation_category'] ?? "N/A", isDark)),
         Expanded(
             child: _buildInfoItem(
-                "Habitat", _editingDraft['habitat_type'] ?? "N/A")),
+                "Habitat", _editingDraft['habitat_type'] ?? "N/A", isDark)),
       ]),
       const SizedBox(height: 12),
       Row(children: [
         Expanded(
             child: _buildInfoItem(
-                "Count/Quantity", _editingDraft['count']?.toString() ?? "0")),
+                "Count/Quantity", _editingDraft['count']?.toString() ?? "0", isDark)),
         Expanded(
             child: _buildInfoItem("Discovery Method",
-                methods.isNotEmpty ? methods.join(', ') : "N/A")),
+                methods.isNotEmpty ? methods.join(', ') : "N/A", isDark)),
       ]),
       if (_editingDraft['notes'] != null &&
           _editingDraft['notes'].toString().trim().isNotEmpty) ...[
         const SizedBox(height: 12),
-        _buildInfoItem("Observation Notes", _editingDraft['notes']),
+        _buildInfoItem("Observation Notes", _editingDraft['notes'], isDark),
       ],
       if (_getImages().isNotEmpty) ...[
-        const Divider(height: 32),
-        _buildImagesSection(),
+        Divider(height: 32, color: isDark ? Colors.white12 : Colors.black12),
+        _buildImagesSection(isDark),
       ],
-    ]);
+    ], isDark);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final badgeColor = widget.isOfflineDraft ? Colors.orange : draftBadgeColor;
     final badgeText = widget.isOfflineDraft ? "Offline Draft" : "Draft";
 
     return Scaffold(
-      backgroundColor: lightGreenBG,
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
         backgroundColor: darkGreen,
         elevation: 0,
@@ -446,50 +533,50 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
 
             // Metadata Card
             _buildCard([
-              _buildDataRow("User ID:", "FO-12345"),
+              _buildDataRow("User ID:", "FO-12345", isDark),
               _buildDataRow("Created:",
-                  _editingDraft['created_at'].toString().substring(0, 16)),
+                  _editingDraft['created_at'].toString().substring(0, 16), isDark),
               _buildDataRow(
-                  "Modified:", _editingDraft['observation_date'] ?? "N/A"),
-            ]),
+                  "Modified:", _editingDraft['observation_date'] ?? "N/A", isDark),
+            ], isDark),
 
             // Team Members Card
-            _buildTeamCard(),
+            _buildTeamCard(isDark),
 
             // Location Card
             _buildCard([
-              const Text("Location Details",
+              Text("Location Details",
                   style: TextStyle(
                       fontSize: 14,
-                      color: Colors.black87,
+                      color: isDark ? Colors.white : Colors.black87,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
                     child: _buildInfoItem(
-                        "Region", _editingDraft['region'] ?? "N/A")),
+                        "Region", _editingDraft['region'] ?? "N/A", isDark)),
                 Expanded(
                     child: _buildInfoItem(
-                        "Province", _editingDraft['province'] ?? "N/A")),
+                        "Province", _editingDraft['province'] ?? "N/A", isDark)),
               ]),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
                     child: _buildInfoItem("Protected Area",
-                        _editingDraft['protected_area'] ?? "N/A")),
+                        _editingDraft['protected_area'] ?? "N/A", isDark)),
                 Expanded(
                     child: _buildInfoItem(
                         "Observation Date/Time",
                         "${_editingDraft['observation_date'] ?? 'N/A'} ${_editingDraft['observation_time'] ?? ''}"
-                            .trim())),
+                            .trim(), isDark)),
               ]),
-            ]),
+            ], isDark),
 
             // Environment Card
-            _buildEnvironmentCard(),
+            _buildEnvironmentCard(isDark),
 
             // Observation Details Card (includes photos)
-            _buildObservationCard(),
+            _buildObservationCard(isDark),
 
             const SizedBox(height: 24),
 
@@ -517,7 +604,8 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
                         style: TextStyle(color: Colors.redAccent)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFFFFE0E0)),
+                      side: BorderSide(color: isDark ? Colors.red.withOpacity(0.3) : const Color(0xFFFFE0E0)),
+                      backgroundColor: isDark ? const Color(0xFF2A1F1F) : const Color(0xFFFFF0F0),
                     ),
                   ),
                 ),
@@ -529,41 +617,42 @@ class _DraftDetailScreenState extends State<DraftDetailScreen> {
     );
   }
 
-  Widget _buildCard(List<Widget> children) => Container(
+  Widget _buildCard(List<Widget> children, [bool isDark = false]) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-            color: Colors.white,
+            color: getCardBg(isDark),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.04)),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+              BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.05), blurRadius: 10)
             ]),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: children),
       );
 
-  Widget _buildDataRow(String label, String value) => Padding(
+  Widget _buildDataRow(String label, String value, [bool isDark = false]) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label,
-                style: const TextStyle(color: Colors.black38, fontSize: 12)),
+                style: TextStyle(color: isDark ? Colors.white54 : Colors.black38, fontSize: 12)),
             Text(value,
-                style: const TextStyle(color: Colors.black87, fontSize: 12)),
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12)),
           ],
         ),
       );
 
-  Widget _buildInfoItem(String label, String value) => Column(
+  Widget _buildInfoItem(String label, String value, [bool isDark = false]) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(fontSize: 10, color: Colors.black38)),
+              style: TextStyle(fontSize: 10, color: isDark ? Colors.white54 : Colors.black38)),
           const SizedBox(height: 2),
           Text(value,
-              style: const TextStyle(fontSize: 13, color: Colors.black87)),
+              style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
         ],
       );
 }

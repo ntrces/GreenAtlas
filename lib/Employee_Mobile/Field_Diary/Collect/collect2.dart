@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../Collect/observation_model.dart';
 import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 import '../../../UserProfile/user_profile.dart';
-import '../../EmployeeNotification/employeenotif.dart';
+import '../../../components/notification_badge.dart';
 import '../clearentry.dart';
 import 'collect3.dart';
 import '../../Employee_Dashboard.dart';
@@ -120,7 +121,7 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
+      backgroundColor: getScaffoldBg(isDark),
       body: Column(
         children: [
           _buildTopNavBar(context, isDark, textTheme),
@@ -131,26 +132,26 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
               children: [
                 Text(
                   "Step 2 of 3", 
-                  style: textTheme.labelSmall?.copyWith(color: Colors.black45)
+                  style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white54 : Colors.black45)
                 ),
                 const SizedBox(height: 4),
                 Text(
                   "Date and Location", 
-                  style: textTheme.headlineSmall?.copyWith(color: darkGreen)
+                  style: textTheme.headlineSmall?.copyWith(color: isDark ? Colors.white : darkGreen)
                 ),
                 const SizedBox(height: 24),
 
                 _buildCardTitle("GEOGRAPHIC DATA", isDark, textTheme),
                 _whiteCard(isDark, [
-                  _buildAutoFillField("Region *", model.region, textTheme),
+                  _buildAutoFillField("Region *", model.region, textTheme, isDark),
                   const SizedBox(height: 20),
-                  _buildAutoFillField("Province *", model.province, textTheme),
+                  _buildAutoFillField("Province *", model.province, textTheme, isDark),
                   const SizedBox(height: 20),
-                  _buildAutoFillField("Protected Area *", model.protectedArea, textTheme),
+                  _buildAutoFillField("Protected Area *", model.protectedArea, textTheme, isDark),
                   
-                  const Divider(height: 40, thickness: 0.5),
+                  Divider(height: 40, thickness: 0.5, color: isDark ? const Color(0xFF2E3D2F) : Colors.black12),
                   
-                  _buildLabel("Weather (Select all that apply) *", textTheme),
+                  _buildLabel("Weather (Select all that apply) *", textTheme, isDark),
                   const SizedBox(height: 8),
                   _buildPickerField(
                     model.weatherConditions.isEmpty 
@@ -159,28 +160,31 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
                     Icons.filter_drama_outlined,
                     () => _showWeatherPicker(model, textTheme),
                     textTheme,
-                    isPlaceholder: model.weatherConditions.isEmpty,
+                    isDark,
+                    model.weatherConditions.isEmpty,
                   ),
 
-                  const Divider(height: 40, thickness: 0.5),
+                  Divider(height: 40, thickness: 0.5, color: isDark ? const Color(0xFF2E3D2F) : Colors.black12),
 
-                  _buildLabel("Date Observation *", textTheme),
+                  _buildLabel("Date Observation *", textTheme, isDark),
                   const SizedBox(height: 8),
                   _buildPickerField(
                     DateFormat('MMMM dd, yyyy').format(model.observationDate), 
                     Icons.calendar_month_outlined,
                     () => _selectDate(context, model),
                     textTheme,
+                    isDark,
                   ),
                   const SizedBox(height: 20),
 
-                  _buildLabel("Observation Time *", textTheme),
+                  _buildLabel("Observation Time *", textTheme, isDark),
                   const SizedBox(height: 8),
                   _buildPickerField(
                     DateFormat('hh:mm a').format(model.observationDate), 
                     Icons.access_time_outlined,
                     () => _selectTime(context, model),
                     textTheme,
+                    isDark,
                   ),
                 ]),
                 const SizedBox(height: 40),
@@ -189,22 +193,22 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomStepper(context, model, textTheme),
+      bottomNavigationBar: _buildBottomStepper(context, model, textTheme, isDark),
     );
   }
 
   // --- UI HELPERS ---
 
-  Widget _buildPickerField(String value, IconData icon, VoidCallback onTap, TextTheme textTheme, {bool isPlaceholder = false}) => InkWell(
+  Widget _buildPickerField(String value, IconData icon, VoidCallback onTap, TextTheme textTheme, [bool isDark = false, bool isPlaceholder = false]) => InkWell(
     onTap: onTap,
     borderRadius: BorderRadius.circular(12),
     child: Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5), 
+        color: isDark ? const Color(0xFF253326) : const Color(0xFFF5F5F5), 
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.05))
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05))
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -215,11 +219,13 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
               maxLines: 1, 
               overflow: TextOverflow.ellipsis,
               style: (isPlaceholder ? textTheme.bodyMedium : textTheme.titleSmall)?.copyWith(
-                color: isPlaceholder ? Colors.black38 : Colors.black87
+                color: isPlaceholder 
+                    ? (isDark ? Colors.white38 : Colors.black38) 
+                    : (isDark ? Colors.white : Colors.black87)
               )
             ),
           ),
-          Icon(icon, color: forestGreen, size: 20),
+          Icon(icon, color: isDark ? leafAccent : forestGreen, size: 20),
         ],
       ),
     ),
@@ -257,7 +263,7 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
   Widget _buildTopNavBar(BuildContext context, bool isDark, TextTheme textTheme) {
     return Container(
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 10, left: 16, right: 16),
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+      color: getCardBg(isDark),
       child: Row(
         children: [
           Image.asset('assets/logo2.png', height: 32),
@@ -270,10 +276,7 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
             )
           ),
           const Spacer(),
-          IconButton(
-            icon: Icon(Icons.notifications_none_outlined, color: isDark ? Colors.white70 : Colors.black87),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmployeeNotifications())),
-          ),
+          EmployeeNotificationBadge(iconColor: isDark ? Colors.white70 : Colors.black87),
           _buildProfileIcon(context, isDark),
         ],
       ),
@@ -325,11 +328,11 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     );
   }
 
-  Widget _buildLabel(String text, TextTheme textTheme) {
+  Widget _buildLabel(String text, TextTheme textTheme, [bool isDark = false]) {
     return RichText(
       text: TextSpan(
         text: text.replaceFirst('*', ''),
-        style: textTheme.titleSmall?.copyWith(color: Colors.black87, fontSize: 12),
+        style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white70 : Colors.black87, fontSize: 12),
         children: [
           if (text.contains('*')) const TextSpan(text: '*', style: TextStyle(color: Colors.red)),
         ],
@@ -340,9 +343,10 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
   Widget _whiteCard(bool d, List<Widget> children) => Container(
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      color: d ? const Color(0xFF1F1F1F) : Colors.white, 
+      color: d ? getCardBg(d) : Colors.white, 
       borderRadius: BorderRadius.circular(16),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]
+      border: Border.all(color: d ? const Color(0xFF2E3D2F) : Colors.transparent),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(d ? 0.2 : 0.04), blurRadius: 10, offset: const Offset(0, 4))]
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
   );
@@ -355,26 +359,26 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     ),
   );
 
-  Widget _buildAutoFillField(String label, String value, TextTheme textTheme) => Column(
+  Widget _buildAutoFillField(String label, String value, TextTheme textTheme, [bool isDark = false]) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _buildLabel(label, textTheme),
+      _buildLabel(label, textTheme, isDark),
       const SizedBox(height: 8),
       Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F5), 
+          color: isDark ? const Color(0xFF253326) : const Color(0xFFF5F5F5), 
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.black.withOpacity(0.05))
+          border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05))
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(value, style: textTheme.titleSmall?.copyWith(color: Colors.black87)),
+            Text(value, style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black87)),
             Text(
               "Auto-filled", 
-              style: textTheme.labelSmall?.copyWith(color: Colors.black26)
+              style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white38 : Colors.black26)
             ),
           ],
         ),
@@ -382,25 +386,28 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     ],
   );
 
-  Widget _buildBottomStepper(BuildContext context, ObservationModel model, TextTheme textTheme) {
+  Widget _buildBottomStepper(BuildContext context, ObservationModel model, TextTheme textTheme, [bool isDark = false]) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-      decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))),
+      decoration: BoxDecoration(
+        color: getCardBg(isDark), 
+        border: Border(top: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05)))
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           TextButton(
             onPressed: () => Navigator.pop(context), 
-            child: Text("Back", style: textTheme.labelLarge?.copyWith(color: Colors.black45))
+            child: Text("Back", style: textTheme.labelLarge?.copyWith(color: isDark ? Colors.white54 : Colors.black45))
           ),
           Text(
             "2 of 3", 
-            style: textTheme.titleSmall?.copyWith(color: Colors.black54)
+            style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white70 : Colors.black54)
           ),
           ElevatedButton(
             onPressed: () => _handleNextStep(model),
             style: ElevatedButton.styleFrom(
-              backgroundColor: darkGreen,
+              backgroundColor: isDark ? forestGreen : darkGreen,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -418,8 +425,12 @@ class _CollectStep2ScreenState extends State<CollectStep2Screen> {
     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
     child: Container(
       height: 36, width: 36,
-      decoration: BoxDecoration(color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)),
-      child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0), 
+        borderRadius: BorderRadius.circular(8), 
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black12)
+      ),
+      child: Icon(Icons.person_outline, color: isDark ? Colors.white70 : Colors.black54, size: 20),
     ),
   );
 }

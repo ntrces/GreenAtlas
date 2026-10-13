@@ -4,11 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../theme_provider.dart';
 import '../../components/notification_badge.dart';
-import '../Field_Diary/Employee_FieldDiary.dart';
 import '../Field_Diary/Sent/sent0.dart';
 import '../EmployeeMeeting/Employee_Meetings.dart';
 import '../EmployeeMeeting/required_meetingview.dart';
-import '../../UserProfile/user_profile.dart';
 import '../../services/user_session_service.dart';
 
 class EmployeeNotifications extends StatefulWidget {
@@ -25,13 +23,24 @@ class EmployeeNotifications extends StatefulWidget {
 class _EmployeeNotificationsState extends State<EmployeeNotifications> {
   final _supabase = Supabase.instance.client;
   String? get _userId => _supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
+  final List<String> _currentNotificationIds = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_userId != null) {
+      NotificationStateNotifier.instance.ensureUserLoaded(_userId);
+    }
+  }
 
   Future<void> _clearAll() async {
     final now = DateTime.now();
+    final idsToDismiss = List<String>.from(_currentNotificationIds);
     setState(() {
       EmployeeNotifications.globalClearedAt = now;
+      EmployeeNotifications.globalDismissedIds.addAll(idsToDismiss);
     });
-    NotificationStateNotifier.instance.clearAll();
+    NotificationStateNotifier.instance.clearAll(currentIds: idsToDismiss);
 
     if (_userId != null) {
       try {
@@ -266,6 +275,10 @@ class _EmployeeNotificationsState extends State<EmployeeNotifications> {
                               final dtB = DateTime.tryParse(b['created_at']) ?? DateTime.now();
                               return dtB.compareTo(dtA);
                             });
+
+                            _currentNotificationIds
+                              ..clear()
+                              ..addAll(notifications.map((n) => n['id']?.toString() ?? '').where((id) => id.isNotEmpty));
 
                             if (notifications.isEmpty) {
                               return Center(

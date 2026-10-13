@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 import 'cannotattend.dart';
 
 class MeetingAttendanceScreen extends StatelessWidget {
@@ -50,7 +51,7 @@ class MeetingAttendanceScreen extends StatelessWidget {
     final bool isCancelled = status?.toUpperCase() == 'CANCELLED';
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
         backgroundColor: darkGreen, elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
@@ -118,7 +119,12 @@ class MeetingAttendanceScreen extends StatelessWidget {
                   ),
                 ),
 
-              _buildWhiteCard([Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_buildIconDetail(Icons.calendar_today_outlined, "Date", formattedDate), _buildIconDetail(Icons.access_time, "Time", time), _buildIconDetail(Icons.location_on_outlined, "Location", location)])]),
+              _buildMeetingInfoCard(
+                formattedDate: formattedDate,
+                time: time,
+                location: location,
+                isDark: isDark,
+              ),
               
               if (virtualLink != null && virtualLink.trim().isNotEmpty) ...[
                 Container(
@@ -453,6 +459,115 @@ class MeetingAttendanceScreen extends StatelessWidget {
     ),
   );
 
-  Widget _buildWhiteCard(List<Widget> children) => Container(width: double.infinity, padding: const EdgeInsets.all(20), margin: const EdgeInsets.only(bottom: 24), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children));
-  Widget _buildIconDetail(IconData icon, String label, String value) => Column(children: [Icon(icon, color: forestGreen, size: 20), const SizedBox(height: 8), Text(label, style: const TextStyle(color: Colors.black38, fontSize: 10)), Text(value, style: const TextStyle(color: Colors.black87, fontSize: 12))]);
+  Widget _buildMeetingInfoCard({
+    required String formattedDate,
+    required String time,
+    required String location,
+    required bool isDark,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: getCardBg(isDark),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.calendar_today_outlined,
+                  "DATE",
+                  formattedDate,
+                  isDark,
+                ),
+              ),
+              Container(width: 1, height: 42, color: isDark ? Colors.white12 : Colors.black12),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.access_time_rounded,
+                  "TIME",
+                  time,
+                  isDark,
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: isDark ? Colors.white12 : Colors.black12),
+          ),
+          _buildDetailItem(
+            Icons.location_on_outlined,
+            "LOCATION",
+            location,
+            isDark,
+            isFullWidth: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailItem(
+    IconData icon,
+    String label,
+    String value,
+    bool isDark, {
+    bool isFullWidth = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          margin: const EdgeInsets.only(right: 10, top: 2),
+          decoration: BoxDecoration(
+            color: forestGreen.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: forestGreen, size: 18),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: isDark ? Colors.white54 : Colors.black45,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

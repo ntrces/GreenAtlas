@@ -153,9 +153,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: getTextColor(isDark)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
           "Profile Settings", 
-          style: textTheme.titleMedium?.copyWith(fontSize: 18),
+          style: textTheme.titleMedium?.copyWith(
+            fontSize: 18,
+            color: getTextColor(isDark),
+            fontFamily: 'Poppins-Bold',
+          ),
         ),
       ),
       body: RefreshIndicator(

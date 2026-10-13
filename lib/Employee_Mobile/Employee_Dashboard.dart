@@ -89,6 +89,34 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
   
   bool _isMeetingsExpanded = true;
 
+  // Mirrors the "Upcoming" tab logic in MeetingsScreen so dashboard numbers match.
+  bool _isMeetingForFieldOfficer(Map<String, dynamic> m) {
+    final roles = (m['target_roles'] ?? '').toString().toLowerCase().replaceAll(' ', '');
+    return roles.isEmpty || roles.contains('fieldofficer') || roles.contains('all');
+  }
+
+  bool _isMeetingDone(Map<String, dynamic> m) {
+    if (m['is_completed'] == true) return true;
+    final status = (m['status'] ?? '').toString().toUpperCase();
+    if (status == 'COMPLETED' || status == 'DONE') return true;
+    final mDate = DateTime.tryParse(m['meeting_date']?.toString() ?? '');
+    if (mDate == null) return false;
+    final now = DateTime.now();
+    return mDate.isBefore(DateTime(now.year, now.month, now.day));
+  }
+
+  List<Map<String, dynamic>> _upcomingMeetings(List<Map<String, dynamic>>? meetings) {
+    final upcoming = (meetings ?? [])
+        .where((m) => _isMeetingForFieldOfficer(m) && !_isMeetingDone(m))
+        .toList();
+    upcoming.sort((a, b) {
+      final dA = DateTime.tryParse(a['meeting_date']?.toString() ?? '') ?? DateTime(9999);
+      final dB = DateTime.tryParse(b['meeting_date']?.toString() ?? '') ?? DateTime(9999);
+      return dA.compareTo(dB);
+    });
+    return upcoming;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -165,8 +193,8 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: _supabase.from('meetings').stream(primaryKey: ['id']),
             builder: (context, snapshot) {
-              final count = snapshot.data?.length ?? 0;
-              return _buildLargeStatCard(Icons.calendar_month_outlined, "$count", "Meetings", isDark, textTheme, onTap: () => widget.onNavigate(2));
+              final count = _upcomingMeetings(snapshot.data).length;
+              return _buildLargeStatCard(Icons.calendar_month_outlined, "$count", "Upcoming Meetings", isDark, textTheme, onTap: () => widget.onNavigate(2));
             },
           ),
         ),
@@ -252,11 +280,12 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
 
   Widget _buildUpcomingMeetingsList(bool isDark, TextTheme textTheme) {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('meetings').stream(primaryKey: ['id']).order('meeting_date', ascending: true).limit(2),
+      stream: _supabase.from('meetings').stream(primaryKey: ['id']).order('meeting_date', ascending: true),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) return _buildEmptyState(isDark, "No meetings found", textTheme);
-        return Column(children: snapshot.data!.map((m) {
-            final date = DateTime.parse(m['meeting_date']);
+        final upcoming = _upcomingMeetings(snapshot.data).take(2).toList();
+        if (upcoming.isEmpty) return _buildEmptyState(isDark, "No upcoming meetings", textTheme);
+        return Column(children: upcoming.map((m) {
+            final date = DateTime.tryParse(m['meeting_date']?.toString() ?? '') ?? DateTime.now();
             return _buildStatusRow(m['title'] ?? 'Meeting', DateFormat('MMM d, yyyy').format(date), m['status'] ?? 'Scheduled', isDark ? leafAccent : const Color(0xFF5D7A5D), isDark, false, textTheme, onTap: () => widget.onNavigate(2));
         }).toList());
       },
@@ -279,8 +308,8 @@ class _EmployeeDashboardContentState extends State<EmployeeDashboardContent> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase.from('meetings').stream(primaryKey: ['id']),
       builder: (context, snapshot) {
-        final count = snapshot.data?.length ?? 0;
-        return _buildDetailedAction(icon: Icons.calendar_today_outlined, title: "Meetings", subtitle: "View schedule & RSVP", badge: count > 0 ? "$count New" : null, badgeColor: isDark ? leafAccent : const Color(0xFF5D7A5D), isDark: isDark, textTheme: textTheme, onTap: () => widget.onNavigate(2));
+        final count = _upcomingMeetings(snapshot.data).length;
+        return _buildDetailedAction(icon: Icons.calendar_today_outlined, title: "Meetings", subtitle: "View schedule & RSVP", badge: count > 0 ? "$count Upcoming" : null, badgeColor: isDark ? leafAccent : const Color(0xFF5D7A5D), isDark: isDark, textTheme: textTheme, onTap: () => widget.onNavigate(2));
       }
     );
   }

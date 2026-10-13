@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 import '../Collect/observation_model.dart';
 import '../Collect/collect01.dart';
 
@@ -65,11 +66,11 @@ class SentObservationsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildImagesSection(BuildContext context, List<String> images) {
+  Widget _buildImagesSection(BuildContext context, List<String> images, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Photos", style: TextStyle(fontSize: 12, color: Colors.black38)),
+        Text("Photos", style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black38)),
         const SizedBox(height: 8),
         SizedBox(
           height: 120,
@@ -86,14 +87,14 @@ class SentObservationsScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.black12),
+                    border: Border.all(color: isDark ? Colors.white24 : Colors.black12),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Image.network(
                     url,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Center(
-                      child: Icon(Icons.broken_image, color: Colors.black26),
+                    errorBuilder: (context, error, stackTrace) => Center(
+                      child: Icon(Icons.broken_image, color: isDark ? Colors.white38 : Colors.black26),
                     ),
                   ),
                 ),
@@ -117,7 +118,7 @@ class SentObservationsScreen extends StatelessWidget {
     final List<String> images = _getImages(observation);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
         backgroundColor: darkGreen,
         elevation: 0,
@@ -159,85 +160,85 @@ class SentObservationsScreen extends StatelessWidget {
 
             // Metadata Card
             _buildWhiteCard([
-              _buildDataRow("User ID:", "FO-12345"),
-              _buildDataRow("Created:", observation['created_at']?.toString().substring(0, 16) ?? "N/A"),
-              _buildDataRow("Modified:", date),
-            ]),
+              _buildDataRow("User ID:", "FO-12345", isDark),
+              _buildDataRow("Created:", observation['created_at']?.toString().substring(0, 16) ?? "N/A", isDark),
+              _buildDataRow("Modified:", date, isDark),
+            ], isDark),
 
             // Team Members Card (If jsonb data exists)
             if (observation['team_members'] != null)
               _buildWhiteCard([
-                const Text("Team Members", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+                Text("Team Members", style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 ... (observation['team_members'] as List).map((m) => Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("${m['firstname']} ${m['lastname']}", style: const TextStyle(fontSize: 13, color: Colors.black87)),
-                      Text(m['role'] ?? "Member", style: const TextStyle(color: Colors.black38, fontSize: 11)),
+                      Text("${m['firstname']} ${m['lastname']}", style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
+                      Text(m['role'] ?? "Member", style: TextStyle(color: isDark ? Colors.white54 : Colors.black38, fontSize: 11)),
                     ],
                   ),
                 )),
-              ]),
+              ], isDark),
 
             // Location Details Card
             _buildWhiteCard([
-              const Text("Location Details", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+              Text("Location Details", style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Region", observation['region'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Province", observation['province'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Region", observation['region'] ?? "N/A", isDark)),
+                Expanded(child: _buildInfoItem("Province", observation['province'] ?? "N/A", isDark)),
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Protected Area", observation['protected_area'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Observation Date", date)),
+                Expanded(child: _buildInfoItem("Protected Area", observation['protected_area'] ?? "N/A", isDark)),
+                Expanded(child: _buildInfoItem("Observation Date", date, isDark)),
               ]),
-            ]),
+            ], isDark),
 
             // Environment Card
             _buildWhiteCard([
-              const Text("Environment", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+              Text("Environment", style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Weather Conditions", observation['weather_condition'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Temperature", "${observation['temperature'] ?? '--'}°C")),
+                Expanded(child: _buildInfoItem("Weather Conditions", observation['weather_condition'] ?? "N/A", isDark)),
+                Expanded(child: _buildInfoItem("Temperature", "${observation['temperature'] ?? '--'}°C", isDark)),
               ]),
-            ]),
+            ], isDark),
 
             // Observation Details Card
             _buildWhiteCard([
-              const Text("Observation Details", style: TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)),
+              Text("Observation Details", style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Species Name", observation['common_name'] ?? "Unnamed")),
-                Expanded(child: _buildInfoItem("Taxon Group", observation['taxon_group'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Species Name", observation['common_name'] ?? "Unnamed", isDark)),
+                Expanded(child: _buildInfoItem("Taxon Group", observation['taxon_group'] ?? "N/A", isDark)),
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Category", observation['observation_category'] ?? "N/A")),
-                Expanded(child: _buildInfoItem("Habitat", observation['habitat_type'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Category", observation['observation_category'] ?? "N/A", isDark)),
+                Expanded(child: _buildInfoItem("Habitat", observation['habitat_type'] ?? "N/A", isDark)),
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Count/Quantity", observation['count']?.toString() ?? "0")),
-                Expanded(child: _buildInfoItem("Discovery Method", observation['discovery_method'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Count/Quantity", observation['count']?.toString() ?? "0", isDark)),
+                Expanded(child: _buildInfoItem("Discovery Method", observation['discovery_method'] ?? "N/A", isDark)),
               ]),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _buildInfoItem("Observation Time", observation['observation_time'] ?? "N/A")),
+                Expanded(child: _buildInfoItem("Observation Time", observation['observation_time'] ?? "N/A", isDark)),
                 Expanded(child: const SizedBox.shrink()),
               ]),
               if (observation['notes'] != null && observation['notes'].toString().trim().isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _buildInfoItem("Observation Notes", observation['notes']),
+                _buildInfoItem("Observation Notes", observation['notes'], isDark),
               ],
               if (images.isNotEmpty) ...[
-                const Divider(height: 32),
-                _buildImagesSection(context, images),
+                Divider(height: 32, color: isDark ? Colors.white24 : Colors.black12),
+                _buildImagesSection(context, images, isDark),
               ],
-            ]),
+            ], isDark),
             if (status == 'REJECTED') ...[
               _buildResubmitButton(context, isDark),
             ],
@@ -362,32 +363,33 @@ class SentObservationsScreen extends StatelessWidget {
 
   // --- UI HELPERS ---
 
-  Widget _buildWhiteCard(List<Widget> children) => Container(
+  Widget _buildWhiteCard(List<Widget> children, bool isDark) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(20),
     margin: const EdgeInsets.only(bottom: 16),
     decoration: BoxDecoration(
-      color: Colors.white, 
+      color: getCardBg(isDark), 
       borderRadius: BorderRadius.circular(12), 
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
+      border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.transparent),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.05), blurRadius: 10, offset: const Offset(0, 4))]
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
   );
 
-  Widget _buildDataRow(String label, String value) => Padding(
+  Widget _buildDataRow(String label, String value, bool isDark) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(label, style: const TextStyle(color: Colors.black38, fontSize: 12)),
-      Text(value, style: const TextStyle(color: Colors.black87, fontSize: 12)),
+      Text(label, style: TextStyle(color: isDark ? Colors.white54 : Colors.black38, fontSize: 12)),
+      Text(value, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 12)),
     ]),
   );
 
-  Widget _buildInfoItem(String label, String value) => Column(
+  Widget _buildInfoItem(String label, String value, bool isDark) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(fontSize: 10, color: Colors.black38)),
+      Text(label, style: TextStyle(fontSize: 10, color: isDark ? Colors.white54 : Colors.black38)),
       const SizedBox(height: 2),
-      Text(value, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+      Text(value, style: TextStyle(fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
     ],
   );
 

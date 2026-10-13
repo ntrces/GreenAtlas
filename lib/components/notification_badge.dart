@@ -3,24 +3,41 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../User_Mobile/notification.dart';
 import '../Employee_Mobile/EmployeeNotification/employeenotif.dart';
+import '../services/user_session_service.dart';
 
 class NotificationStateNotifier extends ChangeNotifier {
   static final NotificationStateNotifier instance = NotificationStateNotifier().._init();
 
   final Set<String> dismissedIds = {};
   DateTime? clearedAt;
+  String? _loadedUserId;
 
   void _init() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? UserSessionService.currentUserId ?? 'default';
+    _loadForUser(userId);
+  }
+
+  void ensureUserLoaded([String? userId]) {
+    final effective = userId ?? Supabase.instance.client.auth.currentUser?.id ?? UserSessionService.currentUserId ?? 'default';
+    if (_loadedUserId != effective) {
+      _loadForUser(effective);
+    }
+  }
+
+  Future<void> _loadForUser(String userId) async {
+    _loadedUserId = userId;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? 'default';
 
       final savedClearedAt = prefs.getString('notif_cleared_at_$userId');
       if (savedClearedAt != null) {
         clearedAt = DateTime.tryParse(savedClearedAt);
+      } else {
+        clearedAt = null;
       }
 
       final savedDismissed = prefs.getStringList('notif_dismissed_ids_$userId');
+      dismissedIds.clear();
       if (savedDismissed != null) {
         dismissedIds.addAll(savedDismissed);
       }
@@ -28,14 +45,18 @@ class NotificationStateNotifier extends ChangeNotifier {
     } catch (_) {}
   }
 
-  void clearAll() async {
+  void clearAll({List<String>? currentIds}) async {
     clearedAt = DateTime.now();
+    if (currentIds != null) {
+      dismissedIds.addAll(currentIds);
+    }
     notifyListeners();
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? 'default';
+      final userId = _loadedUserId ?? Supabase.instance.client.auth.currentUser?.id ?? UserSessionService.currentUserId ?? 'default';
       await prefs.setString('notif_cleared_at_$userId', clearedAt!.toIso8601String());
+      await prefs.setStringList('notif_dismissed_ids_$userId', dismissedIds.toList());
     } catch (_) {}
   }
 
@@ -45,9 +66,18 @@ class NotificationStateNotifier extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? 'default';
+      final userId = _loadedUserId ?? Supabase.instance.client.auth.currentUser?.id ?? UserSessionService.currentUserId ?? 'default';
       await prefs.setStringList('notif_dismissed_ids_$userId', dismissedIds.toList());
     } catch (_) {}
+  }
+
+  bool isUnread({required String id, required bool isRead, DateTime? createdAt}) {
+    if (isRead) return false;
+    if (dismissedIds.contains(id)) return false;
+    if (clearedAt != null && createdAt != null && !createdAt.isAfter(clearedAt!)) {
+      return false;
+    }
+    return true;
   }
 }
 
@@ -58,7 +88,7 @@ class UserNotificationBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser?.id;
+    final userId = supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
 
     final iconButton = IconButton(
       icon: Icon(Icons.notifications_none, color: iconColor, size: 26),
@@ -67,55 +97,61 @@ class UserNotificationBadge extends StatelessWidget {
 
     if (userId == null) return iconButton;
 
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: supabase.from('audit_logs_with_roles').stream(primaryKey: ['id']).eq('user_id', userId),
-      builder: (context, snapshot) {
-        int unreadCount = 0;
-        if (snapshot.hasData) {
-          final rawNotifs = snapshot.data!.where((n) => 
-            n['user_id'] == userId &&
-            n['user_role'] != 'admin'
-          ).toList();
-          final allNotifs = rawNotifs.where((notif) {
-            final text = '${notif['title']} ${notif['message'] ?? notif['description']} ${notif['type'] ?? notif['category']} ${notif['action']}'.toLowerCase();
-            return text.contains('profile') || text.contains('plant');
-          }).toList();
-          unreadCount = allNotifs.where((n) => !(n['is_read'] ?? false)).length;
-        }
+    NotificationStateNotifier.instance.ensureUserLoaded(userId);
 
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            iconButton,
-            if (unreadCount > 0)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: IgnorePointer(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
-                    child: Center(
-                      child: Text(
-                        unreadCount > 99 ? '99+' : unreadCount.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
+    return AnimatedBuilder(
+      animation: NotificationStateNotifier.instance,
+      builder: (context, _) {
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: supabase.from('audit_logs_with_roles').stream(primaryKey: ['id']).eq('user_id', userId),
+          builder: (context, snapshot) {
+            int unreadCount = 0;
+            if (snapshot.hasData) {
+              final rawNotifs = snapshot.data!.where((n) => n['user_id'] == userId).toList();
+              final notifier = NotificationStateNotifier.instance;
+              unreadCount = rawNotifs.where((n) {
+                final String id = n['id']?.toString() ?? '';
+                final bool isRead = n['is_read'] == true;
+                final DateTime? createdAt = DateTime.tryParse(n['created_at']?.toString() ?? '');
+                return notifier.isUnread(id: id, isRead: isRead, createdAt: createdAt);
+              }).length;
+            }
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                iconButton,
+                if (unreadCount > 0)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white, width: 1.5),
                         ),
-                        textAlign: TextAlign.center,
+                        child: Center(
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
@@ -129,7 +165,7 @@ class EmployeeNotificationBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser?.id;
+    final userId = supabase.auth.currentUser?.id ?? UserSessionService.currentUserId;
 
     final iconButton = IconButton(
       icon: Icon(Icons.notifications_none_outlined, color: iconColor, size: 26),
@@ -137,6 +173,8 @@ class EmployeeNotificationBadge extends StatelessWidget {
     );
 
     if (userId == null) return iconButton;
+
+    NotificationStateNotifier.instance.ensureUserLoaded(userId);
 
     return AnimatedBuilder(
       animation: NotificationStateNotifier.instance,
@@ -154,6 +192,14 @@ class EmployeeNotificationBadge extends StatelessWidget {
                     final Set<String> addedKeys = {};
                     final notifier = NotificationStateNotifier.instance;
 
+                    bool isItemUnread(String key, DateTime itemDt) {
+                      if (addedKeys.contains(key)) return false;
+                      if (notifier.dismissedIds.contains(key) || EmployeeNotifications.globalDismissedIds.contains(key)) return false;
+                      if (notifier.clearedAt != null && !itemDt.isAfter(notifier.clearedAt!)) return false;
+                      if (EmployeeNotifications.globalClearedAt != null && !itemDt.isAfter(EmployeeNotifications.globalClearedAt!)) return false;
+                      return true;
+                    }
+
                     // 1. Meetings (MoM)
                     final rawMeetings = meetingSnapshot.data ?? [];
                     for (final m in rawMeetings) {
@@ -165,9 +211,7 @@ class EmployeeNotificationBadge extends StatelessWidget {
 
                       if ((minutes != null && minutes.isNotEmpty) || (momUrl != null && momUrl.isNotEmpty)) {
                         final momKey = 'mtg_mom_$mId';
-                        if (!addedKeys.contains(momKey) && 
-                            !notifier.dismissedIds.contains(momKey) &&
-                            (notifier.clearedAt == null || itemDt.isAfter(notifier.clearedAt!))) {
+                        if (isItemUnread(momKey, itemDt)) {
                           addedKeys.add(momKey);
                           unreadCount++;
                         }
@@ -187,25 +231,19 @@ class EmployeeNotificationBadge extends StatelessWidget {
 
                       if (status == 'VALIDATED' || status == 'APPROVED' || status == 'ACCEPTED') {
                         final appKey = 'entry_app_$eId';
-                        if (!addedKeys.contains(appKey) && 
-                            !notifier.dismissedIds.contains(appKey) &&
-                            (notifier.clearedAt == null || itemDt.isAfter(notifier.clearedAt!))) {
+                        if (isItemUnread(appKey, itemDt)) {
                           addedKeys.add(appKey);
                           unreadCount++;
                         }
                       } else if (status == 'REJECTED') {
                         final rejKey = 'entry_rej_$eId';
-                        if (!addedKeys.contains(rejKey) && 
-                            !notifier.dismissedIds.contains(rejKey) &&
-                            (notifier.clearedAt == null || itemDt.isAfter(notifier.clearedAt!))) {
+                        if (isItemUnread(rejKey, itemDt)) {
                           addedKeys.add(rejKey);
                           unreadCount++;
                         }
                       } else if (status == 'FLAGGED' || status == 'PENDING' || status == 'UNDER REVIEW' || status == 'NEEDS_REVIEW') {
                         final revKey = 'entry_rev_$eId';
-                        if (!addedKeys.contains(revKey) && 
-                            !notifier.dismissedIds.contains(revKey) &&
-                            (notifier.clearedAt == null || itemDt.isAfter(notifier.clearedAt!))) {
+                        if (isItemUnread(revKey, itemDt)) {
                           addedKeys.add(revKey);
                           unreadCount++;
                         }
@@ -227,9 +265,7 @@ class EmployeeNotificationBadge extends StatelessWidget {
 
                       if (text.contains('meeting minutes') || text.contains('mom updated') || text.contains('minutes updated')) {
                         final logKey = 'audit_mom_$logId';
-                        if (!addedKeys.contains(logKey) && 
-                            !notifier.dismissedIds.contains(logKey) &&
-                            (notifier.clearedAt == null || itemDt.isAfter(notifier.clearedAt!))) {
+                        if (isItemUnread(logKey, itemDt)) {
                           addedKeys.add(logKey);
                           unreadCount++;
                         }

@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../theme_provider.dart';
+import '../../theme_constants.dart';
 import '../AR View/ar_view.dart';
 
 class ARCameraScreen extends StatefulWidget {
@@ -25,6 +28,7 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textTheme = Theme.of(context).textTheme;
 
     return FutureBuilder<Map<String, dynamic>>(
@@ -38,15 +42,37 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
           final String sID = (d['scientific_name'] ?? 'Hopea_quisumbingiana')
               .toString()
               .replaceAll(' ', '_');
+          final String commonName = (d['common_name'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
+
+          // Only offer AR when this plant's common name matches a species in AR Garden with a 3D model
+          TreeModel? matchedArTree;
+          if (commonName.isNotEmpty) {
+            for (final tree in threatenedTrees) {
+              if (tree.remoteModelFile == null) continue;
+              final tName = tree.name.toLowerCase().trim();
+              final tParts = tName.split('/').map((s) => s.trim()).toList();
+              final dParts = commonName.split('/').map((s) => s.trim()).toList();
+              if (tName == commonName ||
+                  tParts.any((p) => p == commonName || dParts.contains(p)) ||
+                  dParts.any((p) => p == tName || tParts.contains(p))) {
+                matchedArTree = tree;
+                break;
+              }
+            }
+          }
+          final bool hasArModel = matchedArTree != null;
 
           return Scaffold(
-            backgroundColor: const Color(0xFFF0F4F0),
+            backgroundColor: getScaffoldBg(isDark),
             body: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSmallHeader(d['common_name'], d['scientific_name'],
-                      d['category'], textTheme),
+                      d['category'], textTheme, isDark),
                   _buildImageHero(d['image_url']),
                   const SizedBox(height: 20),
                   Padding(
@@ -55,8 +81,9 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildConservationStatus(d['conservation_status'],
-                            d['source_text'], textTheme),
+                            d['source_text'], textTheme, isDark),
                         const SizedBox(height: 12),
+                        if (hasArModel) ...[
                         ElevatedButton.icon(
                           icon:
                               const Icon(Icons.view_in_ar, color: Colors.white),
@@ -77,39 +104,44 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => Ar_View(
-                                  initialSpeciesName: sName,
-                                  initialScientificName:
+                                  initialSpeciesName: matchedArTree?.name ?? sName,
+                                  initialScientificName: matchedArTree?.scientificName ??
                                       d['scientific_name']?.toString(),
-                                  initialSpeciesID: sID,
+                                  initialSpeciesID: matchedArTree != null
+                                      ? matchedArTree.scientificName
+                                          .trim()
+                                          .replaceAll(RegExp(r'\s+'), '_')
+                                      : sID,
                                 ),
                               ),
                             );
                           },
                         ),
                         const SizedBox(height: 16),
-                        _buildSectionHeader("CLIMATE COMPATIBILITY", textTheme),
+                        ],
+                        _buildSectionHeader("CLIMATE COMPATIBILITY", textTheme, isDark),
                         _buildClimateCompatibility(
-                            d['temp_min'], d['temp_max'], textTheme),
-                        _buildSectionHeader("ABOUT THIS PLANT", textTheme),
+                            d['temp_min'], d['temp_max'], textTheme, isDark),
+                        _buildSectionHeader("ABOUT THIS PLANT", textTheme, isDark),
                         Text(
                           d['description'] ?? "",
                           style: textTheme.bodySmall?.copyWith(
-                              color: Colors.black87, height: 1.5, fontSize: 12),
+                              color: getTextColor(isDark), height: 1.5, fontSize: 12),
                         ),
                         const SizedBox(height: 32),
-                        _buildScientificClassification(d, textTheme),
+                        _buildScientificClassification(d, textTheme, isDark),
                         _buildSectionHeader(
-                            "PHYSICAL CHARACTERISTICS", textTheme),
-                        _buildCharacteristicsGrid(d, textTheme),
+                            "PHYSICAL CHARACTERISTICS", textTheme, isDark),
+                        _buildCharacteristicsGrid(d, textTheme, isDark),
                         const SizedBox(height: 32),
                         _buildSectionHeader(
-                            "HABITAT & DISTRIBUTION", textTheme),
+                            "HABITAT & DISTRIBUTION", textTheme, isDark),
                         _buildHabitatRows(
-                            d['location_zone'], d['ecosystem_type'], textTheme),
+                            d['location_zone'], d['ecosystem_type'], textTheme, isDark),
                         const SizedBox(height: 32),
-                        _buildSectionHeader("ECOLOGICAL IMPORTANCE", textTheme),
-                        _buildEcologicalImportance(importance, textTheme),
-                        _buildFooter(),
+                        _buildSectionHeader("ECOLOGICAL IMPORTANCE", textTheme, isDark),
+                        _buildEcologicalImportance(importance, textTheme, isDark),
+                        _buildFooter(isDark),
                       ],
                     ),
                   ),
@@ -122,7 +154,7 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
 
   // --- UI HELPERS ---
   Widget _buildClimateCompatibility(
-      dynamic tempMin, dynamic tempMax, TextTheme textTheme) {
+      dynamic tempMin, dynamic tempMax, TextTheme textTheme, bool isDark) {
     final String minVal = tempMin != null ? "$tempMin°C" : "20°C";
     final String maxVal = tempMax != null ? "$tempMax°C" : "32°C";
 
@@ -130,9 +162,9 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: getCardBg(isDark),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        border: Border.all(color: getBorderColor(isDark)),
       ),
       child: Row(
         children: [
@@ -143,21 +175,21 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                 Text("MIN TEMP",
                     style: textTheme.labelSmall?.copyWith(
                         fontSize: 9,
-                        color: Colors.black38,
+                        color: getSubtextColor(isDark),
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(minVal,
                     style: textTheme.titleSmall?.copyWith(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF303D32))),
+                        color: getTextColor(isDark))),
               ],
             ),
           ),
           Container(
             height: 30,
             width: 1,
-            color: Colors.black12,
+            color: getBorderColor(isDark),
             margin: const EdgeInsets.symmetric(horizontal: 16),
           ),
           Expanded(
@@ -167,14 +199,14 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                 Text("MAX TEMP",
                     style: textTheme.labelSmall?.copyWith(
                         fontSize: 9,
-                        color: Colors.black38,
+                        color: getSubtextColor(isDark),
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
                 Text(maxVal,
                     style: textTheme.titleSmall?.copyWith(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF303D32))),
+                        color: getTextColor(isDark))),
               ],
             ),
           ),
@@ -184,14 +216,14 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
   }
 
   Widget _buildSmallHeader(
-          String? n, String? s, String? c, TextTheme textTheme) =>
+          String? n, String? s, String? c, TextTheme textTheme, bool isDark) =>
       Container(
         padding:
             const EdgeInsets.only(top: 45, bottom: 12, left: 16, right: 16),
-        color: Colors.white,
+        color: getCardBg(isDark),
         child: Row(children: [
           IconButton(
-              icon: const Icon(Icons.close, size: 20),
+              icon: Icon(Icons.close, size: 20, color: getTextColor(isDark)),
               onPressed: () => Navigator.pop(context)),
           Expanded(
               child: Column(
@@ -199,22 +231,24 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                   children: [
                 Text(n ?? "Unknown",
                     style: textTheme.titleMedium
-                        ?.copyWith(fontSize: 17, fontWeight: FontWeight.bold)),
+                        ?.copyWith(fontSize: 17, fontWeight: FontWeight.bold, color: getTextColor(isDark))),
                 Text(s ?? "N/A",
                     style: textTheme.labelSmall?.copyWith(
-                        color: Colors.black45,
+                        color: getSubtextColor(isDark),
                         fontSize: 11,
                         fontStyle: FontStyle.italic)),
               ])),
           Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF253326) : Colors.white,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.black12)),
+                  border: Border.all(color: getBorderColor(isDark))),
               child: Text(c ?? "Plant",
                   style: textTheme.labelSmall?.copyWith(
-                      color: const Color(0xFF5D7A5D), fontSize: 10))),
+                      color: isDark ? leafAccent : const Color(0xFF5D7A5D),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600))),
         ]),
       );
 
@@ -386,32 +420,32 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
   }
 
   Widget _buildConservationStatus(
-      String? s, String? source, TextTheme textTheme) {
+      String? s, String? source, TextTheme textTheme, bool isDark) {
     String status = s ?? 'Common';
     String src = source ?? 'DAO List';
 
     Color bgColor = const Color(0xFF8B1E1E);
-    Color cardBg = const Color(0xFFFFF7F7);
-    Color borderColor = Colors.red[200]!;
+    Color cardBg = isDark ? const Color(0xFF1E261F) : const Color(0xFFFFF7F7);
+    Color borderColor = isDark ? Colors.red.withValues(alpha: 0.3) : Colors.red[200]!;
 
     if (status.toLowerCase().contains("least concern") ||
         status.toLowerCase().contains("not threatened")) {
       bgColor = Colors.green;
-      cardBg = const Color(0xFFF0FDF4);
-      borderColor = Colors.green[200]!;
+      cardBg = isDark ? const Color(0xFF1E261F) : const Color(0xFFF0FDF4);
+      borderColor = isDark ? Colors.green.withValues(alpha: 0.3) : Colors.green[200]!;
     } else if (status.toLowerCase().contains("vulnerable") ||
         status.toLowerCase().contains("near threatened")) {
       bgColor = Colors.orange;
-      cardBg = const Color(0xFFFFFBEB);
-      borderColor = Colors.orange[200]!;
+      cardBg = isDark ? const Color(0xFF1E261F) : const Color(0xFFFFFBEB);
+      borderColor = isDark ? Colors.orange.withValues(alpha: 0.3) : Colors.orange[200]!;
     } else if (status.toLowerCase().contains("endangered")) {
       bgColor = const Color(0xFF8B1E1E);
-      cardBg = const Color(0xFFFFF7F7);
-      borderColor = Colors.red[200]!;
+      cardBg = isDark ? const Color(0xFF1E261F) : const Color(0xFFFFF7F7);
+      borderColor = isDark ? Colors.red.withValues(alpha: 0.3) : Colors.red[200]!;
     } else {
       bgColor = Colors.blueGrey;
-      cardBg = Colors.blueGrey[50]!;
-      borderColor = Colors.blueGrey[200]!;
+      cardBg = isDark ? const Color(0xFF1E261F) : Colors.blueGrey[50]!;
+      borderColor = isDark ? Colors.blueGrey.withValues(alpha: 0.3) : Colors.blueGrey[200]!;
     }
 
     return Column(
@@ -419,13 +453,13 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
       children: [
         Row(
           children: [
-            const Icon(Icons.shield_outlined,
-                size: 16, color: Color(0xFF5D7A5D)),
+            Icon(Icons.shield_outlined,
+                size: 16, color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
             const SizedBox(width: 8),
             Text("CONSERVATION STATUS",
                 style: textTheme.labelSmall?.copyWith(
                     fontSize: 11,
-                    color: const Color(0xFF5D7A5D),
+                    color: isDark ? leafAccent : const Color(0xFF5D7A5D),
                     fontWeight: FontWeight.bold)),
           ],
         ),
@@ -464,12 +498,12 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text("SOURCE",
-                          style: TextStyle(fontSize: 8, color: Colors.black54)),
+                      Text("SOURCE",
+                          style: TextStyle(fontSize: 8, color: getSubtextColor(isDark))),
                       Text(src,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 10,
-                              color: Colors.black,
+                              color: getTextColor(isDark),
                               fontWeight: FontWeight.w500)),
                     ],
                   ),
@@ -479,8 +513,8 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                 const SizedBox(height: 16),
                 RichText(
                     text: TextSpan(
-                        style: const TextStyle(
-                            fontSize: 11, color: Colors.black87, height: 1.5),
+                        style: TextStyle(
+                            fontSize: 11, color: getTextColor(isDark), height: 1.5),
                         children: [
                       const TextSpan(
                           text: "Protected Species: ",
@@ -497,41 +531,41 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String t, TextTheme textTheme) => Padding(
+  Widget _buildSectionHeader(String t, TextTheme textTheme, bool isDark) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(t,
           style: textTheme.labelSmall?.copyWith(
               fontSize: 11,
-              color: const Color(0xFF5D7A5D),
+              color: isDark ? leafAccent : const Color(0xFF5D7A5D),
               fontWeight: FontWeight.bold)));
 
-  Widget _buildCharacteristicsGrid(Map d, TextTheme textTheme) =>
+  Widget _buildCharacteristicsGrid(Map d, TextTheme textTheme, bool isDark) =>
       IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
                 child: _card(Icons.straighten, "HEIGHT", d['height'] ?? "N/A",
-                    textTheme)),
+                    textTheme, isDark)),
             const SizedBox(width: 8),
             Expanded(
                 child: _card(Icons.eco_outlined, "LEAF TYPE",
-                    d['leaf_type'] ?? "N/A", textTheme)),
+                    d['leaf_type'] ?? "N/A", textTheme, isDark)),
             const SizedBox(width: 8),
             Expanded(
                 child: _card(Icons.event, "FLOWERING", d['flowering'] ?? "N/A",
-                    textTheme)),
+                    textTheme, isDark)),
           ],
         ),
       );
 
-  Widget _card(IconData i, String l, String v, TextTheme textTheme) =>
+  Widget _card(IconData i, String l, String v, TextTheme textTheme, bool isDark) =>
       Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-              color: Colors.white,
+              color: getCardBg(isDark),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.black.withOpacity(0.05))),
+              border: Border.all(color: getBorderColor(isDark))),
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -539,9 +573,9 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFF0F4F0),
+                      color: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0),
                       borderRadius: BorderRadius.circular(4)),
-                  child: Icon(i, size: 14, color: const Color(0xFF5D7A5D)),
+                  child: Icon(i, size: 14, color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
                 ),
                 const SizedBox(height: 8),
                 FittedBox(
@@ -549,20 +583,20 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(l,
                         style: textTheme.labelSmall
-                            ?.copyWith(fontSize: 8, color: Colors.black38))),
+                            ?.copyWith(fontSize: 8, color: getSubtextColor(isDark)))),
                 const SizedBox(height: 2),
                 FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(v,
                         style: textTheme.titleSmall?.copyWith(
-                            fontSize: 12, fontWeight: FontWeight.w600)))
+                            fontSize: 12, fontWeight: FontWeight.w600, color: getTextColor(isDark))))
               ]));
 
-  Widget _buildScientificClassification(Map d, TextTheme textTheme) =>
+  Widget _buildScientificClassification(Map d, TextTheme textTheme, bool isDark) =>
       Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          _buildSectionHeader("SCIENTIFIC CLASSIFICATION", textTheme),
+          _buildSectionHeader("SCIENTIFIC CLASSIFICATION", textTheme, isDark),
           GestureDetector(
             onTap: () => setState(
                 () => _isClassificationExpanded = !_isClassificationExpanded),
@@ -572,58 +606,59 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
                 children: [
                   Text(_isClassificationExpanded ? "Hide" : "Show",
                       style:
-                          const TextStyle(fontSize: 10, color: Colors.black54)),
+                          TextStyle(fontSize: 10, color: getSubtextColor(isDark))),
                   Icon(
                       _isClassificationExpanded
                           ? Icons.expand_less
                           : Icons.expand_more,
                       size: 16,
-                      color: Colors.black54),
+                      color: getSubtextColor(isDark)),
                 ],
               ),
             ),
           )
         ]),
         if (_isClassificationExpanded) ...[
-          _row("KINGDOM", d['kingdom'] ?? "Plantae", textTheme, false),
-          _row("FAMILY", d['family'] ?? "N/A", textTheme, false),
-          _row("GENUS", d['genus'] ?? "N/A", textTheme, true),
-          _row("SPECIES", d['species'] ?? "N/A", textTheme, true),
+          _row("KINGDOM", d['kingdom'] ?? "Plantae", textTheme, false, isDark),
+          _row("FAMILY", d['family'] ?? "N/A", textTheme, false, isDark),
+          _row("GENUS", d['genus'] ?? "N/A", textTheme, true, isDark),
+          _row("SPECIES", d['species'] ?? "N/A", textTheme, true, isDark),
         ],
         const SizedBox(height: 24),
       ]);
 
-  Widget _row(String l, String v, TextTheme textTheme, bool isItalic) =>
+  Widget _row(String l, String v, TextTheme textTheme, bool isItalic, bool isDark) =>
       Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child:
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             Text(l,
                 style: textTheme.labelSmall
-                    ?.copyWith(fontSize: 11, color: Colors.black45)),
+                    ?.copyWith(fontSize: 11, color: getSubtextColor(isDark))),
             Text(v,
                 style: textTheme.titleSmall?.copyWith(
                     fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
-                    fontSize: 13))
+                    fontSize: 13,
+                    color: getTextColor(isDark)))
           ]));
 
-  Widget _buildHabitatRows(String? z, String? e, TextTheme textTheme) =>
+  Widget _buildHabitatRows(String? z, String? e, TextTheme textTheme, bool isDark) =>
       Column(children: [
         if (z != null && z.isNotEmpty)
-          _info(Icons.location_on_outlined, "HABITAT ZONE", z, textTheme),
+          _info(Icons.location_on_outlined, "HABITAT ZONE", z, textTheme, isDark),
         if (e != null && e.isNotEmpty)
-          _info(Icons.park_outlined, "ECOSYSTEM TYPE", e, textTheme),
+          _info(Icons.park_outlined, "ECOSYSTEM TYPE", e, textTheme, isDark),
       ]);
 
-  Widget _info(IconData i, String l, String v, TextTheme textTheme) => Padding(
+  Widget _info(IconData i, String l, String v, TextTheme textTheme, bool isDark) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(children: [
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-              color: const Color(0xFFE8F3E8),
+              color: isDark ? const Color(0xFF253326) : const Color(0xFFE8F3E8),
               borderRadius: BorderRadius.circular(6)),
-          child: Icon(i, size: 16, color: const Color(0xFF5D7A5D)),
+          child: Icon(i, size: 16, color: isDark ? leafAccent : const Color(0xFF5D7A5D)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -631,34 +666,34 @@ class _ARCameraScreenState extends State<ARCameraScreen> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(l,
                 style: textTheme.labelSmall
-                    ?.copyWith(fontSize: 9, color: Colors.black54)),
+                    ?.copyWith(fontSize: 9, color: getSubtextColor(isDark))),
             Text(v,
                 style: textTheme.titleSmall
-                    ?.copyWith(fontSize: 13, fontWeight: FontWeight.w500))
+                    ?.copyWith(fontSize: 13, fontWeight: FontWeight.w500, color: getTextColor(isDark)))
           ]),
         )
       ]));
 
-  Widget _buildEcologicalImportance(String text, TextTheme textTheme) =>
+  Widget _buildEcologicalImportance(String text, TextTheme textTheme, bool isDark) =>
       ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                  color: Color(0xFFE8F3E8),
+              decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E261F) : const Color(0xFFE8F3E8),
                   border: Border(
-                      left: BorderSide(color: Color(0xFF5D7A5D), width: 4))),
+                      left: BorderSide(color: isDark ? leafAccent : const Color(0xFF5D7A5D), width: 4))),
               child: Text(text,
                   style: textTheme.bodySmall?.copyWith(
-                      fontSize: 12, height: 1.5, color: Colors.black87))));
+                      fontSize: 12, height: 1.5, color: getTextColor(isDark)))));
 
-  Widget _buildFooter() => const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
+  Widget _buildFooter(bool isDark) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Center(
           child: Text(
         "Cavite Protected Area • Department of Environment and\nNatural Resources",
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 9, color: Colors.black45, height: 1.4),
+        style: TextStyle(fontSize: 9, color: getSubtextColor(isDark), height: 1.4),
       )));
 }
 

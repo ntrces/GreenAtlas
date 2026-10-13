@@ -97,7 +97,7 @@ class TreeModel {
 // than the newer national list or the separate global IUCN categories.
 const List<TreeModel> threatenedTrees = [
   TreeModel(
-    name: 'Subyang / Quisumbing Gisok',
+    name: 'Subyang',
     scientificName: 'Hopea quisumbingiana',
     assetPath: 'assets/paho.glb',
     color: Colors.red,
@@ -323,7 +323,7 @@ const List<TreeModel> threatenedTrees = [
         'Under the DAO 2017-11-era GreenAtlas classification, Haikan is presented as Vulnerable. It deserves habitat protection and responsible, documented collection, especially where local populations are small.',
   ),
   TreeModel(
-    name: 'Malachico / Mamolko',
+    name: 'Malachico',
     scientificName: 'Glenniea philippinensis',
     assetPath: 'assets/paho.glb',
     color: Colors.amber,
@@ -340,7 +340,7 @@ const List<TreeModel> threatenedTrees = [
     barkDetails:
         'Its woody trunk forms part of the permanent forest framework. Mature specimens are important genetic and reproductive resources and should not be removed without lawful scientific justification.',
     conservationDetails:
-        'DENR lists Malachico or Mamolko as Vulnerable. Protect remaining habitat and fruiting trees, limit destructive collection, maintain several seed sources, and monitor restored seedlings over many years.',
+        'DENR lists Malachico as Vulnerable. Protect remaining habitat and fruiting trees, limit destructive collection, maintain several seed sources, and monitor restored seedlings over many years.',
   ),
   TreeModel(
     name: 'Bagarilau',
@@ -474,19 +474,40 @@ class _Ar_ViewState extends State<Ar_View> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialSpeciesID != null) {
-      final requestedID = widget.initialSpeciesID!.trim().toLowerCase();
+    if (widget.initialSpeciesName != null || widget.initialSpeciesID != null) {
       TreeModel? requestedTree;
-      for (final tree in threatenedTrees) {
-        final treeID = tree.scientificName
-            .trim()
-            .replaceAll(RegExp(r'\s+'), '_')
-            .toLowerCase();
-        if (treeID == requestedID) {
-          requestedTree = tree;
-          break;
+
+      // Check by common name first
+      if (widget.initialSpeciesName != null) {
+        final reqName = widget.initialSpeciesName!.trim().toLowerCase();
+        for (final tree in threatenedTrees) {
+          final tName = tree.name.toLowerCase().trim();
+          final tParts = tName.split('/').map((s) => s.trim()).toList();
+          final rParts = reqName.split('/').map((s) => s.trim()).toList();
+          if (tName == reqName ||
+              tParts.any((p) => p == reqName || rParts.contains(p)) ||
+              rParts.any((p) => p == tName || tParts.contains(p))) {
+            requestedTree = tree;
+            break;
+          }
         }
       }
+
+      // Fallback to species ID (scientific name)
+      if (requestedTree == null && widget.initialSpeciesID != null) {
+        final requestedID = widget.initialSpeciesID!.trim().toLowerCase();
+        for (final tree in threatenedTrees) {
+          final treeID = tree.scientificName
+              .trim()
+              .replaceAll(RegExp(r'\s+'), '_')
+              .toLowerCase();
+          if (treeID == requestedID) {
+            requestedTree = tree;
+            break;
+          }
+        }
+      }
+
       if (requestedTree != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _viewPlantInAR(requestedTree!);
@@ -1814,7 +1835,7 @@ class _Ar_ViewState extends State<Ar_View> {
     final scaleY = containerHeight / baseHeight;
     final cardWidth = (containerWidth * 0.23).clamp(76.0, 110.0).toDouble();
     final nameBoxHeight = (containerWidth * 0.087).clamp(32.0, 42.0).toDouble();
-    final nameFontSize = (containerWidth * 0.023).clamp(8.0, 11.0).toDouble();
+    final nameFontSize = (containerWidth * 0.03).clamp(10.0, 13.0).toDouble();
     final buttonHeight = (containerWidth * 0.073).clamp(28.0, 36.0).toDouble();
     final buttonFontSize = (containerWidth * 0.019).clamp(7.0, 9.0).toDouble();
     final cardGap = (containerWidth * 0.014).clamp(4.0, 7.0).toDouble();
@@ -1849,25 +1870,146 @@ class _Ar_ViewState extends State<Ar_View> {
       width: containerWidth,
       height: containerHeight,
       child: Stack(
-        children: plantPositions
-            .map(
-              (pos) => Positioned(
-                left: (pos.left * scaleX) - (cardWidth / 2),
-                top: (pos.top * scaleY) - (cardHeight / 2),
-                child: _buildPlantButton(
-                  pos.plant,
-                  isDark,
-                  cardWidth: cardWidth,
-                  nameBoxHeight: nameBoxHeight,
-                  nameFontSize: nameFontSize,
-                  buttonHeight: buttonHeight,
-                  buttonFontSize: buttonFontSize,
-                  gap: cardGap,
-                ),
+        children: [
+          Positioned(
+            top: 48 * scaleY,
+            left: 14 * scaleX,
+            right: 14 * scaleX,
+            child: _buildShelfHeaderAndLegend(isDark, scaleX, scaleY),
+          ),
+          ...plantPositions.map(
+            (pos) => Positioned(
+              left: (pos.left * scaleX) - (cardWidth / 2),
+              top: (pos.top * scaleY) - (cardHeight / 2),
+              child: _buildPlantButton(
+                pos.plant,
+                isDark,
+                cardWidth: cardWidth,
+                nameBoxHeight: nameBoxHeight,
+                nameFontSize: nameFontSize,
+                buttonHeight: buttonHeight,
+                buttonFontSize: buttonFontSize,
+                gap: cardGap,
               ),
-            )
-            .toList(),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildShelfHeaderAndLegend(
+      bool isDark, double scaleX, double scaleY) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: 14 * scaleX,
+            vertical: 8 * scaleY,
+          ),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.48)
+                : Colors.black.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: isDark ? 0.16 : 0.25),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.view_in_ar_rounded,
+                    color: leafAccent,
+                    size: (18 * scaleX).clamp(16.0, 20.0),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "AR Garden",
+                    style: TextStyle(
+                      fontFamily: 'Poppins-Bold',
+                      fontSize: (16 * scaleX).clamp(14.0, 18.0),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 5 * scaleY),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10 * scaleX,
+                runSpacing: 4 * scaleY,
+                children: [
+                  _buildLegendItem(
+                    const Color(0xFFEF5350),
+                    "Critically Endangered",
+                    scaleX,
+                  ),
+                  _buildLegendItem(
+                    const Color(0xFFFFA726),
+                    "Endangered",
+                    scaleX,
+                  ),
+                  _buildLegendItem(
+                    const Color(0xFFFFEE58),
+                    "Vulnerable",
+                    scaleX,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label, double scaleX) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.6),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: (10.5 * scaleX).clamp(9.5, 11.5),
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1919,7 +2061,8 @@ class _Ar_ViewState extends State<Ar_View> {
                     ],
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 2,
+                  maxLines: 1,
+                  softWrap: false,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

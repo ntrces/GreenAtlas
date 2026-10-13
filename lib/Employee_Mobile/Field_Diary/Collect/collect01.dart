@@ -3,12 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import '../Collect/observation_model.dart';
 import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 import 'collect2.dart';
 import '../../../UserProfile/user_profile.dart';
-import '../../EmployeeNotification/employeenotif.dart';
 import '../../../components/notification_badge.dart';
-import '../Employee_FieldDiary.dart'; 
-import '../clearentry.dart'; 
+import '../clearentry.dart';
 import '../../../services/user_session_service.dart';
 
 class CollectStep1Screen extends StatefulWidget {
@@ -89,7 +88,7 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
+      backgroundColor: getScaffoldBg(isDark),
       body: Column(
         children: [
           _buildTopNavBar(context, isDark, textTheme),
@@ -101,12 +100,12 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
               children: [
                 Text(
                   "Step 1 of 3", 
-                  style: textTheme.labelSmall?.copyWith(color: Colors.black45)
+                  style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white54 : Colors.black45)
                 ),
                 const SizedBox(height: 4),
                 Text(
                   "Basic Information", 
-                  style: textTheme.headlineSmall?.copyWith(color: darkGreen)
+                  style: textTheme.headlineSmall?.copyWith(color: isDark ? Colors.white : darkGreen)
                 ),
                 const SizedBox(height: 24),
                 _buildObserverCard(isDark, model, textTheme),
@@ -118,7 +117,7 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomStepper(context, textTheme),
+      bottomNavigationBar: _buildBottomStepper(context, textTheme, isDark),
     );
   }
 
@@ -132,9 +131,12 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
           ListTile(
             title: Text(
               "Members", 
-              style: textTheme.titleLarge?.copyWith(color: darkGreen, fontSize: 16)
+              style: textTheme.titleLarge?.copyWith(color: isDark ? Colors.white : darkGreen, fontSize: 16)
             ),
-            trailing: Icon(_isMembersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
+            trailing: Icon(
+              _isMembersExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
             onTap: () => setState(() => _isMembersExpanded = !_isMembersExpanded),
           ),
           if (_isMembersExpanded)
@@ -142,7 +144,7 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Column(
                 children: [
-                  ...model.members.asMap().entries.map((entry) => _buildMemberBlock(entry.key, model, textTheme)),
+                  ...model.members.asMap().entries.map((entry) => _buildMemberBlock(entry.key, model, textTheme, isDark)),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
@@ -151,8 +153,8 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text("Add Member"),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: forestGreen,
-                        side: BorderSide(color: forestGreen.withOpacity(0.3)),
+                        foregroundColor: isDark ? leafAccent : forestGreen,
+                        side: BorderSide(color: (isDark ? leafAccent : forestGreen).withOpacity(0.3)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
@@ -166,14 +168,14 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
     );
   }
 
-  Widget _buildMemberBlock(int index, ObservationModel model, TextTheme textTheme) {
+  Widget _buildMemberBlock(int index, ObservationModel model, TextTheme textTheme, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9F9F9), 
+        color: isDark ? const Color(0xFF253326) : const Color(0xFFF9F9F9), 
         borderRadius: BorderRadius.circular(12), 
-        border: Border.all(color: Colors.black.withOpacity(0.05))
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05))
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +185,7 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
             children: [
               Text(
                 "Member ${index + 1}", 
-                style: textTheme.labelSmall?.copyWith(color: Colors.black38)
+                style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white54 : Colors.black38)
               ),
               GestureDetector(
                 onTap: () => _removeMember(index, model),
@@ -192,61 +194,65 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildMemberInput("Firstname", "Enter firstname", model.members[index]['firstname']!, (v) => model.members[index]['firstname'] = v, textTheme),
+          _buildMemberInput("Firstname", "Enter firstname", model.members[index]['firstname']!, (v) => model.members[index]['firstname'] = v, textTheme, isDark),
           const SizedBox(height: 12),
-          _buildMemberInput("Lastname", "Enter lastname", model.members[index]['lastname']!, (v) => model.members[index]['lastname'] = v, textTheme),
+          _buildMemberInput("Lastname", "Enter lastname", model.members[index]['lastname']!, (v) => model.members[index]['lastname'] = v, textTheme, isDark),
           const SizedBox(height: 12),
           // Changed from _buildMemberInput to _buildMemberDropdown for User Role
-          _buildMemberDropdown("User Role", model.members[index]['role']!, (v) => setState(() => model.members[index]['role'] = v!), textTheme),
+          _buildMemberDropdown("User Role", model.members[index]['role']!, (v) => setState(() => model.members[index]['role'] = v!), textTheme, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildMemberInput(String label, String placeholder, String initialValue, Function(String) onChanged, TextTheme textTheme) => Column(
+  Widget _buildMemberInput(String label, String placeholder, String initialValue, Function(String) onChanged, TextTheme textTheme, bool isDark) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: textTheme.labelSmall?.copyWith(color: Colors.black54)),
+      Text(label, style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white70 : Colors.black54)),
       const SizedBox(height: 4),
       TextFormField(
         initialValue: initialValue,
         onChanged: onChanged,
-        style: textTheme.bodyMedium?.copyWith(color: Colors.black87),
+        style: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white : Colors.black87),
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26, fontSize: 13),
+          hintStyle: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white38 : Colors.black26, fontSize: 13),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: isDark ? getCardBg(isDark) : Colors.white,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.black12)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black12)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black12)),
         ),
       ),
     ],
   );
 
   // New Helper for the Role Dropdown
-  Widget _buildMemberDropdown(String label, String currentValue, Function(String?) onChanged, TextTheme textTheme) => Column(
+  Widget _buildMemberDropdown(String label, String currentValue, Function(String?) onChanged, TextTheme textTheme, bool isDark) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: textTheme.labelSmall?.copyWith(color: Colors.black54)),
+      Text(label, style: textTheme.labelSmall?.copyWith(color: isDark ? Colors.white70 : Colors.black54)),
       const SizedBox(height: 4),
       DropdownButtonFormField<String>(
         value: currentValue.isEmpty ? null : currentValue,
         onChanged: onChanged,
-        style: textTheme.bodyMedium?.copyWith(color: Colors.black87),
+        dropdownColor: isDark ? getCardBg(isDark) : Colors.white,
+        style: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white : Colors.black87),
+        iconEnabledColor: isDark ? Colors.white70 : Colors.black54,
         items: _userRoles.map((role) {
           return DropdownMenuItem(
             value: role,
-            child: Text(role),
+            child: Text(role, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
           );
         }).toList(),
         decoration: InputDecoration(
           hintText: "Select role",
-          hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26, fontSize: 13),
+          hintStyle: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white38 : Colors.black26, fontSize: 13),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: isDark ? getCardBg(isDark) : Colors.white,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.black12)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black12)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black12)),
         ),
       ),
     ],
@@ -255,7 +261,7 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
   Widget _buildTopNavBar(BuildContext context, bool isDark, TextTheme textTheme) {
     return Container(
       padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 10, left: 16, right: 16),
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+      color: getCardBg(isDark),
       child: Row(
         children: [
           Image.asset('assets/logo2.png', height: 32),
@@ -307,11 +313,11 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
     );
   }
 
-  Widget _buildLabel(String text, TextTheme textTheme) {
+  Widget _buildLabel(String text, TextTheme textTheme, [bool isDark = false]) {
     return RichText(
       text: TextSpan(
         text: text.replaceFirst('*', ''),
-        style: textTheme.titleSmall?.copyWith(color: Colors.black87, fontSize: 12),
+        style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white70 : Colors.black87, fontSize: 12),
         children: [
           if (text.contains('*')) const TextSpan(text: '*', style: TextStyle(color: Colors.red)),
         ],
@@ -328,36 +334,39 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
         children: [
           Text(
             "Observer", 
-            style: textTheme.titleLarge?.copyWith(color: darkGreen, fontSize: 16)
+            style: textTheme.titleLarge?.copyWith(color: isDark ? Colors.white : darkGreen, fontSize: 16)
           ),
           const SizedBox(height: 12),
-          _buildLabel("User ID *", textTheme),
+          _buildLabel("User ID *", textTheme, isDark),
           const SizedBox(height: 8),
-          _buildDisabledField(model.observerName, textTheme),
+          _buildDisabledField(model.observerName, textTheme, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildBottomStepper(BuildContext context, TextTheme textTheme) {
+  Widget _buildBottomStepper(BuildContext context, TextTheme textTheme, bool isDark) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-      decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))),
+      decoration: BoxDecoration(
+        color: getCardBg(isDark), 
+        border: Border(top: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05)))
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           TextButton(
             onPressed: () => Navigator.pop(context), 
-            child: Text("Back", style: textTheme.labelLarge?.copyWith(color: Colors.black45))
+            child: Text("Back", style: textTheme.labelLarge?.copyWith(color: isDark ? Colors.white54 : Colors.black45))
           ),
           Text(
             "1 of 3", 
-            style: textTheme.titleSmall?.copyWith(color: Colors.black54)
+            style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white70 : Colors.black54)
           ),
           ElevatedButton(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectStep2Screen())),
             style: ElevatedButton.styleFrom(
-              backgroundColor: darkGreen, 
+              backgroundColor: isDark ? forestGreen : darkGreen, 
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12), 
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
             ),
@@ -372,18 +381,23 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
   }
 
   BoxDecoration _cardDecoration(bool d) => BoxDecoration(
-    color: d ? const Color(0xFF1F1F1F) : Colors.white,
+    color: d ? getCardBg(d) : Colors.white,
     borderRadius: BorderRadius.circular(16),
-    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+    border: Border.all(color: d ? const Color(0xFF2E3D2F) : Colors.transparent),
+    boxShadow: [BoxShadow(color: Colors.black.withOpacity(d ? 0.2 : 0.04), blurRadius: 10)],
   );
 
-  Widget _buildDisabledField(String value, TextTheme textTheme) => Container(
+  Widget _buildDisabledField(String value, TextTheme textTheme, [bool isDark = false]) => Container(
     width: double.infinity,
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.black.withOpacity(0.05))),
+    decoration: BoxDecoration(
+      color: isDark ? const Color(0xFF253326) : const Color(0xFFF0F0F0), 
+      borderRadius: BorderRadius.circular(12), 
+      border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05))
+    ),
     child: Text(
       value, 
-      style: textTheme.titleSmall?.copyWith(color: Colors.black87)
+      style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black87)
     ),
   );
 
@@ -391,8 +405,12 @@ class _CollectStep1ScreenState extends State<CollectStep1Screen> {
     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
     child: Container(
       height: 36, width: 36,
-      decoration: BoxDecoration(color: const Color(0xFFF0F4F0), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12)),
-      child: const Icon(Icons.person_outline, color: Colors.black54, size: 20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0), 
+        borderRadius: BorderRadius.circular(8), 
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black12)
+      ),
+      child: Icon(Icons.person_outline, color: isDark ? Colors.white70 : Colors.black54, size: 20),
     ),
   );
 }
