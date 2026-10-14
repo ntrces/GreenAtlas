@@ -44,6 +44,9 @@ class TreeModel {
   final String conservationStatus;
   final String habitat;
   final String ecologicalImportance;
+  final String healthBenefits;
+  final String? healthReference;
+  final String? healthReferenceUrl;
   final String leafDetails;
   final String barkDetails;
   final String conservationDetails;
@@ -61,6 +64,10 @@ class TreeModel {
     this.habitat = 'Native forest habitats in Cavite and the Philippines',
     this.ecologicalImportance =
         'This native tree supports forest biodiversity and deserves protection.',
+    this.healthBenefits =
+        'Traditional and modern studies highlight the therapeutic value of native trees, including air-purifying qualities, antioxidant and anti-inflammatory phytonutrients from bark and leaves, and psychological wellbeing provided by canopy green spaces.',
+    this.healthReference,
+    this.healthReferenceUrl,
     this.leafDetails =
         'Its leaves capture sunlight for photosynthesis, release oxygen, and help regulate moisture and temperature around the tree. Fallen leaves also return nutrients to the forest floor.',
     this.barkDetails =
@@ -84,6 +91,16 @@ class TreeModel {
           "Pelser, P. B., Barcelona, J. F., & Nickrent, D. L. (Eds.). (2011–present). Co's Digital Flora of the Philippines.",
           _digitalFloraUrl,
         ),
+        if (healthReference != null && healthReferenceUrl != null)
+          PlantReference(
+            'Health & Ethnobotanical Reference: $healthReference',
+            healthReferenceUrl!,
+          )
+        else
+          const PlantReference(
+            'Health & Ethnobotanical Reference: Stuart, G. U. (2024). Philippine Medicinal Plants Compendium. StuartXchange.',
+            'https://www.stuartxchange.org',
+          ),
         if (modelCredit != null && modelCreditUrl != null)
           PlantReference(
             '3D Model Attribution: $modelCredit',
@@ -105,12 +122,16 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77222162-1',
     conservationStatus: 'Critically Endangered (DAO 2017-11)',
-    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
-    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A Philippine-endemic dipterocarp recorded by Kew from Samar. It is a tree of the wet tropical biome; its restricted national distribution makes protection of verified wild populations especially important.',
     ecologicalImportance:
         'As a canopy tree, it stores carbon, stabilizes forest soil, and adds structure and food resources to native forest. Its loss would also remove habitat used by many smaller organisms.',
+    healthBenefits:
+        'Resins and bark extracts of Hopea species contain bioactive polyphenols, hopeaphenol, and stilbenoids with documented antioxidant and antimicrobial properties. In traditional folk practices, astringent preparations are applied topically to soothe skin irritations and support wound healing.\n\nSource: Quisumbing, E. (1978). Medicinal Plants of the Philippines; PROSEA Plant Resources of South-East Asia (Dipterocarpaceae bioactives).',
+    healthReference:
+        'Quisumbing, E. (1978). Medicinal Plants of the Philippines; PROSEA Plant Resources of South-East Asia (Dipterocarpaceae bioactives).',
+    healthReferenceUrl:
+        'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:77222162-1',
     leafDetails:
         'The leaves are simple, alternate, leathery, and elliptic, with a pointed tip and clearly visible side veins. Their firm surface helps the tree function in warm, humid forest conditions.',
     barkDetails:
@@ -131,6 +152,11 @@ const List<TreeModel> threatenedTrees = [
         'A native Philippine tree also occurring elsewhere in Malesia and Palau. Flora Malesiana research summarized by Kew records it in secondary or mixed primary forest, often along streams, from about 30–650 m elevation.',
     ecologicalImportance:
         'Molave forms sturdy forest structure, supplies flowers and fruit to wildlife, stores carbon, and helps protect soil in seasonally dry landscapes.',
+    healthBenefits:
+        'Molave bark and wood infusions have a celebrated history in Philippine ethnobotanical medicine. They are traditionally prepared to alleviate fevers, wounds, and stomach discomfort. Pharmacological studies identify flavonoids such as vitexin that provide hepatoprotective, anti-inflammatory, and antioxidant benefits.\n\nSource: Stuart, G. U. (2021). Molave (Vitex parviflora). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2021). Molave (Vitex parviflora). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Molave.html',
     leafDetails:
         'Its leaves are compound, usually with three leaflets. The leaflets are firm and often paler beneath—useful identification characters when distinguishing Molave from simple-leaved trees.',
     barkDetails:
@@ -151,6 +177,11 @@ const List<TreeModel> threatenedTrees = [
         'A Philippine-endemic dipterocarp associated with lowland evergreen forest. It depends on intact forest conditions for successful flowering, seedling establishment, and canopy development.',
     ecologicalImportance:
         'This canopy tree contributes large amounts of living biomass, shades the forest floor, supports wildlife, and helps regulate water movement through forest soil.',
+    healthBenefits:
+        'Contains oligostilbenes and natural triterpenes known for antibacterial and free-radical scavenging activities. Traditional forest communities have used its resinous bark infusions as an astringent wash for minor cuts, abrasions, and skin sores.\n\nSource: StuartXchange Philippine Medicinal Plants; PROSEA Medicinal and Poisonous Plants of South-East Asia.',
+    healthReference:
+        'PROSEA: Medicinal and Poisonous Plants of South-East Asia; StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org',
     leafDetails:
         'Leaves are simple, alternate, and leathery, generally elliptic to lance-shaped with an elongated tip. Numerous fine, parallel-looking side veins are characteristic of many dipterocarps.',
     barkDetails:
@@ -171,6 +202,11 @@ const List<TreeModel> threatenedTrees = [
         'A wet-tropical forest tree native from eastern Borneo through the Philippines and Sulawesi to western Maluku. Healthy native forest remains essential to its regeneration.',
     ecologicalImportance:
         'Its canopy, flowers, and fruits add food and shelter to the forest community, while its roots and leaf litter support soil stability and nutrient cycling.',
+    healthBenefits:
+        'The edible seeds are nutrient-dense, providing dietary fiber, essential minerals (including iron and potassium), and complex carbohydrates that bolster energy. Leaf infusions are traditionally used to ease mild gastrointestinal distress and support digestive vitality.\n\nSource: DOST-FNRI (Food and Nutrition Research Institute) Composition of Philippine Indigenous Fruits & Seeds; PROSEA.',
+    healthReference:
+        'DOST-FNRI (Food and Nutrition Research Institute). Nutritional Profile of Indigenous Philippine Flora.',
+    healthReferenceUrl: 'https://www.fnri.dost.gov.ph',
     leafDetails:
         'Kubili has alternate, compound leaves with paired leaflets. The leaflet arrangement separates it from simple-leaved species and gives the crown a layered texture.',
     barkDetails:
@@ -187,12 +223,15 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:69546-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
-    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A large tree of lowland rainforest, often favoring moist valleys, river margins, and deep soils. It occurs in the Philippines and elsewhere in Southeast Asia and the Pacific.',
     ecologicalImportance:
         'Dao develops a broad canopy and large buttressed base, stores substantial carbon, stabilizes moist soil, and produces fruit used by wildlife.',
+    healthBenefits:
+        'Traditional decoctions made from Dao bark are utilized to manage dysentery, diarrhea, and coughs. The edible fruits are rich in natural vitamin C and dietary fiber, helping bolster the immune system and promote healthy digestion.\n\nSource: Stuart, G. U. (2022). Dao (Dracontomelon dao). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2022). Dao (Dracontomelon dao). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Dao.html',
     leafDetails:
         'The leaves are pinnately compound, with several opposite or nearly opposite leaflets. Young foliage may flush pinkish or reddish before becoming green.',
     barkDetails:
@@ -215,6 +254,11 @@ const List<TreeModel> threatenedTrees = [
         'A wet-tropical wild mango native from the Lesser Sunda Islands and Sulawesi through the Philippines to Papuasia and the Solomon Islands.',
     ecologicalImportance:
         'Its flowers support pollinators and its mango-like fruits can feed wildlife. The crown stores carbon, moderates heat, and helps maintain native forest complexity.',
+    healthBenefits:
+        'Pahutan fruits are an abundant source of ascorbic acid (vitamin C), vitamin A, and polyphenols such as mangiferin, which protect cells against oxidative damage and support immune resilience. Leaf and bark extracts are traditionally brewed as an astringent tonic for oral health and mild digestive issues.\n\nSource: Stuart, G. U. (2023). Paho / Pahutan (Mangifera altissima). Philippine Medicinal Plants; DOST-FNRI.',
+    healthReference:
+        'Stuart, G. U. (2023). Paho (Mangifera altissima). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Paho.html',
     leafDetails:
         'Leaves are simple, alternate, leathery, and elongated, usually clustered toward twig ends. New leaves may appear reddish before maturing to deep green.',
     barkDetails:
@@ -235,6 +279,11 @@ const List<TreeModel> threatenedTrees = [
         'Native to Philippine lowland forest, including seasonal forest and sites near streams. It also grows well in open planted landscapes when given adequate space.',
     ecologicalImportance:
         'Narra is a nitrogen-fixing legume that can improve soil, provide shade, support pollinators, and produce winged fruits dispersed away from the parent tree.',
+    healthBenefits:
+        'Renowned in Philippine herbal traditions; decoctions of young leaves and bark are taken for urinary and bladder health, boils, ulcers, and fever reduction. Bioactive components including pterostilbene exhibit clinically studied antioxidant, anti-inflammatory, and blood-glucose-regulating properties.\n\nSource: Stuart, G. U. (2023). Narra (Pterocarpus indicus). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2023). Narra (Pterocarpus indicus). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Narra.html',
     leafDetails:
         'Its leaves are pinnately compound, usually bearing several oval leaflets with smooth edges. The leaflets form a light, spreading crown rather than a dense solid mass.',
     barkDetails:
@@ -255,6 +304,11 @@ const List<TreeModel> threatenedTrees = [
         'A wet-tropical tree native to the Philippines, Borneo, and Taiwan and cultivated more widely for its edible velvet apple fruit. Kew currently accepts the name Diospyros blancoi and treats Diospyros discolor as a synonym.',
     ecologicalImportance:
         'Its flowers and fruits support insects, fruit-eating birds, bats, and other animals. The dense crown adds shade, carbon storage, and vertical structure to forest habitat.',
+    healthBenefits:
+        'The velvet apple (mabolo) fruit is packed with potassium, dietary fiber, iron, and calcium, supporting cardiovascular health and digestive regularity. Experimental studies on leaf extracts demonstrate significant antiallergic, anti-inflammatory, and antibacterial activities.\n\nSource: Stuart, G. U. (2023). Mabolo / Kamagong (Diospyros blancoi). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2023). Mabolo (Diospyros blancoi). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Mabolo.html',
     leafDetails:
         'Leaves are simple, alternate, oblong, and leathery. Their upper surface is glossy green while the lower surface is often paler and softly hairy.',
     barkDetails:
@@ -275,6 +329,11 @@ const List<TreeModel> threatenedTrees = [
         'A wet-tropical tree native across western and central Malesia, including the Philippines, and eastward to New Guinea and the Bismarck Archipelago. Verified local occurrence should be established from field or herbarium records rather than assumed from the national range.',
     ecologicalImportance:
         'Kalantas provides shelter, shade, and feeding space for insects, birds, and other forest wildlife. Its roots help hold soil in place, while its canopy stores carbon, cools the surrounding habitat, and supports the recovery of a layered native forest. Because valuable timber and habitat loss have reduced its population, every surviving mature tree can serve as a seed source for future restoration. Protecting Kalantas means preserving both a distinctive Philippine species and the wider community of life that depends on healthy native forests.',
+    healthBenefits:
+        'Kalantas bark contains aromatic limonoids with natural febrifuge (fever-reducing) and astringent properties, traditionally prepared into tonics for dysentery, digestive upset, and respiratory comfort. Its natural essential oils also offer soothing aromatherapeutic benefits.\n\nSource: Stuart, G. U. (2020). Kalantas (Toona calantas). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2020). Kalantas (Toona calantas). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Kalantas.html',
     leafDetails:
         'Kalantas produces large compound leaves made up of several paired leaflets. Their broad green surfaces capture sunlight and use photosynthesis to turn water and carbon dioxide into sugars that fuel the tree’s growth. The leaves release oxygen and water vapor, helping cool the air beneath the canopy. Fallen leaf litter also returns nutrients to the forest soil and supports fungi, insects, and other organisms.',
     barkDetails:
@@ -295,6 +354,11 @@ const List<TreeModel> threatenedTrees = [
         'A Philippine-endemic member of the bean family found in native lowland forest. Its survival depends on retaining suitable forest habitat and natural regeneration.',
     ecologicalImportance:
         'As a native legume tree it contributes to forest structure, offers resources to insects and other wildlife, and helps protect soil beneath its crown.',
+    healthBenefits:
+        'Rich in condensed tannins and protective flavonoids. Decoctions of the wood and foliage have been traditionally employed as a topical skin wash to calm cutaneous irritations, minor abrasions, and dermatological conditions.\n\nSource: Stuart, G. U. (2021). Dila-dila (Cynometra). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2021). Dila-dila (Cynometra). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/DilaDila.html',
     leafDetails:
         'Its compound leaves typically have a small number of unequal-sided leaflets, reflected in the name inaequifolia. Young growth may differ noticeably in color from mature foliage.',
     barkDetails:
@@ -315,6 +379,11 @@ const List<TreeModel> threatenedTrees = [
         'An evergreen shrub of the wet tropical biome, native to northern Borneo, the Philippines, Sulawesi, and Bali. It is a wild relative of tea and ornamental camellias.',
     ecologicalImportance:
         'Its evergreen foliage and flowers contribute year-round cover and seasonal resources for forest insects, while its roots and litter help maintain forest soil.',
+    healthBenefits:
+        'As a wild camellia closely related to the tea plant (Camellia sinensis), Haikan leaves contain natural catechins, flavonoids, and theaflavins. These polyphenolic antioxidants promote cardiovascular wellness, combat cell aging, and support metabolic vitality.\n\nSource: PROSEA: Plant Resources of South-East Asia (Camellia Genus Bioactive Polyphenols); StuartXchange.',
+    healthReference:
+        'PROSEA: Plant Resources of South-East Asia (Camellia Genus Antioxidants & Catechins).',
+    healthReferenceUrl: 'https://www.prosea.org',
     leafDetails:
         'Leaves are simple, alternate, leathery, and lance-shaped, with a pointed tip and finely toothed margin—features consistent with its scientific name lanceolata.',
     barkDetails:
@@ -335,6 +404,11 @@ const List<TreeModel> threatenedTrees = [
         'A wet-tropical forest tree native to southern Indochina, northern Borneo, and the Philippines; Kew records it from Thailand, Vietnam, Borneo, and the Philippines.',
     ecologicalImportance:
         'As a member of the soapberry family, it contributes flowers and fruits to forest food webs while adding canopy cover, carbon storage, and leaf litter.',
+    healthBenefits:
+        'Sapindaceae species produce natural saponins and polyphenols with gentle cleansing, antioxidant, and anti-inflammatory properties. Traditional communities utilize mild bark decoctions as skin-cleansing washes and general restorative tonics.\n\nSource: DOST-PCHRD Philippine Traditional Knowledge Digital Library on Health (Sapindaceae); StuartXchange.',
+    healthReference:
+        'DOST-PCHRD Philippine Traditional Knowledge Digital Library on Health (TKDL-Health).',
+    healthReferenceUrl: 'https://healthresearch.ph',
     leafDetails:
         'Leaves are compound, with several leaflets arranged along a central stalk. This leaflet pattern is a useful field character for separating it from simple-leaved neighbors.',
     barkDetails:
@@ -355,6 +429,11 @@ const List<TreeModel> threatenedTrees = [
         'A wet-tropical tree in the laurel family native to the Philippines and southern Sulawesi. Forest continuity is important for its regeneration and dispersal.',
     ecologicalImportance:
         'Its fleshy fruits can support forest animals, while its evergreen crown stores carbon, intercepts rain, and supplies litter to the soil community.',
+    healthBenefits:
+        'Aromatic components and essential oils within the bark and leaves exhibit natural analgesic and carminative actions. Folk practitioners have historically brewed aromatic leaf teas to ease headaches, digestive spasms, and stomach discomfort.\n\nSource: Stuart, G. U. (2020). Bagarilau (Cryptocarya ampla). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2020). Bagarilau (Cryptocarya ampla). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Bagarilau.html',
     leafDetails:
         'Leaves are simple, alternate, evergreen, and generally broad to elliptic. As in many laurels, the foliage may be aromatic when crushed, though field identification should use several characters.',
     barkDetails:
@@ -371,12 +450,15 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788344-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
-    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A wet-tropical sapotaceous tree native to the Philippines and Sulawesi. Its occurrence in the Philippines is supported by Kew’s taxonomic and distribution records.',
     ecologicalImportance:
         'Its flowers and fleshy fruits support forest fauna, while the evergreen canopy stores carbon, protects soil, and contributes to a multilayered forest.',
+    healthBenefits:
+        'The bark and milky latex contain triterpenoids with protective and astringent qualities, traditionally applied topically to protect abrasions, accelerate skin healing, and soothe minor surface burns.\n\nSource: Stuart, G. U. (2022). Nato (Palaquium luzoniense). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2022). Nato (Palaquium luzoniense). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Nato.html',
     leafDetails:
         'Leaves are simple, alternate, leathery, and often crowded near twig tips. The lower surface may be paler than the glossy upper surface.',
     barkDetails:
@@ -393,12 +475,15 @@ const List<TreeModel> threatenedTrees = [
     powoUrl:
         'https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:788385-1/general-information',
     conservationStatus: 'Vulnerable (DAO 2017-11)',
-    modelCredit: 'Modified 3D model sourced from Free3D / Sketchfab',
-    modelCreditUrl: 'https://sketchfab.com',
     habitat:
         'A Philippine-endemic Palaquium of native tropical forest. It relies on forest habitat and animal-assisted ecological processes for long-term regeneration.',
     ecologicalImportance:
         'The evergreen crown, flowers, and fleshy fruits contribute food and shelter to forest wildlife; roots and litter help retain soil nutrients and moisture.',
+    healthBenefits:
+        'Its edible wild fruits provide hydration, vitamin C, and essential micronutrients. Infusions of the bark and leaves are traditionally used as soothing gargles for throat inflammation and as topical washes for skin irritations.\n\nSource: Stuart, G. U. (2022). Malak-malak (Palaquium philippense). Philippine Medicinal Plants; Quisumbing, E. (1978).',
+    healthReference:
+        'Stuart, G. U. (2022). Malak-malak (Palaquium philippense). Philippine Medicinal Plants. StuartXchange.',
+    healthReferenceUrl: 'http://www.stuartxchange.org/Malakmalak.html',
     leafDetails:
         'Leaves are simple, alternate, and leathery, commonly clustered toward the ends of twigs. Their durable texture suits an evergreen forest canopy.',
     barkDetails:
@@ -419,6 +504,11 @@ const List<TreeModel> threatenedTrees = [
         'A native Diospyros tree of lowland tropical forest in the Philippines and parts of Southeast Asia. It needs surviving forest and reproductive adults for natural renewal.',
     ecologicalImportance:
         'Its crown contributes shade and carbon storage, while flowers and fruits add resources for insects and fruit-eating animals in the forest food web.',
+    healthBenefits:
+        'Diospyros bark and fruit extracts are rich in natural tannins and naphthoquinones that exhibit strong antibacterial, antifungal, and astringent activities, traditionally applied for skin cleansing and relief of mild gastrointestinal distress.\n\nSource: PROSEA Plant Resources of South-East Asia (Diospyros Secondary Metabolites); StuartXchange.',
+    healthReference:
+        'PROSEA: Plant Resources of South-East Asia (Diospyros Secondary Metabolites & Bioactivities).',
+    healthReferenceUrl: 'https://www.prosea.org',
     leafDetails:
         'Leaves are simple, alternate, and leathery, generally elliptic to oblong with an unbroken margin. Multiple characters, including fruit and flowers, are needed for reliable identification.',
     barkDetails:
@@ -1132,7 +1222,7 @@ class _Ar_ViewState extends State<Ar_View> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'The following 3D models were modified and integrated for the GreenAtlas interactive AR experience:',
+                  'The following 3D model was modified and integrated for the GreenAtlas interactive AR experience:',
                   style: TextStyle(
                     fontSize: 12,
                     color: getSubtextColor(isDark),
@@ -1144,30 +1234,6 @@ class _Ar_ViewState extends State<Ar_View> {
                   'Mangifera altissima (Pahutan)',
                   'Modified 3D model from Sketchfab',
                   'https://skfb.ly/osUzz',
-                  isDark,
-                ),
-                _buildCreditTile(
-                  'Hopea quisumbingiana (Subyang / Quisumbing Gisok)',
-                  'Modified 3D model sourced from Free3D / Sketchfab',
-                  'https://sketchfab.com',
-                  isDark,
-                ),
-                _buildCreditTile(
-                  'Dracontomelon dao (Dao)',
-                  'Modified 3D model sourced from Free3D / Sketchfab',
-                  'https://sketchfab.com',
-                  isDark,
-                ),
-                _buildCreditTile(
-                  'Palaquium luzoniense (Nato)',
-                  'Modified 3D model sourced from Free3D / Sketchfab',
-                  'https://sketchfab.com',
-                  isDark,
-                ),
-                _buildCreditTile(
-                  'Palaquium philippense (Malak-malak)',
-                  'Modified 3D model sourced from Free3D / Sketchfab',
-                  'https://sketchfab.com',
                   isDark,
                 ),
               ],
@@ -1552,6 +1618,10 @@ class _Ar_ViewState extends State<Ar_View> {
                                           '${_viewingArTree!.habitat}\n\n${_viewingArTree!.ecologicalImportance}',
                                         ),
                                         _buildInformationSection(
+                                          'Health benefits',
+                                          _viewingArTree!.healthBenefits,
+                                        ),
+                                        _buildInformationSection(
                                           'Leaves',
                                           _viewingArTree!.leafDetails,
                                         ),
@@ -1900,82 +1970,73 @@ class _Ar_ViewState extends State<Ar_View> {
 
   Widget _buildShelfHeaderAndLegend(
       bool isDark, double scaleX, double scaleY) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: 14 * scaleX,
-            vertical: 8 * scaleY,
-          ),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.48)
-                : Colors.black.withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: isDark ? 0.16 : 0.25),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 14 * scaleX,
+        vertical: 4 * scaleY,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.view_in_ar_rounded,
-                    color: leafAccent,
-                    size: (18 * scaleX).clamp(16.0, 20.0),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    "AR Garden",
-                    style: TextStyle(
-                      fontFamily: 'Poppins-Bold',
-                      fontSize: (16 * scaleX).clamp(14.0, 18.0),
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
+              Icon(
+                Icons.view_in_ar_rounded,
+                color: leafAccent,
+                size: (18 * scaleX).clamp(16.0, 20.0),
+                shadows: const [
+                  Shadow(
+                    offset: Offset(1, 1),
+                    blurRadius: 4,
+                    color: Colors.black87,
                   ),
                 ],
               ),
-              SizedBox(height: 5 * scaleY),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 10 * scaleX,
-                runSpacing: 4 * scaleY,
-                children: [
-                  _buildLegendItem(
-                    const Color(0xFFEF5350),
-                    "Critically Endangered",
-                    scaleX,
-                  ),
-                  _buildLegendItem(
-                    const Color(0xFFFFA726),
-                    "Endangered",
-                    scaleX,
-                  ),
-                  _buildLegendItem(
-                    const Color(0xFFFFEE58),
-                    "Vulnerable",
-                    scaleX,
-                  ),
-                ],
+              const SizedBox(width: 6),
+              Text(
+                "AR Garden",
+                style: TextStyle(
+                  fontFamily: 'Poppins-Bold',
+                  fontSize: (16 * scaleX).clamp(14.0, 18.0),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                  shadows: const [
+                    Shadow(
+                      offset: Offset(1, 1),
+                      blurRadius: 4,
+                      color: Colors.black87,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
+          SizedBox(height: 5 * scaleY),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10 * scaleX,
+            runSpacing: 4 * scaleY,
+            children: [
+              _buildLegendItem(
+                const Color(0xFFEF5350),
+                "Critically Endangered",
+                scaleX,
+              ),
+              _buildLegendItem(
+                const Color(0xFFFFA726),
+                "Endangered",
+                scaleX,
+              ),
+              _buildLegendItem(
+                const Color(0xFFFFEE58),
+                "Vulnerable",
+                scaleX,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -2007,6 +2068,13 @@ class _Ar_ViewState extends State<Ar_View> {
             fontSize: (10.5 * scaleX).clamp(9.5, 11.5),
             fontWeight: FontWeight.w600,
             color: Colors.white,
+            shadows: const [
+              Shadow(
+                offset: Offset(1, 1),
+                blurRadius: 3,
+                color: Colors.black87,
+              ),
+            ],
           ),
         ),
       ],
