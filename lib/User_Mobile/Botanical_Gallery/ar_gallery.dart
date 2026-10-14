@@ -7,7 +7,6 @@ import '../../theme_constants.dart';
 import '../user_dashboard.dart';
 import '../AR View/ar_view.dart';
 import 'ar_camera.dart';
-import '../notification.dart';
 import '../../UserProfile/user_profile.dart';
 import 'gallery_filtering.dart';
 import '../../components/notification_badge.dart';
@@ -109,7 +108,6 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
   }
 
   void _openFilterSheet() {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -254,8 +252,17 @@ class _ARGalleryScreenState extends State<ARGalleryScreen> {
                         fillColor: getCardBg(isDark),
                         contentPadding: EdgeInsets.zero,
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.transparent)),
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
                   ),

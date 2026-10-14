@@ -107,9 +107,16 @@ class _UserDashboardState extends State<UserDashboard> {
                 StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _supabase.from('plants').stream(primaryKey: ['id']),
                   builder: (context, snapshot) {
-                    final allPlants = snapshot.data ?? [];
-                    final arCount = allPlants.where((p) => p['ar_model_url'] != null && p['ar_model_url'].toString().isNotEmpty).length;
-                    final displayArCount = arCount >=16 ? arCount.toString() : "16";
+                    // Only count plants visible to the public (exclude ARCHIVED / DRAFT),
+                    // matching the Botanical Gallery filter.
+                    final publishedPlants = (snapshot.data ?? [])
+                        .where((p) => p['status']?.toString().toUpperCase() == 'PUBLISHED')
+                        .toList();
+                    // AR Garden models come from the bundled AR collection.
+                    final displayArCount = threatenedTrees
+                        .where((t) => t.remoteModelFile != null)
+                        .length
+                        .toString();
                     
                     return Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -123,8 +130,9 @@ class _UserDashboardState extends State<UserDashboard> {
                             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Ar_View())),
                             isDark,
                           ),
+                          const SizedBox(width: 12),
                           _buildStatCard(
-                            allPlants.length.toString(), 
+                            publishedPlants.length.toString(), 
                             "Species", 
                             Icons.eco_outlined,
                             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen())),
@@ -167,10 +175,13 @@ class _UserDashboardState extends State<UserDashboard> {
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ARGalleryScreen())), isDark),
                   
                   StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: _supabase.from('plants').stream(primaryKey: ['id']).limit(3),
+                    stream: _supabase.from('plants').stream(primaryKey: ['id']),
                     builder: (context, snapshot) {
                       if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: Color(0xFF4A634A))));
-                      final plants = snapshot.data!;
+                      final plants = snapshot.data!
+                          .where((p) => p['status']?.toString().toUpperCase() == 'PUBLISHED')
+                          .take(3)
+                          .toList();
                       
                       return Column(
                         children: plants.map((plant) => _buildPlantTile(

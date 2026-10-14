@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 import 'cannotattend.dart'; 
 
 class MeetingViewScreen extends StatefulWidget {
@@ -156,7 +157,7 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
     }
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
         backgroundColor: darkGreen,
         elevation: 0,
@@ -239,9 +240,9 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
                       padding: const EdgeInsets.all(16),
                       margin: const EdgeInsets.only(bottom: 24),
                       decoration: BoxDecoration(
-                        color: forestGreen.withOpacity(0.08),
+                        color: isDark ? const Color(0xFF253326) : forestGreen.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: forestGreen.withOpacity(0.2)),
+                        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : forestGreen.withOpacity(0.2)),
                       ),
                       child: Row(
                         children: [
@@ -254,15 +255,15 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
+                              children: [
                                 Text(
                                   "You're Attending This Meeting",
-                                  style: TextStyle(color: Color(0xFF2D3E2D), fontSize: 14, fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: isDark ? Colors.white : const Color(0xFF2D3E2D), fontSize: 14, fontWeight: FontWeight.bold),
                                 ),
-                                SizedBox(height: 2),
+                                const SizedBox(height: 2),
                                 Text(
                                   "Attendance has been confirmed. See you there!",
-                                  style: TextStyle(color: Colors.black54, fontSize: 12),
+                                  style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 12),
                                 ),
                               ],
                             ),
@@ -371,35 +372,31 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
                     ),
                   ],
 
-                  // Info Row Card
-                  _buildWhiteCard([
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildIconDetail(Icons.calendar_today_outlined, "Date", formattedDate),
-                        _buildIconDetail(Icons.access_time, "Time", time),
-                        _buildIconDetail(Icons.location_on_outlined, "Location", location),
-                      ],
-                    ),
-                  ]),
+                  // Info Row Card (clean layout with no overflow)
+                  _buildMeetingInfoCard(
+                    formattedDate: formattedDate,
+                    time: time,
+                    location: location,
+                    isDark: isDark,
+                  ),
 
-                  const Text("Organized by", style: TextStyle(color: Colors.black38, fontSize: 12)),
+                  Text("Organized by", style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12)),
                   const SizedBox(height: 4),
-                  Text(createdBy, style: const TextStyle(color: Colors.black87, fontSize: 14)),
+                  Text(createdBy, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14)),
                   const SizedBox(height: 24),
 
-                  const Text("Agenda Description", style: TextStyle(color: Colors.black38, fontSize: 12)),
+                  Text("Agenda Description", style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12)),
                   const SizedBox(height: 8),
                   Text(
                     widget.meeting['agenda'] ?? "No agenda description provided for this meeting.",
-                    style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.5),
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14, height: 1.5),
                   ),
                   const SizedBox(height: 24),
 
                   // Meeting Agenda PDF Card
-                  const Text("Meeting Agenda", style: TextStyle(color: Colors.black38, fontSize: 12)),
+                  Text("Meeting Agenda", style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12)),
                   const SizedBox(height: 12),
-                  _buildAgendaFile(createdBy),
+                  _buildAgendaFile(createdBy, isDark),
 
                   // Minutes of Meeting (MoM) Section
                   _buildMinutesOfMeetingSection(widget.meeting, isDark),
@@ -412,10 +409,11 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+              color: getCardBg(isDark),
+              border: Border(top: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05))),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05), 
+                  color: Colors.black.withOpacity(isDark ? 0.2 : 0.05), 
                   blurRadius: 10, 
                   offset: const Offset(0, -4)
                 )
@@ -752,7 +750,7 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
     ),
   );
 
-  Widget _buildAgendaFile(String creator) {
+  Widget _buildAgendaFile(String creator, bool isDark) {
     final String? rawUrl = (
       widget.meeting['attachment_url'] ??
       widget.meeting['agenda_url'] ??
@@ -778,15 +776,15 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white, 
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white, 
         borderRadius: BorderRadius.circular(12), 
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.black.withOpacity(0.05)),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.description_outlined, color: hasUrl ? forestGreen : Colors.grey),
+              Icon(Icons.description_outlined, color: hasUrl ? forestGreen : (isDark ? Colors.white38 : Colors.grey)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -794,11 +792,11 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
                   children: [
                     Text(
                       hasUrl ? fileName : "No File Attached", 
-                      style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text("Uploaded by $creator", style: const TextStyle(fontSize: 10, color: Colors.black38)),
+                    Text("Uploaded by $creator", style: TextStyle(fontSize: 10, color: isDark ? Colors.white38 : Colors.black38)),
                   ],
                 ),
               ),
@@ -820,17 +818,17 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
                   debugPrint("Error launching agenda URL: $e");
                 }
               } : null, 
-              icon: Icon(Icons.download, size: 18, color: hasUrl ? forestGreen : Colors.grey), 
+              icon: Icon(Icons.download, size: 18, color: hasUrl ? forestGreen : (isDark ? Colors.white38 : Colors.grey)), 
               label: Text(
                 hasUrl ? "Download Agenda" : "No Attachment Available", 
                 style: TextStyle(
                   fontWeight: FontWeight.bold, 
                   fontSize: 13,
-                  color: hasUrl ? forestGreen : Colors.black38,
+                  color: hasUrl ? forestGreen : (isDark ? Colors.white38 : Colors.black38),
                 ),
               ), 
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: hasUrl ? forestGreen : Colors.grey.shade300),
+                side: BorderSide(color: hasUrl ? forestGreen : (isDark ? Colors.white12 : Colors.grey.shade300)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -841,30 +839,115 @@ class _MeetingViewScreenState extends State<MeetingViewScreen> {
     );
   }
 
-  Widget _buildWhiteCard(List<Widget> children) => Container(
-    width: double.infinity, 
-    padding: const EdgeInsets.all(20), 
-    margin: const EdgeInsets.only(bottom: 24), 
-    decoration: BoxDecoration(
-      color: Colors.white, 
-      borderRadius: BorderRadius.circular(12), 
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.03), 
-          blurRadius: 10, 
-          offset: const Offset(0, 4)
-        )
-      ],
-    ), 
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
-  );
+  Widget _buildMeetingInfoCard({
+    required String formattedDate,
+    required String time,
+    required String location,
+    required bool isDark,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: getCardBg(isDark),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.calendar_today_outlined,
+                  "DATE",
+                  formattedDate,
+                  isDark,
+                ),
+              ),
+              Container(width: 1, height: 42, color: isDark ? Colors.white12 : Colors.black12),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDetailItem(
+                  Icons.access_time_rounded,
+                  "TIME",
+                  time,
+                  isDark,
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: isDark ? Colors.white12 : Colors.black12),
+          ),
+          _buildDetailItem(
+            Icons.location_on_outlined,
+            "LOCATION",
+            location,
+            isDark,
+            isFullWidth: true,
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildIconDetail(IconData icon, String label, String value) => Column(
-    children: [
-      Icon(icon, color: forestGreen, size: 20), 
-      const SizedBox(height: 8), 
-      Text(label, style: const TextStyle(color: Colors.black38, fontSize: 10)), 
-      Text(value, style: const TextStyle(color: Colors.black87, fontSize: 12)),
-    ],
-  );
+  Widget _buildDetailItem(
+    IconData icon,
+    String label,
+    String value,
+    bool isDark, {
+    bool isFullWidth = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          margin: const EdgeInsets.only(right: 10, top: 2),
+          decoration: BoxDecoration(
+            color: forestGreen.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: forestGreen, size: 18),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: isDark ? Colors.white54 : Colors.black45,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

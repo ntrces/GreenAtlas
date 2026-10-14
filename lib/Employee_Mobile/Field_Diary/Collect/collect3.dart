@@ -9,14 +9,13 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 // Model & Components
 import '../Collect/observation_model.dart';
 import '../Collect/offline_draft_service.dart';
 import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 import '../../../UserProfile/user_profile.dart';
-import '../../EmployeeNotification/employeenotif.dart';
+import '../../../components/notification_badge.dart';
 import '../clearentry.dart';
 
 // Portal Shell
@@ -604,7 +603,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : lightGreenBG,
+      backgroundColor: getScaffoldBg(isDark),
       body: Column(
         children: [
           // Offline indicator
@@ -632,29 +631,38 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               children: [
                 Text("Step 3 of 3",
-                    style:
-                        textTheme.labelSmall?.copyWith(color: Colors.black45)),
+                    style: textTheme.labelSmall?.copyWith(
+                        color: isDark ? Colors.white54 : Colors.black45)),
                 const SizedBox(height: 4),
                 Text("Observation Details",
-                    style: textTheme.headlineSmall?.copyWith(color: darkGreen)),
+                    style: textTheme.headlineSmall?.copyWith(
+                        color: isDark ? Colors.white : darkGreen,
+                        fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
                 _buildCardTitle("HABITAT & CATEGORY", isDark, textTheme),
                 _whiteCard(isDark, [
-                  _buildLabel("Habitat *", textTheme),
+                  _buildLabel("Habitat *", textTheme, isDark: isDark),
                   const SizedBox(height: 8),
                   _buildDropdownField(
                       _habitats.contains(model.habitat) ? model.habitat : null,
                       _habitats,
                       "Select habitat",
                       (v) => setState(() => model.habitat = v ?? ''),
-                      textTheme),
+                      textTheme,
+                      isDark: isDark),
                   if (model.habitat == 'Other') ...[
                     const SizedBox(height: 12),
                     _buildTextField("Type habitat name...",
-                        _habitatOthersController, textTheme),
+                        _habitatOthersController, textTheme,
+                        isDark: isDark),
                   ],
-                  const Divider(height: 32, thickness: 0.5),
-                  _buildLabel("Observation *", textTheme),
+                  Divider(
+                      height: 32,
+                      thickness: 0.5,
+                      color: isDark
+                          ? const Color(0xFF2E3D2F)
+                          : Colors.black12),
+                  _buildLabel("Observation *", textTheme, isDark: isDark),
                   const SizedBox(height: 8),
                   _buildDropdownField(
                       _observations.contains(model.observationCategory)
@@ -664,17 +672,18 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                       "Select category",
                       (v) =>
                           setState(() => model.observationCategory = v ?? ''),
-                      textTheme),
+                      textTheme,
+                      isDark: isDark),
                 ]),
                 const SizedBox(height: 24),
                 _buildCardTitle("WILDLIFE", isDark, textTheme),
                 _whiteCard(isDark, [
-                  _buildLabel("Species Name *", textTheme),
+                  _buildLabel("Species Name *", textTheme, isDark: isDark),
                   _buildDropdownField(
-                      (_speciesChoices?.contains(model.taxon ?? '') ?? false)
+                      _speciesChoices.contains(model.taxon)
                           ? model.taxon
                           : null,
-                      _speciesChoices ?? [],
+                      _speciesChoices,
                       "Select option",
                       (v) => setState(() {
                             model.taxon = v ?? '';
@@ -682,53 +691,88 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                               _taxonController.text = 'N/A';
                             }
                           }),
-                      textTheme),
+                      textTheme,
+                      isDark: isDark),
                   if (model.taxon == 'Scientific Name') ...[
                     const SizedBox(height: 12),
                     _buildTextField(
                         "Type scientific name...", _taxonController, textTheme,
-                        onChanged: (v) => setState(() => model.updateData())),
+                        onChanged: (v) => setState(() => model.updateData()),
+                        isDark: isDark),
                   ],
                   const SizedBox(height: 16),
-                  _buildLabel("Common Name", textTheme),
+                  _buildLabel("Common Name", textTheme, isDark: isDark),
                   _buildTextField(
-                      "Enter common name", _commonNameController, textTheme),
-                  const Divider(height: 32, thickness: 0.5),
-                  _buildLabel("Unlisted or unfamiliar species? *", textTheme),
+                      "Enter common name", _commonNameController, textTheme,
+                      isDark: isDark),
+                  Divider(
+                      height: 32,
+                      thickness: 0.5,
+                      color: isDark
+                          ? const Color(0xFF2E3D2F)
+                          : Colors.black12),
+                  _buildLabel("Unlisted or unfamiliar species? *", textTheme,
+                      isDark: isDark),
                   Row(children: [
                     Expanded(
                         child: RadioListTile<bool>(
-                            title: Text("Yes", style: textTheme.bodyMedium),
+                            title: Text("Yes",
+                                style: textTheme.bodyMedium?.copyWith(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87)),
                             value: true,
                             groupValue: model.isUnfamiliar,
-                            activeColor: forestGreen,
+                            activeColor: isDark ? leafAccent : forestGreen,
                             contentPadding: EdgeInsets.zero,
                             onChanged: (v) =>
                                 setState(() => model.isUnfamiliar = v!))),
                     Expanded(
                         child: RadioListTile<bool>(
-                            title: Text("No", style: textTheme.bodyMedium),
+                            title: Text("No",
+                                style: textTheme.bodyMedium?.copyWith(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87)),
                             value: false,
                             groupValue: model.isUnfamiliar,
-                            activeColor: forestGreen,
+                            activeColor: isDark ? leafAccent : forestGreen,
                             contentPadding: EdgeInsets.zero,
                             onChanged: (v) =>
                                 setState(() => model.isUnfamiliar = v!))),
                   ]),
-                  const Divider(height: 32, thickness: 0.5),
-                  _buildLabel("Count", textTheme),
+                  Divider(
+                      height: 32,
+                      thickness: 0.5,
+                      color: isDark
+                          ? const Color(0xFF2E3D2F)
+                          : Colors.black12),
+                  _buildLabel("Count", textTheme, isDark: isDark),
                   _buildTextField("Enter quantity", _countController, textTheme,
-                      isNum: true),
-                  const Divider(height: 32, thickness: 0.5),
-                  _buildLabel("Observation Type", textTheme),
+                      isNum: true, isDark: isDark),
+                  Divider(
+                      height: 32,
+                      thickness: 0.5,
+                      color: isDark
+                          ? const Color(0xFF2E3D2F)
+                          : Colors.black12),
+                  _buildLabel("Observation Type", textTheme, isDark: isDark),
                   _buildCheckbox("Seen", model.seen,
-                      (v) => setState(() => model.seen = v!), textTheme),
+                      (v) => setState(() => model.seen = v!), textTheme,
+                      isDark: isDark),
                   _buildCheckbox("Heard", model.heard,
-                      (v) => setState(() => model.heard = v!), textTheme),
+                      (v) => setState(() => model.heard = v!), textTheme,
+                      isDark: isDark),
                   _buildCheckbox("Presence Signs", model.presence,
-                      (v) => setState(() => model.presence = v!), textTheme),
-                  const Divider(height: 32, thickness: 0.5),
-                  _buildLabel("Upload Photos *", textTheme),
+                      (v) => setState(() => model.presence = v!), textTheme,
+                      isDark: isDark),
+                  Divider(
+                      height: 32,
+                      thickness: 0.5,
+                      color: isDark
+                          ? const Color(0xFF2E3D2F)
+                          : Colors.black12),
+                  _buildLabel("Upload Photos *", textTheme, isDark: isDark),
                   const SizedBox(height: 12),
                   _buildMultiPhotoBox(isDark, model, textTheme),
                 ]),
@@ -738,7 +782,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomStepper(context, model, textTheme),
+      bottomNavigationBar: _buildBottomStepper(context, model, textTheme, isDark),
     );
   }
 
@@ -752,7 +796,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               bottom: 10,
               left: 16,
               right: 16),
-          color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          color: getCardBg(isDark),
           child: Row(children: [
             Image.asset('assets/logo2.png', height: 32),
             const SizedBox(width: 12),
@@ -762,13 +806,9 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                   fontWeight: FontWeight.bold,
                 )),
             const Spacer(),
-            IconButton(
-                icon: Icon(Icons.notifications_none_outlined,
-                    color: isDark ? Colors.white : Colors.black),
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const EmployeeNotifications()))),
+            EmployeeNotificationBadge(
+                iconColor: isDark ? Colors.white70 : Colors.black87),
+            const SizedBox(width: 8),
             _buildProfileIcon(context, isDark)
           ]));
 
@@ -889,19 +929,19 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
               height: 80,
               width: double.infinity,
               decoration: BoxDecoration(
-                  color: d ? Colors.white10 : Colors.black.withOpacity(0.04),
+                  color: d ? const Color(0xFF253326) : Colors.black.withOpacity(0.04),
                   borderRadius: BorderRadius.circular(12),
                   border:
-                      Border.all(color: d ? Colors.white24 : Colors.black12)),
+                      Border.all(color: d ? const Color(0xFF2E3D2F) : Colors.black12)),
               child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.add_a_photo_outlined,
-                        size: 24, color: forestGreen),
+                        size: 24, color: d ? leafAccent : forestGreen),
                     const SizedBox(height: 4),
                     Text("Add Photos",
                         style:
-                            textTheme.labelLarge?.copyWith(color: forestGreen))
+                            textTheme.labelLarge?.copyWith(color: d ? leafAccent : forestGreen))
                   ])),
         ),
       ],
@@ -909,13 +949,13 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   }
 
   Widget _buildBottomStepper(
-      BuildContext context, ObservationModel model, TextTheme textTheme) {
+      BuildContext context, ObservationModel model, TextTheme textTheme, bool isDark) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
       decoration: BoxDecoration(
-          color: lightGreenBG,
+          color: getCardBg(isDark),
           border:
-              Border(top: BorderSide(color: Colors.black.withOpacity(0.05)))),
+              Border(top: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05)))),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -924,17 +964,17 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             children: [
               TextButton.icon(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back_ios, size: 14),
-                  label: Text("Back", style: textTheme.labelLarge)),
+                  icon: Icon(Icons.arrow_back_ios, size: 14, color: isDark ? Colors.white54 : Colors.black45),
+                  label: Text("Back", style: textTheme.labelLarge?.copyWith(color: isDark ? Colors.white54 : Colors.black45))),
               Text("3 of 3",
-                  style: textTheme.titleSmall?.copyWith(color: forestGreen)),
+                  style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white70 : Colors.black54)),
               ElevatedButton.icon(
                 onPressed: _isSaving ? null : () => _submitForm(model),
                 icon: const Icon(Icons.check, size: 18),
                 label: Text("Submit",
                     style: textTheme.labelLarge?.copyWith(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: forestGreen,
+                    backgroundColor: isDark ? forestGreen : darkGreen,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8))),
               ),
@@ -948,13 +988,13 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                     onPressed: _isSaving
                         ? null
                         : () => _submitForm(model, isDraft: true),
-                    icon: const Icon(Icons.save_outlined),
+                    icon: Icon(Icons.save_outlined, color: isDark ? leafAccent : forestGreen),
                     label: Text("Save as Draft",
                         style:
-                            textTheme.labelLarge?.copyWith(color: forestGreen)),
+                            textTheme.labelLarge?.copyWith(color: isDark ? leafAccent : forestGreen)),
                     style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.5),
-                        side: BorderSide(color: forestGreen.withOpacity(0.3)),
+                        backgroundColor: isDark ? const Color(0xFF253326) : Colors.white.withOpacity(0.5),
+                        side: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : forestGreen.withOpacity(0.3)),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12))))),
           ],
@@ -964,11 +1004,11 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   }
 
   // UPDATED: Added helpText parameter and Tooltip widget
-  Widget _buildLabel(String t, TextTheme textTheme, {String? helpText}) {
+  Widget _buildLabel(String t, TextTheme textTheme, {String? helpText, bool isDark = false}) {
     final Widget label = RichText(
         text: TextSpan(
             text: t.replaceFirst('*', ''),
-            style: textTheme.titleSmall?.copyWith(color: Colors.black87),
+            style: textTheme.titleSmall?.copyWith(color: isDark ? Colors.white : Colors.black87),
             children: [
           if (t.contains('*'))
             const TextSpan(text: '*', style: TextStyle(color: Colors.red))
@@ -985,7 +1025,7 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
             children: [
               label,
               const SizedBox(width: 6),
-              const Icon(Icons.info_outline, size: 16, color: Colors.black45),
+              Icon(Icons.info_outline, size: 16, color: isDark ? Colors.white38 : Colors.black45),
             ],
           ),
         ),
@@ -995,27 +1035,35 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
   }
 
   Widget _buildTextField(String h, TextEditingController c, TextTheme textTheme,
-          {bool isNum = false, Function(String)? onChanged}) =>
+          {bool isNum = false, Function(String)? onChanged, bool isDark = false}) =>
       TextField(
           controller: c,
           onChanged: onChanged,
           keyboardType: isNum ? TextInputType.number : TextInputType.text,
-          style: textTheme.bodyMedium,
+          style: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white : Colors.black87),
           decoration: InputDecoration(
               hintText: h,
-              hintStyle: textTheme.bodyMedium?.copyWith(color: Colors.black26),
+              hintStyle: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white38 : Colors.black26),
               filled: true,
-              fillColor: const Color(0xFFF9F9F9),
+              fillColor: isDark ? const Color(0xFF253326) : const Color(0xFFF9F9F9),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.transparent)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: isDark ? leafAccent : forestGreen)),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none)));
+                  borderSide: BorderSide(color: isDark ? const Color(0xFF2E3D2F) : Colors.transparent))));
+
   Widget _buildDropdownField(String? v, List<String> i, String h,
-          Function(String?) o, TextTheme textTheme, {bool isLoading = false}) =>
+          Function(String?) o, TextTheme textTheme, {bool isLoading = false, bool isDark = false}) =>
       Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-              color: const Color(0xFFF9F9F9),
-              borderRadius: BorderRadius.circular(12)),
+              color: isDark ? const Color(0xFF253326) : const Color(0xFFF9F9F9),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.04))),
           child: isLoading
               ? Padding(
                   padding: const EdgeInsets.all(12.0),
@@ -1024,41 +1072,55 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: forestGreen))),
+                              strokeWidth: 2, color: isDark ? leafAccent : forestGreen))),
                 )
               : DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                       value: (v == null || v.isEmpty) ? null : v,
                       isExpanded: true,
-                      hint: Text(h, style: textTheme.bodyMedium),
+                      dropdownColor: isDark ? getCardBg(true) : Colors.white,
+                      hint: Text(h, style: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white38 : Colors.black38)),
                       items: i
                           .map((e) => DropdownMenuItem(
                               value: e,
-                              child: Text(e, style: textTheme.bodyMedium)))
+                              child: Text(e, style: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white : Colors.black87))))
                           .toList(),
                       onChanged: o)));
+
   Widget _buildCheckbox(
-          String l, bool v, Function(bool?) o, TextTheme textTheme) =>
+          String l, bool v, Function(bool?) o, TextTheme textTheme, {bool isDark = false}) =>
       CheckboxListTile(
-          title: Text(l, style: textTheme.bodyMedium),
+          title: Text(l, style: textTheme.bodyMedium?.copyWith(color: isDark ? Colors.white70 : Colors.black87)),
           value: v,
-          activeColor: forestGreen,
+          activeColor: isDark ? leafAccent : forestGreen,
+          checkColor: Colors.white,
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
           onChanged: o);
+
   Widget _whiteCard(bool d, List<Widget> c) => Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-          color: d ? const Color(0xFF1F1F1F) : Colors.white,
-          borderRadius: BorderRadius.circular(16)),
+          color: getCardBg(d),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: d ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.04)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(d ? 0.2 : 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: c));
+
   Widget _buildCardTitle(String t, bool d, TextTheme textTheme) => Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
       child: Text(t,
           style: textTheme.labelSmall?.copyWith(
-            color: Colors.black45,
+            color: d ? Colors.white38 : Colors.black45,
             fontWeight: FontWeight.bold,
           )));
+
   Widget _buildProfileIcon(BuildContext context, bool d) => InkWell(
       onTap: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => const UserProfileScreen())),
@@ -1066,7 +1128,9 @@ class _CollectStep3ScreenState extends State<CollectStep3Screen> {
           height: 36,
           width: 36,
           decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F0),
-              borderRadius: BorderRadius.circular(8)),
-          child: const Icon(Icons.person_outline, size: 20)));
+              color: d ? const Color(0xFF253326) : const Color(0xFFF0F4F0),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: d ? const Color(0xFF2E3D2F) : Colors.black12)),
+          child: Icon(Icons.person_outline,
+              color: d ? Colors.white70 : Colors.black54, size: 20)));
 }

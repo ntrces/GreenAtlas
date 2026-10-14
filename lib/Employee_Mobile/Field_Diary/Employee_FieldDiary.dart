@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../theme_provider.dart';
+import '../../theme_constants.dart';
 import '../../UserProfile/user_profile.dart';
-import '../EmployeeNotification/employeenotif.dart';
 import '../../components/notification_badge.dart';
 import '../../services/user_session_service.dart';
 
@@ -13,6 +13,8 @@ import '../../services/user_session_service.dart';
 import '../Field_Diary/Collect/collect01.dart'; 
 import '../Field_Diary/Sent/sent0.dart';    
 import '../Field_Diary/Draft/draft0.dart'; 
+import '../Field_Diary/Sent/sent.dart';
+import '../Field_Diary/Draft/Draft.dart'; 
 
 class FieldObservationScreen extends StatefulWidget {
   const FieldObservationScreen({super.key});
@@ -38,7 +40,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     }
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
+      backgroundColor: getScaffoldBg(isDark),
       body: CustomScrollView(
         slivers: [
           _buildHeader(context, isDark, textTheme),
@@ -52,7 +54,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
                 const SizedBox(height: 24),
                 _buildActionButtons(context, isDark, textTheme), 
                 const SizedBox(height: 28),
-                _buildSectionHeader("Recent Entries (Max 5)", isDark, textTheme),
+                _buildSectionHeader("Recent Entries", isDark, textTheme),
                 const SizedBox(height: 14),
                 _buildRecentEntriesList(isDark, textTheme),
                 const SizedBox(height: 40),
@@ -68,7 +70,7 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
 
   Widget _buildHeader(BuildContext context, bool isDark, TextTheme textTheme) => SliverAppBar(
     pinned: true,
-    backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+    backgroundColor: getCardBg(isDark),
     elevation: 0.5,
     toolbarHeight: 70,
     leadingWidth: 70,
@@ -104,9 +106,9 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     child: Container(
       height: 38, width: 38,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : const Color(0xFFF0F4F0), 
+        color: isDark ? const Color(0xFF253326) : const Color(0xFFF0F4F0), 
         borderRadius: BorderRadius.circular(10), 
-        border: Border.all(color: isDark ? Colors.white12 : Colors.black12, width: 1)
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black12, width: 1)
       ),
       child: Icon(Icons.person_outline_rounded, color: isDark ? Colors.white70 : Colors.black54, size: 22),
     ),
@@ -119,13 +121,13 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     decoration: BoxDecoration(
       gradient: LinearGradient(
         colors: isDark 
-            ? [const Color(0xFF1F1F1F), const Color(0xFF2A2A2A)]
+            ? [getCardBg(isDark), const Color(0xFF253326)]
             : [Colors.white, const Color(0xFFF5FAF5)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: isDark ? Colors.white10 : forestGreen.withOpacity(0.15)),
+      border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : forestGreen.withOpacity(0.15)),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
@@ -245,7 +247,11 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
                 .asStream()
             : null,
         builder: (context, snapshot) {
-          final draftCount = snapshot.data?.length ?? 0;
+          final drafts = (snapshot.data ?? [])
+              .where((d) => !DraftsListScreen.locallyDeletedDraftIds
+                  .contains(d['id']?.toString()))
+              .toList();
+          final draftCount = drafts.length;
           return _actionRow(
             icon: Icons.drafts_rounded, 
             label: "Drafts", 
@@ -254,7 +260,10 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
             isDark: isDark, 
             textTheme: textTheme,
             badge: draftCount > 0 ? "$draftCount draft(s)" : null,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DraftsListScreen())),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DraftsListScreen()),
+            ).then((_) => setState(() {})),
           );
         },
       ),
@@ -298,9 +307,9 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
   }) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
-      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+      color: getCardBg(isDark),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06)),
+      border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.06)),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withOpacity(isDark ? 0.2 : 0.03), 
@@ -429,6 +438,8 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
         
         return Column(
           children: entries.take(5).map((e) => _buildEntryCard(
+            context,
+            e,
             e['id'].toString(), 
             DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.tryParse(e['created_at']?.toString() ?? '') ?? DateTime.now()),
             e['protected_area'] ?? e['species_name'] ?? e['taxon'] ?? "Observation Entry", 
@@ -441,8 +452,9 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     );
   }
 
-  Widget _buildEntryCard(String id, String date, String area, String status, bool isDark, TextTheme textTheme) {
+  Widget _buildEntryCard(BuildContext context, Map<String, dynamic> entry, String id, String date, String area, String status, bool isDark, TextTheme textTheme) {
     final String st = status.toUpperCase();
+    final bool isDraft = st == 'DRAFT';
     Color statusColor = forestGreen;
     IconData statusIcon = Icons.send_rounded;
 
@@ -455,14 +467,17 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
     } else if (st == 'FLAGGED' || st == 'NEEDS_REVIEW') {
       statusColor = Colors.orange;
       statusIcon = Icons.rate_review_rounded;
+    } else if (isDraft) {
+      statusColor = const Color(0xFF8BA88B);
+      statusIcon = Icons.edit_note_rounded;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+        color: getCardBg(isDark),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+        border: Border.all(color: isDark ? const Color(0xFF2E3D2F) : Colors.black.withOpacity(0.05)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
@@ -471,67 +486,87 @@ class _FieldObservationScreenState extends State<FieldObservationScreen> {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              Container(width: 4, color: statusColor),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            if (isDraft) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => DraftDetailScreen(draft: entry)),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SentObservationsScreen(observation: entry)),
+              );
+            }
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(width: 4, color: statusColor),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              "BMS-${id.padLeft(3, '0')}", 
-                              style: textTheme.titleSmall?.copyWith(
-                                fontSize: 15, 
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : darkGreen,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  "BMS-${id.padLeft(3, '0')}", 
+                                  style: textTheme.titleSmall?.copyWith(
+                                    fontSize: 15, 
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : darkGreen,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              const SizedBox(width: 8),
+                              _buildStatusBadge(status, statusColor, statusIcon, textTheme),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          _buildStatusBadge(status, statusColor, statusIcon, textTheme),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time_rounded, size: 12, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(
+                                date, 
+                                style: textTheme.labelSmall?.copyWith(fontSize: 11, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.place_outlined, size: 12, color: forestGreen),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  area, 
+                                  style: textTheme.labelSmall?.copyWith(fontSize: 11, color: forestGreen, fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Icon(Icons.chevron_right, size: 16, color: isDark ? Colors.white30 : Colors.black26),
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.access_time_rounded, size: 12, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(
-                            date, 
-                            style: textTheme.labelSmall?.copyWith(fontSize: 11, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.place_outlined, size: 12, color: forestGreen),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              area, 
-                              style: textTheme.labelSmall?.copyWith(fontSize: 11, color: forestGreen, fontWeight: FontWeight.w600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

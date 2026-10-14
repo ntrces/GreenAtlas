@@ -3,11 +3,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../theme_provider.dart';
+import '../../../theme_constants.dart';
 import '../Collect/offline_draft_service.dart';
 import './Draft.dart'; // Import the detail screen
 
 class DraftsListScreen extends StatefulWidget {
   const DraftsListScreen({super.key});
+
+  static final Set<String> locallyDeletedDraftIds = {};
 
   @override
   State<DraftsListScreen> createState() => _DraftsListScreenState();
@@ -111,22 +114,240 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     }
   }
 
+  Future<bool> _confirmDeleteDraft(BuildContext context, bool isDark,
+      {bool isOffline = false}) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) => AlertDialog(
+            backgroundColor: getCardBg(isDark),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: isDark
+                    ? const Color(0xFF2E3D2F)
+                    : Colors.black.withOpacity(0.06),
+              ),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isOffline ? "Delete Offline Draft?" : "Delete Draft?",
+                    style: TextStyle(
+                      color: isDark ? Colors.white : darkGreen,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              "Are you sure you want to delete this ${isOffline ? 'offline ' : ''}draft? This action cannot be undone.",
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black87,
+                fontSize: 14,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(
+                  "Cancel",
+                  style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.black54),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text("Delete",
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _deleteOfflineDraft(String draftId,
+      [String? serverDraftId]) async {
+    setState(() {
+      DraftsListScreen.locallyDeletedDraftIds.add(draftId);
+      if (serverDraftId != null) {
+        DraftsListScreen.locallyDeletedDraftIds.add(serverDraftId);
+      }
+    });
+
+    try {
+      final user = _supabase.auth.currentUser;
+      if (serverDraftId != null && serverDraftId.isNotEmpty) {
+        try {
+          if (user != null) {
+            await _supabase
+                .from('field_entries')
+                .delete()
+                .eq('id', serverDraftId)
+                .eq('user_id', user.id);
+          } else {
+            await _supabase.from('field_entries').delete().eq('id', serverDraftId);
+          }
+        } catch (_) {}
+        try {
+          if (user != null) {
+            await _supabase
+                .from('field_entries')
+                .update({'status': 'ARCHIVED'})
+                .eq('id', serverDraftId)
+                .eq('user_id', user.id);
+          } else {
+            await _supabase
+                .from('field_entries')
+                .update({'status': 'ARCHIVED'})
+                .eq('id', serverDraftId);
+          }
+        } catch (_) {}
+      }
+      await _offlineService.deleteOfflineDraft(draftId);
+      if (serverDraftId != null) {
+        await _offlineService.cleanupSyncedDraft(serverDraftId);
+      }
+      if (mounted) {
+        _refreshDraftList();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Offline draft deleted successfully"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error deleting draft: $e"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteOnlineDraft(dynamic draftId) async {
+    final strId = draftId.toString();
+    setState(() {
+      DraftsListScreen.locallyDeletedDraftIds.add(strId);
+    });
+
+    try {
+      final user = _supabase.auth.currentUser;
+      try {
+        if (user != null) {
+          await _supabase
+              .from('field_entries')
+              .delete()
+              .eq('id', draftId)
+              .eq('user_id', user.id);
+        } else {
+          await _supabase.from('field_entries').delete().eq('id', draftId);
+        }
+      } catch (e) {
+        debugPrint('Physical delete error: $e');
+      }
+      try {
+        if (user != null) {
+          await _supabase
+              .from('field_entries')
+              .update({'status': 'ARCHIVED'})
+              .eq('id', draftId)
+              .eq('user_id', user.id);
+        } else {
+          await _supabase
+              .from('field_entries')
+              .update({'status': 'ARCHIVED'})
+              .eq('id', draftId);
+        }
+      } catch (e) {
+        debugPrint('Archive status error: $e');
+      }
+      try {
+        await _offlineService.cleanupSyncedDraft(strId);
+      } catch (e) {
+        debugPrint('Cleanup error: $e');
+      }
+
+      if (mounted) {
+        _refreshDraftList();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Draft deleted successfully"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error deleting draft: $e"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final userId = _supabase.auth.currentUser?.id;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF121212) : const Color(0xFFEAF7EA),
+      backgroundColor: getScaffoldBg(isDark),
       appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+        backgroundColor: getCardBg(isDark),
         elevation: 0,
-        title:
-            Text("My Drafts", style: TextStyle(color: darkGreen, fontSize: 18)),
+        shape: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? const Color(0xFF2E3D2F)
+                : Colors.black.withOpacity(0.05),
+          ),
+        ),
+        title: Text(
+          "My Drafts",
+          style: TextStyle(
+            color: isDark ? Colors.white : darkGreen,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: darkGreen, size: 20),
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: isDark ? Colors.white : darkGreen,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -136,14 +357,17 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
               padding: const EdgeInsets.all(8.0),
               child: Center(
                 child: _isSyncing
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isDark ? leafAccent : forestGreen,
+                        ),
                       )
                     : IconButton(
                         icon: const Icon(Icons.cloud_upload),
-                        color: forestGreen,
+                        color: isDark ? leafAccent : forestGreen,
                         tooltip: "Sync offline drafts",
                         onPressed: _syncOfflineDrafts,
                       ),
@@ -152,7 +376,14 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
         ],
       ),
       body: userId == null
-          ? const Center(child: Text("Please log in"))
+          ? Center(
+              child: Text(
+                "Please log in",
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
+            )
           : SingleChildScrollView(
               child: Column(
                 children: [
@@ -162,14 +393,14 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
                           vertical: 8, horizontal: 16),
-                      color: Colors.orange.shade600,
+                      color: Colors.orange.shade700,
                       child: Row(
                         children: [
                           const Icon(Icons.cloud_off,
                               color: Colors.white, size: 16),
                           const SizedBox(width: 8),
-                          Text(
-                            "You are offline",
+                          const Text(
+                            "You are offline - Drafts will be saved locally",
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -192,7 +423,12 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
   Widget _buildOfflineDraftsSection(bool isDark) {
     final offlineDrafts = _offlineService
         .getAllOfflineDrafts()
-        .where((draft) => !_offlineService.isOnline || draft['synced'] != true)
+        .where((draft) =>
+            (!_offlineService.isOnline || draft['synced'] != true) &&
+            !DraftsListScreen.locallyDeletedDraftIds
+                .contains(draft['draft_id']?.toString()) &&
+            !DraftsListScreen.locallyDeletedDraftIds
+                .contains(draft['server_draft_id']?.toString()))
         .toList();
 
     if (offlineDrafts.isEmpty) {
@@ -208,28 +444,32 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
               children: [
-                Icon(Icons.cloud_off, size: 16, color: Colors.orange.shade600),
+                Icon(Icons.cloud_off, size: 18, color: Colors.orange.shade400),
                 const SizedBox(width: 8),
                 Text(
                   "Offline Drafts (${offlineDrafts.length})",
-                  style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black54),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
                 ),
               ],
             ),
           ),
           ...offlineDrafts
               .map((draft) => _buildOfflineDraftTile(draft, isDark)),
-          const Divider(height: 24, thickness: 1),
+          Divider(
+            height: 32,
+            thickness: 0.5,
+            color: isDark ? const Color(0xFF2E3D2F) : Colors.black12,
+          ),
         ],
       ),
     );
   }
 
   Widget _buildOnlineDraftsSection(String? userId, bool isDark) {
-    // Use a key that includes _refreshKey to force StreamBuilder rebuild
     return KeyedSubtree(
       key: ValueKey('online_drafts_$_refreshKey'),
       child: StreamBuilder<List<Map<String, dynamic>>>(
@@ -240,33 +480,46 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
             : const Stream.empty(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Padding(
-              padding: EdgeInsets.all(20.0),
-              child: CircularProgressIndicator(),
+            return Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: isDark ? leafAccent : forestGreen,
+                ),
+              ),
             );
           }
 
-          // Handle errors
           if (snapshot.hasError) {
             debugPrint('Stream error: ${snapshot.error}');
             return const Padding(
               padding: EdgeInsets.all(20.0),
               child: Center(
-                  child: Text("Error loading drafts",
-                      style: TextStyle(color: Colors.red))),
+                child: Text("Error loading drafts",
+                    style: TextStyle(color: Colors.red)),
+              ),
             );
           }
 
           final drafts = (snapshot.data ?? [])
-              .where((d) => d['status'] == 'DRAFT')
+              .where((d) =>
+                  d['status'] == 'DRAFT' &&
+                  !DraftsListScreen.locallyDeletedDraftIds
+                      .contains(d['id']?.toString()))
               .toList();
 
           if (drafts.isEmpty && !_offlineService.hasOfflineDrafts) {
-            return const Padding(
-              padding: EdgeInsets.all(20.0),
+            return Padding(
+              padding: const EdgeInsets.all(40.0),
               child: Center(
-                  child: Text("No drafts yet",
-                      style: TextStyle(color: Colors.black38))),
+                child: Text(
+                  "No drafts yet",
+                  style: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.black38,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
             );
           }
 
@@ -282,12 +535,23 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                  child: Text(
-                    "Synced Drafts (${drafts.length})",
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black54),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.cloud_done_rounded,
+                        size: 18,
+                        color: isDark ? leafAccent : forestGreen,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Synced Drafts (${drafts.length})",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 ...drafts.map((item) => _buildDraftTile(context, item, isDark)),
@@ -305,121 +569,158 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     final date = DateFormat('MMM dd, yyyy').format(DateTime.parse(dateString));
     final isSynced = draft['synced'] == true;
     final draftId = draft['draft_id'] as String;
+    final serverDraftId = draft['server_draft_id']?.toString();
 
     return Dismissible(
       key: ValueKey('offline_$draftId$_refreshKey'),
       direction: DismissDirection.endToStart,
-      onDismissed: (direction) async {
-        final serverDraftId = draft['server_draft_id']?.toString();
-        if (serverDraftId != null && serverDraftId.isNotEmpty) {
-          await _supabase
-              .from('field_entries')
-              .delete()
-              .eq('id', serverDraftId);
-        }
-        await _offlineService.deleteOfflineDraft(draftId);
-        _refreshDraftList(); // Ensure UI updates
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Offline draft deleted"),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      },
       confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-              context: context,
-              builder: (BuildContext context) => AlertDialog(
-                title: const Text("Delete Offline Draft?"),
-                content: const Text(
-                  "Are you sure you want to delete this offline draft?",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text("Cancel"),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text("Delete",
-                        style: TextStyle(color: Colors.red)),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
+        return await _confirmDeleteDraft(context, isDark, isOffline: true);
+      },
+      onDismissed: (direction) async {
+        await _deleteOfflineDraft(draftId, serverDraftId);
       },
       background: Container(
-        color: Colors.red.shade400,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.shade400,
+          borderRadius: BorderRadius.circular(16),
+        ),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DraftDetailScreen(
-                draft: draft,
-                isOfflineDraft: true,
-                offlineService: _offlineService,
-              ),
-            ),
-          ).then((_) =>
-              _refreshDraftList()); // Refresh when returning from detail screen
-        },
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
-            ],
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: getCardBg(isDark),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? const Color(0xFF2E3D2F)
+                : Colors.black.withOpacity(0.05),
           ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: Colors.orange.withOpacity(0.1),
-                child: Icon(
-                  isSynced ? Icons.cloud_done : Icons.cloud_queue,
-                  color: isSynced ? Colors.green : Colors.orange,
-                  size: 20,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DraftDetailScreen(
+                  draft: draft,
+                  isOfflineDraft: true,
+                  offlineService: _offlineService,
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(species,
+            ).then((result) {
+              if (result is Map && result['deleted'] == true) {
+                final delId = result['id']?.toString();
+                final srvId = result['serverDraftId']?.toString();
+                setState(() {
+                  if (delId != null) {
+                    DraftsListScreen.locallyDeletedDraftIds.add(delId);
+                  }
+                  if (srvId != null) {
+                    DraftsListScreen.locallyDeletedDraftIds.add(srvId);
+                  }
+                });
+              } else if (result == true) {
+                setState(() {
+                  DraftsListScreen.locallyDeletedDraftIds.add(draftId);
+                  if (serverDraftId != null) {
+                    DraftsListScreen.locallyDeletedDraftIds.add(serverDraftId);
+                  }
+                });
+              }
+              _refreshDraftList();
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF253326)
+                        : Colors.orange.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isSynced ? Icons.cloud_done : Icons.cloud_queue,
+                    color: isSynced
+                        ? (isDark ? leafAccent : Colors.green)
+                        : Colors.orange,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        species,
                         style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black,
-                            fontSize: 16)),
-                    Text(
-                      "Last edited: $date",
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.black45),
-                    ),
-                    if (isSynced)
-                      const Text(
-                        "Synced",
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.green,
-                            fontWeight: FontWeight.w500),
+                          color: isDark ? Colors.white : darkGreen,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        "Last edited: $date",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white54 : Colors.black45,
+                        ),
+                      ),
+                      if (isSynced) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          "Synced",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? leafAccent : Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.arrow_forward_ios,
-                  size: 14, color: Colors.black26),
-            ],
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: isDark ? Colors.red.shade300 : Colors.redAccent,
+                    size: 22,
+                  ),
+                  tooltip: "Delete draft",
+                  onPressed: () async {
+                    final confirmed = await _confirmDeleteDraft(context, isDark,
+                        isOffline: true);
+                    if (confirmed) {
+                      await _deleteOfflineDraft(draftId, serverDraftId);
+                    }
+                  },
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: isDark ? Colors.white38 : Colors.black26,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -436,118 +737,132 @@ class _DraftsListScreenState extends State<DraftsListScreen> {
     return Dismissible(
       key: ValueKey('online_$draftId$_refreshKey'),
       direction: DismissDirection.endToStart,
-      onDismissed: (direction) async {
-        try {
-          final supabase = Supabase.instance.client;
-          // Delete from Supabase
-          await supabase.from('field_entries').delete().eq('id', draftId);
-          debugPrint('Deleted draft $draftId from Supabase');
-
-          // Cleanup offline copy if it exists
-          try {
-            await _offlineService.cleanupSyncedDraft(draftId);
-          } catch (cleanupError) {
-            debugPrint('Cleanup error (non-critical): $cleanupError');
-          }
-
-          // Wait for backend to sync
-          await Future.delayed(const Duration(milliseconds: 500));
-
-          // Force UI refresh
-          if (mounted) {
-            _refreshDraftList();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Draft deleted successfully"),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
-        } catch (e) {
-          debugPrint('Error deleting draft: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("Error deleting draft: $e"),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
-        }
-      },
       confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-              context: context,
-              builder: (BuildContext context) => AlertDialog(
-                title: const Text("Delete Draft?"),
-                content: const Text(
-                  "Are you sure you want to delete this draft?",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text("Cancel"),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text("Delete",
-                        style: TextStyle(color: Colors.red)),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
+        return await _confirmDeleteDraft(context, isDark, isOffline: false);
+      },
+      onDismissed: (direction) async {
+        await _deleteOnlineDraft(draftId);
       },
       background: Container(
-        color: Colors.red.shade400,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.shade400,
+          borderRadius: BorderRadius.circular(16),
+        ),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => DraftDetailScreen(draft: draft)),
-          ).then((_) =>
-              _refreshDraftList()); // Refresh when returning from detail screen
-        },
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)
-            ],
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: getCardBg(isDark),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? const Color(0xFF2E3D2F)
+                : Colors.black.withOpacity(0.05),
           ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: forestGreen.withOpacity(0.1),
-                child: Icon(Icons.edit_document, color: forestGreen, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(species,
-                        style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black,
-                            fontSize: 16)),
-                    Text("Last edited: $date",
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.black45)),
-                  ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DraftDetailScreen(
+                  draft: draft,
+                  offlineService: _offlineService,
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios,
-                  size: 14, color: Colors.black26),
-            ],
+            ).then((result) {
+              if (result is Map && result['deleted'] == true) {
+                final delId = result['id']?.toString();
+                if (delId != null) {
+                  setState(() {
+                    DraftsListScreen.locallyDeletedDraftIds.add(delId);
+                  });
+                }
+              } else if (result == true) {
+                setState(() {
+                  DraftsListScreen.locallyDeletedDraftIds.add(draftId.toString());
+                });
+              }
+              _refreshDraftList();
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF253326)
+                        : forestGreen.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.edit_document,
+                    color: isDark ? leafAccent : forestGreen,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        species,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : darkGreen,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Last edited: $date",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white54 : Colors.black45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: isDark ? Colors.red.shade300 : Colors.redAccent,
+                    size: 22,
+                  ),
+                  tooltip: "Delete draft",
+                  onPressed: () async {
+                    final confirmed =
+                        await _confirmDeleteDraft(context, isDark);
+                    if (confirmed) {
+                      await _deleteOnlineDraft(draftId);
+                    }
+                  },
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: isDark ? Colors.white38 : Colors.black26,
+                ),
+              ],
+            ),
           ),
         ),
       ),
